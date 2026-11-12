@@ -290,6 +290,7 @@ class CarPathTest {
         assertTrue(manager.allNotifications.all { it.actions.orEmpty().none { action -> action.remoteInputs?.isNotEmpty() == true } })
         fire(held, "Do not send this")
         assertTrue(slackReplies().isEmpty())
+        assertTrue(BridgeState.diagnostics().contains("MULTIPLE_REPLY_ACTIONS:"))
         val before = BridgeState.forwarded
         post(mixed)
         assertEquals(before, BridgeState.forwarded)
@@ -304,6 +305,8 @@ class CarPathTest {
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
         fire(held, "Late reply")
         assertTrue(slackReplies().isEmpty())
+        assertTrue(BridgeState.diagnostics().contains("Slack notifications read-only (reply not offered):"))
+        assertTrue(BridgeState.diagnostics().contains("NO_CONTEXT:"))
     }
 
     @Test fun removingTheSlackNotificationRemovesTheCarCopy() {

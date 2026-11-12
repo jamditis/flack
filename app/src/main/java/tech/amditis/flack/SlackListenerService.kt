@@ -70,7 +70,10 @@ class SlackListenerService : NotificationListenerService() {
                 BridgeState.countRejection(capability.reason)
                 refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
             }
-            is Capability.ReadOnly -> forward(sbn, parsed, null)
+            is Capability.ReadOnly -> {
+                BridgeState.countReadOnly(capability.reason)
+                forward(sbn, parsed, null)
+            }
             is Capability.Eligible -> forward(sbn, parsed, capability)
         }
     }

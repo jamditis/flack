@@ -85,6 +85,11 @@ object SlackNotificationParser {
     }
 
     private fun plainConversation(notification: Notification): Conversation? {
+        // A title and text can describe a call or upload, not a chat message.
+        // Only standard message notifications qualify for this read-only fallback.
+        if (notification.category != Notification.CATEGORY_MESSAGE ||
+            notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0
+        ) return null
         val extras = notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }

@@ -47,6 +47,7 @@ object BridgeState {
     private val conversations = HashMap<Int, Conversation>()
 
     private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
+    private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
 
     @Volatile var listenerConnected = false
@@ -95,6 +96,10 @@ object BridgeState {
         rejections[reason] = (rejections[reason] ?: 0) + 1
     }
 
+    @Synchronized fun countReadOnly(reason: RejectReason) {
+        readOnlyReasons[reason] = (readOnlyReasons[reason] ?: 0) + 1
+    }
+
     @Synchronized fun countReplyRejection(reason: ConsumeRejection) {
         replyRejections[reason] = (replyRejections[reason] ?: 0) + 1
         lastHandoff = HandoffStatus.REJECTED
@@ -115,6 +120,11 @@ object BridgeState {
         appendLine("Replies disabled as ambiguous: $ambiguous")
         appendLine("Opened in the car: $acknowledged")
         appendLine("Last reply: ${lastHandoff.label}")
+        if (readOnlyReasons.isNotEmpty()) {
+            appendLine()
+            appendLine("Slack notifications read-only (reply not offered):")
+            readOnlyReasons.forEach { (reason, count) -> appendLine("  ${reason.name}: $count") }
+        }
         if (rejections.isNotEmpty()) {
             appendLine()
             appendLine("Slack notifications not forwarded:")

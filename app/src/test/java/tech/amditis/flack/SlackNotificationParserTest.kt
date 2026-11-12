@@ -96,10 +96,24 @@ class SlackNotificationParserTest {
 
     @Test fun aPlainTextNotificationIsReadOnly() {
         val plain = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
-            .setContentTitle("Paper room").setContentText("Hi").build()
+            .setContentTitle("Paper room").setContentText("Hi").setCategory(Notification.CATEGORY_MESSAGE).build()
         val parsed = SlackNotificationParser.parse(SyntheticSlack.statusBar(plain, "plain"))
         assertEquals("Hi", parsed.facts.conversation!!.messages.single().text)
         assertEquals(Capability.ReadOnly(RejectReason.UNKNOWN_CONVERSATION), CapabilityCheck.evaluate(parsed.facts))
+    }
+
+    @Test fun plainStatusCallAndProgressNotificationsAreNotMessages() {
+        listOf(null, Notification.CATEGORY_CALL, Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE).forEach { category ->
+            val status = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
+                .setContentTitle("Paper activity").setContentText("Still working").setCategory(category).build()
+            assertNull(SlackNotificationParser.parse(SyntheticSlack.statusBar(status, "status")).facts.conversation)
+        }
+        listOf(Notification.FLAG_ONGOING_EVENT, Notification.FLAG_FOREGROUND_SERVICE).forEach { flag ->
+            val status = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
+                .setContentTitle("Paper activity").setContentText("Still working").setCategory(Notification.CATEGORY_MESSAGE).build()
+            status.flags = status.flags or flag
+            assertNull(SlackNotificationParser.parse(SyntheticSlack.statusBar(status, "ongoing")).facts.conversation)
+        }
     }
 
     @Test fun allKnownConversationFixturesPreserveTheirContextAndReply() {

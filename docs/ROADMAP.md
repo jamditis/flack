@@ -11,9 +11,9 @@ The implementation supports all text notification types below. Invented fixtures
 | Private channel | Yes | Same titled-group rule; never derive identifiers from the title | Synthetic fixtures/emulator check; device not yet tested |
 | Group DM | Yes | Same titled-group rule; preserve the original action | Synthetic fixtures/emulator check; device not yet tested |
 | Thread reply | Yes | One original thread action, isolated from other source keys/actions; never substitute a channel action | Two synthetic threads/emulator check; device not yet tested |
-| Two text actions, multiple keys, missing group title, unknown flag, plain title/text | Yes, with text and context | No reply action | Synthetic read-only/lifecycle tests; host readout not yet tested |
+| Two text actions, multiple keys, missing group title, unknown flag, plain message-category title/text | Yes, with text and context | No reply action; reason counted in diagnostics | Synthetic read-only/lifecycle tests; host readout not yet tested |
 | Shared action across notifications, including suppressed sources | Yes for readable children | Disable every conflicting reply; old tokens expire | Synthetic collision/held-action tests |
-| Group summary, empty or context-free notification, other app/profile | No | No reply action | Source and duplicate-suppression checks |
+| Group summary, empty or context-free notification, other app/profile, plain non-message or ongoing/service notification | No | No reply action | Source, status-filter and duplicate-suppression checks |
 
 The emulator check runs on GitHub-hosted CI. It exercises Android PendingIntents but has neither real Slack nor Android Auto. Phone/car results remain in [DEVICE_TEST_RECORD.md](DEVICE_TEST_RECORD.md).
 
