@@ -32,4 +32,14 @@
     </style>
 
     <attr name="flackSuccess" format="color" />
+
+    <!-- Buttons get a modest radius, not a full pill (docs/DESIGN_RULES.md). -->
+    <style name="Widget.Flack.Button.Tonal" parent="Widget.Material3.Button.TonalButton">
+        <item name="shapeAppearance">@style/ShapeAppearance.Flack.Control</item>
+    </style>
+
+    <style name="ShapeAppearance.Flack.Control" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
 </resources>
