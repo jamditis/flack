@@ -17,6 +17,7 @@ An Android app (Kotlin, sideloaded APK) that copies supported Slack direct-messa
 ## Key rules to check in review
 
 - **Routing:** a reply goes only to the PendingIntent bound to its token. Never pick a destination by name, by "latest conversation" or by guessing.
+- **Shared actions:** the registry records the actions of every live Slack notification, forwarded or not. A DM whose action appears on any other notification is withheld until a source goes away.
 - **Once only:** a token dispatches at most once. Never retry an uncertain dispatch.
 - **Honest status:** a successful `send()` means "handed to Slack", never "delivered".
 - **Fail closed:** new or unknown notification shapes are rejected, not guessed.

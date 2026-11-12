@@ -22,12 +22,16 @@ class SlackListenerService : NotificationListenerService() {
         // After a restart the registry is empty, so any car copy still showing holds a
         // dead token. Remove them rather than leave replies that can only be refused.
         if (BridgeState.registry.bindingCount() == 0) NotificationManagerCompat.from(this).cancelAll()
-        if (!BridgeState.isEnabled(this)) return
-        // Messages already in the shade are a baseline, not new arrivals.
+        // Messages already in the shade are a baseline, not new arrivals. Every Slack
+        // notification's actions are recorded so no forwarded DM can share them.
         activeNotifications.orEmpty().filter(::isOwnProfileSlack).forEach { sbn ->
             val parsed = SlackNotificationParser.parse(sbn)
-            if (CapabilityCheck.evaluate(parsed.facts) is Capability.Eligible) {
-                BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint)
+            val capability = CapabilityCheck.evaluate(parsed.facts)
+            val action = (capability as? Capability.Eligible)?.let { parsed.actionIntents[it.actionIndex] }
+            if (action != null) {
+                BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action)
+            } else {
+                BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
             }
         }
     }
@@ -38,13 +42,20 @@ class SlackListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!isOwnProfileSlack(sbn) || !BridgeState.isEnabled(this)) return
+        if (!isOwnProfileSlack(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
+        if (!BridgeState.isEnabled(this)) {
+            // Forward nothing, but keep every action on record so turning the
+            // switch on cannot hide a shared action.
+            BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
+            return
+        }
         when (val capability = CapabilityCheck.evaluate(parsed.facts)) {
             is Capability.Rejected -> {
                 BridgeState.countRejection(capability.reason)
-                // A conversation that lost its reply capability loses its car copy too.
-                BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
+                // Withdraws this key's car copy and any DM that shares one of its actions.
+                val withdrawn = BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
+                CarNotificationPublisher.cancel(this, withdrawn)
             }
             is Capability.Eligible -> forward(sbn, parsed, capability)
         }
@@ -56,14 +67,18 @@ class SlackListenerService : NotificationListenerService() {
     }
 
     private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible) {
-        val action = parsed.actionIntents[capability.actionIndex] ?: return
+        val action = parsed.actionIntents[capability.actionIndex]
+        if (action == null) {
+            CarNotificationPublisher.cancel(this, BridgeState.registry.recordOther(sbn.key, emptyList()))
+            return
+        }
         val conversation = parsed.facts.conversation ?: return
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability.resultKey, newestFromSelf)) {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
-                CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
-                if (result.alert) BridgeState.countForwarded()
+                val posted = CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
+                if (posted && result.alert) BridgeState.countForwarded()
             }
             is Observation.Ambiguous -> {
                 CarNotificationPublisher.cancel(this, result.withdrawn)

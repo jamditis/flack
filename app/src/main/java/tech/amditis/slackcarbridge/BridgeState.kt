@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import androidx.core.content.edit
 import tech.amditis.slackcarbridge.core.ConsumeRejection
+import tech.amditis.slackcarbridge.core.Conversation
 import tech.amditis.slackcarbridge.core.RejectReason
 import tech.amditis.slackcarbridge.core.SessionRegistry
 import java.security.SecureRandom
@@ -33,6 +34,9 @@ object BridgeState {
         bytes.joinToString("") { "%02x".format(it) }
     })
 
+    // The conversation each car copy shows, so it can be reposted after a reply. Memory only.
+    private val conversations = HashMap<Int, Conversation>()
+
     private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
 
@@ -51,7 +55,7 @@ object BridgeState {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
-        if (!enabled) CarNotificationPublisher.cancel(context, registry.clear())
+        if (!enabled) CarNotificationPublisher.cancel(context, registry.withdrawAll())
     }
 
     @Synchronized fun countRejection(reason: RejectReason) {
@@ -62,6 +66,10 @@ object BridgeState {
         replyRejections[reason] = (replyRejections[reason] ?: 0) + 1
         lastHandoff = HandoffStatus.REJECTED
     }
+
+    @Synchronized fun rememberConversation(carId: Int, conversation: Conversation) { conversations[carId] = conversation }
+    @Synchronized fun forgetConversation(carId: Int) { conversations.remove(carId) }
+    @Synchronized fun conversation(carId: Int): Conversation? = conversations[carId]
 
     @Synchronized fun countForwarded() { forwarded++ }
     @Synchronized fun countAmbiguous() { ambiguous++ }

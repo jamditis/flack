@@ -51,7 +51,7 @@ sealed interface ConsumeResult<A : Any> {
  * Rules (SPEC.md sections 6 to 8):
  * - Every content change makes a new generation and a new token. Old tokens die.
  * - A token dispatches at most once. Invalid text does not use it up.
- * - A reply action seen on two conversations is withdrawn from both.
+ * - A reply action seen on two notifications, forwarded or not, is withdrawn.
  * - Nothing here is written to disk.
  *
  * [A] is the platform's action handle. On Android it is the PendingIntent, whose
@@ -68,12 +68,40 @@ class SessionRegistry<A : Any>(
     private val baseline = HashMap<String, String>()
     private val conflicted = HashSet<String>()
     private val carIds = HashMap<String, Int>()
+
+    /**
+     * The actions last seen on every live Slack notification, forwarded or not.
+     * A DM whose action also appears on any other notification is withheld, even
+     * after one side is withdrawn, until a source notification goes away.
+     */
+    private val knownActions = HashMap<String, Set<A>>()
     private var nextGeneration = 1L
     private var nextCarId = 1
 
+    /** An eligible notification already present when the listener connected. */
     @Synchronized
-    fun recordBaseline(notificationKey: String, fingerprint: String) {
-        if (notificationKey !in entries) baseline[notificationKey] = fingerprint
+    fun recordBaseline(notificationKey: String, fingerprint: String, action: A) {
+        if (notificationKey in entries) return
+        baseline[notificationKey] = fingerprint
+        knownActions[notificationKey] = setOf(action)
+    }
+
+    /**
+     * A Slack notification that cannot be forwarded. Its actions are remembered so
+     * no forwarded DM can share them. Returns bindings that must be withdrawn: this
+     * key's own, and any that share one of [actions].
+     */
+    @Synchronized
+    fun recordOther(notificationKey: String, actions: Collection<A>): List<Binding<A>> {
+        baseline.remove(notificationKey)
+        knownActions[notificationKey] = actions.toSet()
+        val withdrawn = mutableListOf<Binding<A>>()
+        entries.remove(notificationKey)?.let { withdrawn.add(it.binding) }
+        for (key in clashingKeys(notificationKey, actions)) {
+            conflicted.add(key)
+            entries.remove(key)?.let { withdrawn.add(it.binding) }
+        }
+        return withdrawn
     }
 
     @Synchronized
@@ -85,23 +113,25 @@ class SessionRegistry<A : Any>(
         newestFromSelf: Boolean,
     ): Observation<A> {
         val existing = entries[notificationKey]
-        if (existing != null && existing.fingerprint == fingerprint) return Observation.Unchanged()
+        // Same content and the same action: a repeated callback.
+        if (existing != null && existing.fingerprint == fingerprint && existing.binding.action == action) {
+            return Observation.Unchanged()
+        }
         if (existing == null) {
-            val known = baseline[notificationKey]
-            if (known == fingerprint) return Observation.Baseline()
-            baseline.remove(notificationKey)
+            val baselineFingerprint = baseline.remove(notificationKey)
+            if (baselineFingerprint == fingerprint && knownActions[notificationKey] == setOf(action)) {
+                baseline[notificationKey] = fingerprint
+                return Observation.Baseline()
+            }
         }
 
-        val clashes = entries.values.filter { it.binding.notificationKey != notificationKey && it.binding.action == action }
+        knownActions[notificationKey] = setOf(action)
+        val clashes = clashingKeys(notificationKey, listOf(action))
         if (notificationKey in conflicted || clashes.isNotEmpty()) {
-            conflicted.add(notificationKey)
             val withdrawn = mutableListOf<Binding<A>>()
-            existing?.let { withdrawn.add(it.binding) }
-            entries.remove(notificationKey)
-            for (clash in clashes) {
-                conflicted.add(clash.binding.notificationKey)
-                entries.remove(clash.binding.notificationKey)
-                withdrawn.add(clash.binding)
+            for (key in clashes + notificationKey) {
+                conflicted.add(key)
+                entries.remove(key)?.let { withdrawn.add(it.binding) }
             }
             return Observation.Ambiguous(withdrawn)
         }
@@ -132,10 +162,23 @@ class SessionRegistry<A : Any>(
         baseline.remove(notificationKey)
         conflicted.remove(notificationKey)
         carIds.remove(notificationKey)
+        knownActions.remove(notificationKey)
         return entries.remove(notificationKey)?.binding
     }
 
-    /** Pause, disconnect or lost permission. Returns every binding so its car notification can be removed. */
+    /**
+     * The switch was turned off. Every binding is withdrawn, but the record of
+     * live Slack notifications and their actions stays, so turning it back on
+     * cannot miss a shared action.
+     */
+    @Synchronized
+    fun withdrawAll(): List<Binding<A>> {
+        val all = entries.values.map { it.binding }
+        entries.clear()
+        return all
+    }
+
+    /** The listener disconnected. Returns every binding so its car notification can be removed. */
     @Synchronized
     fun clear(): List<Binding<A>> {
         val all = entries.values.map { it.binding }
@@ -143,8 +186,12 @@ class SessionRegistry<A : Any>(
         baseline.clear()
         conflicted.clear()
         carIds.clear()
+        knownActions.clear()
         return all
     }
+
+    private fun clashingKeys(notificationKey: String, actions: Collection<A>): List<String> =
+        knownActions.filter { (key, known) -> key != notificationKey && actions.any { it in known } }.keys.toList()
 
     @Synchronized
     fun consume(token: String, text: String?): ConsumeResult<A> {
@@ -159,4 +206,8 @@ class SessionRegistry<A : Any>(
 
     @Synchronized
     fun bindingCount(): Int = entries.size
+
+    /** True while [binding] is still the newest generation for its notification. */
+    @Synchronized
+    fun isCurrent(binding: Binding<A>): Boolean = entries[binding.notificationKey]?.binding == binding
 }

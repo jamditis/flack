@@ -41,6 +41,8 @@ Follow G2 in [TEST_PLAN.md](TEST_PLAN.md). In short:
 4. Repeat with the phone locked.
 5. Start a reply and cancel it. Check nothing was sent.
 
+If no DM reaches the car and the status screen counts every DM under `NOT_A_DIRECT_MESSAGE`, Slack does not mark its DMs as one-to-one conversations. The app refuses them on purpose rather than guess. Record that in the device test record; it is a G1 result.
+
 Open the app afterward. The status screen shows counts only, such as how many notifications were forwarded and why others were not. Copy those counts and the exact versions into [DEVICE_TEST_RECORD.md](DEVICE_TEST_RECORD.md). Do not copy message text.
 
 ## Turn it off

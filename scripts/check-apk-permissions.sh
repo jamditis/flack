@@ -15,7 +15,16 @@ allowed=(
   "tech.amditis.slackcarbridge.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )
 
-mapfile -t requested < <("$aapt2" dump permissions "$apk" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p")
+dump=$("$aapt2" dump permissions "$apk")
+# Both uses-permission and uses-permission-sdk-23 grant permissions.
+mapfile -t requested < <(sed -n "s/^uses-permission\(-sdk-23\)\{0,1\}: name='\([^']*\)'.*/\2/p" <<< "$dump")
+
+# If the output format changes and nothing parses, fail rather than pass.
+if ! printf '%s\n' "${requested[@]}" | grep -qx 'android.permission.POST_NOTIFICATIONS'; then
+  echo "Could not find POST_NOTIFICATIONS in aapt2 output; the check cannot be trusted."
+  echo "$dump"
+  exit 1
+fi
 
 bad=0
 for perm in "${requested[@]}"; do

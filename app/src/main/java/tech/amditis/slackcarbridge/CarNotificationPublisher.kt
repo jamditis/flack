@@ -30,10 +30,23 @@ object CarNotificationPublisher {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    fun post(context: Context, binding: Binding<PendingIntent>, conversation: Conversation, alert: Boolean) {
+    /**
+     * Posts or replaces the car copy. With [replyEnabled] false the copy has no
+     * reply action, which is how it looks after its token is used. [sentText] adds
+     * the user's own reply to the copy. Returns false when nothing was posted.
+     */
+    fun post(
+        context: Context,
+        binding: Binding<PendingIntent>,
+        conversation: Conversation,
+        alert: Boolean,
+        replyEnabled: Boolean = true,
+        sentText: String? = null,
+    ): Boolean {
         val manager = NotificationManagerCompat.from(context)
-        if (!manager.areNotificationsEnabled()) return
+        if (!manager.areNotificationsEnabled()) return false
         ensureChannel(context)
+        BridgeState.rememberConversation(binding.carNotificationId, conversation)
 
         val me = Person.Builder().setName(context.getString(R.string.you)).build()
         val style = NotificationCompat.MessagingStyle(me)
@@ -43,6 +56,8 @@ object CarNotificationPublisher {
             val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).build()
             style.addMessage(message.text, message.timestampMillis, sender)
         }
+        // A local copy of what was handed to Slack, not proof of delivery.
+        sentText?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
 
         val remoteInput = RemoteInput.Builder(REPLY_KEY).setLabel(context.getString(R.string.reply_label)).build()
         // Mutable so Android Auto can add the dictated text. Explicit target, so nothing else can receive it.
@@ -69,25 +84,29 @@ object CarNotificationPublisher {
             .setShowsUserInterface(false)
             .build()
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(CapabilityCheck.contextLabel(conversation))
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setSilent(!alert)
-            .addAction(reply)
             .addInvisibleAction(markRead)
-            .build()
-        try {
-            manager.notify(binding.carNotificationId, notification)
+        if (replyEnabled) builder.addAction(reply)
+        return try {
+            manager.notify(binding.carNotificationId, builder.build())
+            true
         } catch (_: SecurityException) {
             // Notification permission was revoked between the check and the post.
+            false
         }
     }
 
     fun cancel(context: Context, bindings: Collection<Binding<PendingIntent>>) {
         val manager = NotificationManagerCompat.from(context)
-        bindings.forEach { manager.cancel(it.carNotificationId) }
+        bindings.forEach {
+            manager.cancel(it.carNotificationId)
+            BridgeState.forgetConversation(it.carNotificationId)
+        }
     }
 
     private fun actionIntent(context: Context, action: String, token: String) =

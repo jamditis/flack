@@ -49,6 +49,15 @@ class CarActionReceiver : BroadcastReceiver() {
                     HandoffStatus.HANDOFF_FAILED
                 }
                 BridgeState.recordHandoff(status)
+                // Android Auto waits for the copy to change after a reply. Repost it without
+                // a reply action, since this token is used up. Slack's own update, if any,
+                // replaces it with a fresh token.
+                val conversation = BridgeState.conversation(result.binding.carNotificationId)
+                // Skip if Slack already replaced this generation with a newer one.
+                if (conversation != null && BridgeState.registry.isCurrent(result.binding)) {
+                    val sent = if (status == HandoffStatus.HANDED_TO_SLACK) result.text else null
+                    CarNotificationPublisher.post(context, result.binding, conversation, alert = false, replyEnabled = false, sentText = sent)
+                }
             }
         }
     }

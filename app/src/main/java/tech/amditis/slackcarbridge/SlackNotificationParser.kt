@@ -64,12 +64,12 @@ object SlackNotificationParser {
             ?: return null
         val title = style.conversationTitle?.toString()
         val extras = notification.extras
-        val isGroup = when {
-            extras.containsKey(Notification.EXTRA_IS_GROUP_CONVERSATION) ->
-                extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)
-            // Without the flag, a titled conversation could be a channel. Fail closed.
-            title != null -> null
-            else -> false
+        // Without the flag, a channel message could pass for a DM from its sender.
+        // Fail closed: G1 records whether Slack sets it on direct messages.
+        val isGroup = if (extras.containsKey(Notification.EXTRA_IS_GROUP_CONVERSATION)) {
+            extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)
+        } else {
+            null
         }
         val messages = style.messages.mapNotNull { message ->
             val text = message.text?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
