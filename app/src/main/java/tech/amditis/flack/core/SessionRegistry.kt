@@ -95,7 +95,7 @@ class SessionRegistry<A : Any>(
         knownActions[notificationKey] = actions.toSet()
         val withdrawn = mutableListOf<Binding<A>>()
         entries.remove(notificationKey)?.let { withdrawn.add(it.binding) }
-        withdrawn.addAll(disableReplies(clashingKeys(notificationKey, actions)))
+        withdrawn.addAll(disableReplies(replyOwners(notificationKey, actions)))
         return withdrawn
     }
 
@@ -110,8 +110,8 @@ class SessionRegistry<A : Any>(
     ): Observation<A> {
         val previousActions = knownActions[notificationKey]
         knownActions[notificationKey] = actions.toSet()
-        val clashes = clashingKeys(notificationKey, actions)
-        val disabled = disableReplies(clashes)
+        val clashes = clashingKeys(notificationKey, listOfNotNull(action))
+        val disabled = disableReplies(replyOwners(notificationKey, actions))
         if (clashes.isNotEmpty()) conflicted.add(notificationKey)
         val safeAction = action.takeUnless { notificationKey in conflicted }
         val safeKey = resultKey.takeIf { safeAction != null }
@@ -202,6 +202,9 @@ class SessionRegistry<A : Any>(
 
     private fun clashingKeys(notificationKey: String, actions: Collection<A>): List<String> =
         knownActions.filter { (key, known) -> key != notificationKey && actions.any { it in known } }.keys.toList()
+
+    private fun replyOwners(notificationKey: String, actions: Collection<A>): List<String> =
+        entries.filter { (key, entry) -> key != notificationKey && entry.binding.action in actions }.keys.toList()
 
     @Synchronized
     fun consume(token: String, text: String?): ConsumeResult<A> {

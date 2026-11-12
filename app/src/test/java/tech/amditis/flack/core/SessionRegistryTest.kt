@@ -209,6 +209,32 @@ class SessionRegistryTest {
         assertEquals(3, reg.bindingCount())
     }
 
+    @Test fun sharingOnlyANonReplyActionPreservesDistinctReplies() {
+        val reg = registry()
+        val open = FakeAction("open-app")
+        val channelReply = FakeAction("channel-reply")
+        val threadReply = FakeAction("thread-reply")
+        val channel = (reg.observe("channel", "c1", channelReply, "reply_text", false, listOf(channelReply, open)) as Observation.Publish).binding
+        val thread = reg.observe("thread", "t1", threadReply, "reply_text", false, listOf(threadReply, open)) as Observation.Publish
+        assertTrue(thread.replyDisabled.isEmpty())
+        assertEquals(threadReply, thread.binding.action)
+        assertTrue(reg.recordOther("summary", listOf(open)).isEmpty())
+        assertEquals(channelReply, (reg.consume(channel.token, "Channel response") as ConsumeResult.Dispatch).binding.action)
+        assertEquals(threadReply, (reg.consume(thread.binding.token, "Thread response") as ConsumeResult.Dispatch).binding.action)
+        assertEquals(ConsumeRejection.ALREADY_CONSUMED, (reg.consume(channel.token, "Duplicate") as ConsumeResult.Rejected).reason)
+    }
+
+    @Test fun aReplySharedWithAnotherSourcesNonReplyActionStillFailsClosed() {
+        val reg = registry()
+        val channelReply = FakeAction("channel-reply")
+        val other = FakeAction("other-action")
+        val channel = (reg.observe("channel", "c1", channelReply, "reply_text", false, listOf(channelReply, other)) as Observation.Publish).binding
+        val thread = reg.observe("thread", "t1", other, "reply_text", false) as Observation.Publish
+        assertNull(thread.binding.action)
+        assertTrue(thread.replyDisabled.isEmpty())
+        assertEquals(channelReply, (reg.consume(channel.token, "Channel response") as ConsumeResult.Dispatch).binding.action)
+    }
+
     @Test fun notificationsPresentAtConnectAreNotReplayed() {
         val reg = registry()
         reg.recordBaseline("dm-riley", "f1", FakeAction("op"))
