@@ -47,6 +47,8 @@ class SlackListenerService : NotificationListenerService() {
         BridgeState.listenerConnected = false
         carSession?.stop()
         carSession = null
+        // Without an observer the state is unknown; wait for the next one to report it.
+        BridgeState.carConnected = false
         // The one call the docs allow here. Without it the system may leave Flack
         // unbound after an update or a kill until notification access is toggled.
         requestRebind(ComponentName(this, SlackListenerService::class.java))

@@ -113,6 +113,14 @@ class CarPathTest {
         assertEquals(0, manager.size())
     }
 
+    @Test fun aListenerDisconnectForgetsTheCarUntilTheNewObserverReports() {
+        // CarConnection answers asynchronously after a reconnect, so a stale "connected"
+        // must not let a message through before it does.
+        listener.onListenerDisconnected()
+        post(SyntheticSlack.dm(app))
+        assertEquals(0, manager.size())
+    }
+
     @Test fun turningCarOnlyOffForwardsWithoutACar() {
         listener.onCarConnectionChanged(false)
         BridgeState.setCarOnly(app, false)
