@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only. Lets the emulator test drive Flack from adb. The DUMP
+     permission means only the shell and the system can send these broadcasts. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".DebugControlReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="tech.amditis.flack.debug.CONFIGURE" />
+                <action android:name="tech.amditis.flack.debug.REPLY_FROM_CAR" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -19,9 +19,34 @@ android {
         versionName = (findProperty("versionName") as String?) ?: "0.0.0-dev"
     }
 
+    // Release signing comes from the environment only, set by the release workflow
+    // from repository secrets. The keystore is never in the repository.
+    val releaseKeystore = System.getenv("FLACK_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("FLACK_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("FLACK_KEY_ALIAS")
+                keyPassword = System.getenv("FLACK_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
+        // Debug builds also accept the test-only fake Slack app (fixture/). Release
+        // builds accept the official Slack app only.
+        debug {
+            buildConfigField("String", "FIXTURE_PACKAGE", "\"tech.amditis.flack.fixture\"")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "FIXTURE_PACKAGE", "\"\"")
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 

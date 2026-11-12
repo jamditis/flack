@@ -215,6 +215,10 @@ class SessionRegistry<A : Any>(
     @Synchronized
     fun bindingCount(): Int = entries.size
 
+    /** The current binding that [matches] picks, or null. Used by debug test hooks to target one source exactly. */
+    @Synchronized
+    fun findBinding(matches: (Binding<A>) -> Boolean): Binding<A>? = entries.values.map { it.binding }.firstOrNull(matches)
+
     /** True while [binding] is still the newest generation for its notification. */
     @Synchronized
     fun isCurrent(binding: Binding<A>): Boolean = entries[binding.notificationKey]?.binding == binding

@@ -8,7 +8,7 @@ This build is for the G2 test in [TEST_PLAN.md](TEST_PLAN.md). It is not device 
    https://github.com/jamditis/flack/releases/latest/download/flack.apk
 2. Optional: check the file against `flack.apk.sha256` on the same release.
 
-Debug builds are signed with a different key each time. Uninstall the old version before you install a new one.
+Releases are signed with one key, so a new release installs over the old one. If you installed an earlier debug build, uninstall it once first.
 
 ## Install it on the phone
 

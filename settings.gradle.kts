@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "flack"
 include(":app")
+include(":fixture")

@@ -36,6 +36,19 @@ class CapabilityCheckTest {
         assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(markRead, replyAction()))))
     }
 
+    @Test fun aTestSourceIsAcceptedOnlyWhenAllowed() {
+        val fixture = "tech.amditis.flack.fixture"
+        val facts = dm(packageName = fixture, actions = listOf(replyAction(creatorPackage = fixture)))
+        assertEquals(rejected(RejectReason.NOT_SLACK), CapabilityCheck.evaluate(facts))
+        assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(facts, setOf(SLACK_PACKAGE, fixture)))
+    }
+
+    @Test fun anActionMustComeFromTheSameAppAsTheNotification() {
+        val fixture = "tech.amditis.flack.fixture"
+        val facts = dm(packageName = fixture, actions = listOf(replyAction(creatorPackage = SLACK_PACKAGE)))
+        assertEquals(rejected(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(facts, setOf(SLACK_PACKAGE, fixture)))
+    }
+
     @Test fun otherPackagesAreRejectedFirst() {
         assertEquals(rejected(RejectReason.NOT_SLACK), CapabilityCheck.evaluate(dm(packageName = "com.example.chat")))
     }

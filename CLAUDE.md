@@ -36,8 +36,16 @@ app/src/main/java/tech/amditis/flack/
 app/src/test/.../core/      # JVM unit tests for the core rules
 app/src/test/.../flack/     # Robolectric tests: parser, car path end to end (SyntheticSlack
                             # builds invented Slack-shaped notifications), screenshots
-scripts/                    # Forbidden-file and APK permission checks (run in CI)
-.github/workflows/          # ci (required check), codeql, release (tag -> APK prerelease)
+docs/BRAND.md               # Brand guide: mark, palette, type, contrast, asset index
+docs/RELEASING.md           # Signing key setup and tag-to-release steps
+docs/DHU.md                 # Desktop Head Unit testing with the fake Slack
+fixture/                    # Test-only fake Slack app; only debug Flack accepts it, never released
+app/src/debug/              # Debug-only adb hooks (DUMP-protected) for the emulator test
+brand/                      # Logo, banners, social preview; brand/tools rebuilds them all
+site/                       # Download page (GitHub Pages), favicon, OG image, Manrope font
+scripts/                    # Forbidden-file and APK permission checks; emulator-e2e.sh (CI emulator job)
+.github/workflows/          # ci (build + emulator, required check), codeql, pages (site/ on main),
+                            # release (tag on main -> signed flack.apk, marked latest)
 .github/rulesets/main.json  # Branch ruleset to import in repository settings
 ```
 

@@ -8,7 +8,6 @@ import androidx.core.app.NotificationManagerCompat
 import tech.amditis.flack.core.Capability
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Observation
-import tech.amditis.flack.core.SLACK_PACKAGE
 
 /**
  * Watches Slack notifications and keeps the car copies in step with them.
@@ -28,13 +27,13 @@ class SlackListenerService : NotificationListenerService() {
         if (BridgeState.registry.bindingCount() == 0) NotificationManagerCompat.from(this).cancelAll()
         // Messages already in the shade are a baseline, not new arrivals. Every Slack
         // notification's actions are recorded so no forwarded DM can share them.
-        activeNotifications.orEmpty().filter(::isOwnProfileSlack).forEach { sbn ->
+        activeNotifications.orEmpty().filter(::isOwnProfileSource).forEach { sbn ->
             recordWithoutForwarding(sbn, SlackNotificationParser.parse(sbn))
         }
     }
 
     private fun recordWithoutForwarding(sbn: StatusBarNotification, parsed: ParsedNotification) {
-        val capability = CapabilityCheck.evaluate(parsed.facts)
+        val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)
         val action = (capability as? Capability.Eligible)?.let { parsed.actionIntents[it.actionIndex] }
         if (action != null) {
             BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action)
@@ -56,7 +55,7 @@ class SlackListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!isOwnProfileSlack(sbn)) return
+        if (!isOwnProfileSource(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
         if (!BridgeState.shouldForward(this)) {
             // Forward nothing, but keep the baseline and every action on record, so turning
@@ -65,7 +64,7 @@ class SlackListenerService : NotificationListenerService() {
             recordWithoutForwarding(sbn, parsed)
             return
         }
-        when (val capability = CapabilityCheck.evaluate(parsed.facts)) {
+        when (val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)) {
             is Capability.Rejected -> {
                 BridgeState.countRejection(capability.reason)
                 // Withdraws this key's car copy and any DM that shares one of its actions.
@@ -86,7 +85,7 @@ class SlackListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        if (!isOwnProfileSlack(sbn)) return
+        if (!isOwnProfileSource(sbn)) return
         BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
     }
 
@@ -112,6 +111,6 @@ class SlackListenerService : NotificationListenerService() {
         }
     }
 
-    private fun isOwnProfileSlack(sbn: StatusBarNotification) =
-        sbn.packageName == SLACK_PACKAGE && sbn.user == Process.myUserHandle()
+    private fun isOwnProfileSource(sbn: StatusBarNotification) =
+        sbn.packageName in BridgeState.sourcePackages && sbn.user == Process.myUserHandle()
 }
