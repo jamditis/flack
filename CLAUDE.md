@@ -32,6 +32,8 @@ app/src/main/java/tech/amditis/flack/
   BridgeState.kt            # Process state, on/off switch, content-free counts
   StatusActivity.kt         # Phone setup and status screen
 app/src/test/.../core/      # JVM unit tests for the core rules
+app/src/test/.../flack/     # Robolectric tests: parser, car path end to end (SyntheticSlack
+                            # builds invented Slack-shaped notifications), screenshots
 scripts/                    # Forbidden-file and APK permission checks (run in CI)
 .github/workflows/          # ci (required check), codeql, release (tag -> APK prerelease)
 .github/rulesets/main.json  # Branch ruleset to import in repository settings
