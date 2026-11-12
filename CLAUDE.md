@@ -19,6 +19,8 @@ SPEC.md, AGENTS.md          # Design and project rules
 docs/TEST_PLAN.md           # Feasibility gates G0-G5 and test matrix
 docs/DEVICE_TEST_RECORD.md  # Real phone/car results, one column per phone
 docs/INSTALL.md             # Sideload and test steps for testers
+docs/DESIGN_RULES.md        # Design dos and don'ts for every visual surface (check before review)
+docs/WRITING_RULES.md       # Words, phrases and tics to avoid in all text, commits and PRs
 docs/ROADMAP.md             # Milestones P01-P08 (GitHub issues #1-#3 so far)
 docs/SOURCES.md, HANDOFF.md # Evidence limits and handoff notes
 app/src/main/java/tech/amditis/flack/
