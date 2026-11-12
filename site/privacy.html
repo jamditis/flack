@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flack privacy</title>
+  <meta name="description" content="What Flack does and does not do with your Slack messages.">
+  <link rel="canonical" href="https://jamditis.github.io/flack/privacy.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#F5F7FB" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1524" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Flack">
+  <meta property="og:title" content="Flack privacy">
+  <meta property="og:description" content="What Flack does and does not do with your Slack messages.">
+  <meta property="og:url" content="https://jamditis.github.io/flack/privacy.html">
+  <meta property="og:image" content="https://jamditis.github.io/flack/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://jamditis.github.io/flack/og-image.png">
+  <style>
+    @font-face {
+      font-family: "Manrope";
+      src: url("fonts/manrope-latin-wght.woff2") format("woff2");
+      font-weight: 200 800;
+      font-display: swap;
+    }
+    :root { --bg: #F5F7FB; --text: #0E1A2B; --muted: #4A5B73; --line: #DCE3EC; --accent: #8A5300; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0B1524; --text: #E8EEF7; --muted: #A9B6CA; --line: #22344F; --accent: #FFB547; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 400 18px/1.6 "Manrope", system-ui, sans-serif; }
+    a { color: var(--accent); }
+    a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 48px; }
+    header { display: flex; align-items: center; gap: 12px; padding: 24px 0; }
+    header img { width: 40px; height: 40px; }
+    header a { font-weight: 800; font-size: 22px; color: var(--text); text-decoration: none; }
+    h1 { font-size: 40px; line-height: 1.15; font-weight: 800; margin: 16px 0; }
+    h2 { font-size: 24px; font-weight: 800; margin: 32px 0 8px; }
+    footer { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 20px; color: var(--muted); font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="apple-touch-icon.png" alt="">
+      <a href="./">Flack</a>
+    </header>
+    <main>
+      <h1>Privacy</h1>
+      <p>Flack is an independent Android app that lets you hear Slack direct messages in Android Auto and answer them by voice. This page says what it does with your messages. It applies to every version of Flack.</p>
+
+      <h2>What Flack reads</h2>
+      <p>With your permission, Flack reads notifications from the official Slack app on your phone. It ignores every other app's notifications before reading anything in them.</p>
+
+      <h2>What Flack keeps</h2>
+      <p>Message text and names stay in the phone's memory while a notification is showing. Flack never saves them to storage, never includes them in backups and never writes them to logs. Its status screen and test report show counts and settings only.</p>
+
+      <h2>What Flack sends</h2>
+      <p>Nothing. Flack has no internet permission, so it cannot send data anywhere. When you confirm a reply, Flack passes your words to the Slack app on your phone, and Slack sends it the same way it sends any reply.</p>
+
+      <h2>Accounts, tracking and ads</h2>
+      <p>Flack has no Slack login or token, no account of its own, no analytics, no crash reporting and no ads.</p>
+
+      <h2>Voice</h2>
+      <p>Android Auto and your phone's assistant handle listening and dictation. Flack does not use the microphone. Google's and Samsung's own privacy terms apply to that part.</p>
+
+      <h2>Questions</h2>
+      <p>The source code is public at <a href="https://github.com/jamditis/flack">github.com/jamditis/flack</a>. Report a privacy problem privately through the <a href="https://github.com/jamditis/flack/security/advisories/new">security advisory form</a>.</p>
+    </main>
+    <footer>
+      <p>Flack is not made by, affiliated with or endorsed by Slack, Google or Samsung.</p>
+    </footer>
+  </div>
+</body>
+</html>

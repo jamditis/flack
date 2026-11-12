@@ -7,6 +7,8 @@
     <!-- Lets the setup guide open Android Auto. Package visibility only, not a permission. -->
     <queries>
         <package android:name="com.google.android.projection.gearhead" />
+        <!-- Lets the test report show the installed Slack version. -->
+        <package android:name="com.Slack" />
     </queries>
 
     <application

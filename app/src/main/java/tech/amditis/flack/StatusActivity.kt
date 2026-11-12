@@ -3,12 +3,12 @@ package tech.amditis.flack
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -16,7 +16,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -94,6 +93,7 @@ class StatusActivity : Activity() {
             }
         }
 
+        findViewById<MaterialButton>(R.id.copy_report).setOnClickListener { copyTestReport() }
         forwarding = findViewById(R.id.forwarding)
         carOnly = findViewById(R.id.car_only)
         val version = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
@@ -152,12 +152,17 @@ class StatusActivity : Activity() {
     }
 
     // Android 12 grants notification posting by default; 13 and later ask.
-    private fun canPost() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    private fun canPost() = SetupChecks.canPost(this)
 
-    private fun hasAccess() = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+    private fun hasAccess() = SetupChecks.hasAccess(this)
 
-    private fun runsInBackground() = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+    private fun runsInBackground() = SetupChecks.runsInBackground(this)
+
+    private fun copyTestReport() {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.test_report_label), TestReport.build(this)))
+        Toast.makeText(this, R.string.test_report_copied, Toast.LENGTH_LONG).show()
+    }
 
     /** Android 13+ blocks notification access for sideloaded apps until this is allowed. */
     private fun showRestrictedSettingsHelp() {

@@ -33,12 +33,16 @@ app/src/main/java/tech/amditis/flack/
   CarActionReceiver.kt      # Car reply and mark-as-read; calls Slack's action once
   BridgeState.kt            # Process state, on/off switch, content-free counts
   StatusActivity.kt         # Phone setup and status screen
+  SetupChecks.kt            # Live setup state shared by the screen and the report
+  TestReport.kt             # Content-free test report for device test issues
 app/src/test/.../core/      # JVM unit tests for the core rules
 app/src/test/.../flack/     # Robolectric tests: parser, car path end to end (SyntheticSlack
                             # builds invented Slack-shaped notifications), screenshots
 docs/BRAND.md               # Brand guide: mark, palette, type, contrast, asset index
 docs/RELEASING.md           # Signing key setup and tag-to-release steps
 docs/DHU.md                 # Desktop Head Unit testing with the fake Slack
+CHANGELOG.md                # Tester-facing changes; move Unreleased under a version at release
+.github/ISSUE_TEMPLATE/     # Device test result and bug report forms (no real message text)
 fixture/                    # Test-only fake Slack app; only debug Flack accepts it, never released
 app/src/debug/              # Debug-only adb hooks (DUMP-protected) for the emulator test
 brand/                      # Logo, banners, social preview; brand/tools rebuilds them all
