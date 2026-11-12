@@ -20,6 +20,10 @@
     <string name="step_access_title">Turn on notification access</string>
     <string name="step_access_body">This lets Flack see Slack messages. Flack has no internet permission, so it cannot send them anywhere.</string>
     <string name="step_access_action">Open settings</string>
+    <string name="step_access_help">Switch greyed out?</string>
+    <string name="step_access_help_title">Allow restricted settings</string>
+    <string name="step_access_help_body">Android protects this setting for apps installed outside Google Play.\n\n1. Tap Open App info below.\n2. Tap the menu (three dots) in the top corner.\n3. Tap Allow restricted settings and confirm.\n4. Come back and turn on notification access.</string>
+    <string name="step_access_help_open">Open App info</string>
     <string name="step_battery_title">Let Flack run in the background</string>
     <string name="step_battery_body">Samsung puts apps to sleep. Choose \"Allow\" or \"Unrestricted\" for Flack so messages keep coming while you drive.</string>
     <string name="step_battery_action">Open battery settings</string>

@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -49,6 +50,32 @@ class CarPathTest {
         BridgeState.setEnabled(app, false)
         BridgeState.carConnected = false
         BridgeState.registry.clear()
+    }
+
+    @Test fun aRefusedReplyStillUpdatesTheCarCopy() {
+        post(SyntheticSlack.dm(app))
+        val before = carCopy()
+        replyFromCar("   ")
+        // Reposted so Android Auto stops waiting; the token was not used, so reply stays.
+        assertNotSame(before, carCopy())
+        assertNotNull(replyAction())
+    }
+
+    @Test fun aBlockedCarChannelIsNotCountedAsForwarded() {
+        CarNotificationPublisher.ensureChannel(app)
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val channel = nm.getNotificationChannel("car_messages")
+        channel.importance = NotificationManager.IMPORTANCE_NONE
+        nm.createNotificationChannel(channel)
+        val before = BridgeState.forwarded
+        post(SyntheticSlack.dm(app))
+        assertEquals(before, BridgeState.forwarded)
+    }
+
+    @Test fun aRedactedSensitiveNotificationIsRefused() {
+        // Android 15 gives untrusted listeners a copy with one message from a nameless sender.
+        post(SyntheticSlack.dm(app, sender = "", text = "Sensitive notification content hidden"))
+        assertEquals(0, manager.size())
     }
 
     @Test fun nothingIsForwardedOutsideTheCar() {

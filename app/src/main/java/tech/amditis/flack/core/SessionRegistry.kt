@@ -42,7 +42,8 @@ enum class ConsumeRejection { UNKNOWN_OR_EXPIRED, ALREADY_CONSUMED, EMPTY, TOO_L
 
 sealed interface ConsumeResult<A : Any> {
     data class Dispatch<A : Any>(val binding: Binding<A>, val text: String) : ConsumeResult<A>
-    data class Rejected<A : Any>(val reason: ConsumeRejection) : ConsumeResult<A>
+    /** [binding] is the current binding when the token was known, so its copy can be refreshed. */
+    data class Rejected<A : Any>(val reason: ConsumeRejection, val binding: Binding<A>? = null) : ConsumeResult<A>
 }
 
 /**
@@ -204,9 +205,9 @@ class SessionRegistry<A : Any>(
     fun consume(token: String, text: String?): ConsumeResult<A> {
         val entry = entries.values.firstOrNull { it.binding.token == token }
             ?: return ConsumeResult.Rejected(ConsumeRejection.UNKNOWN_OR_EXPIRED)
-        if (entry.consumed) return ConsumeResult.Rejected(ConsumeRejection.ALREADY_CONSUMED)
-        if (text.isNullOrBlank()) return ConsumeResult.Rejected(ConsumeRejection.EMPTY)
-        if (text.length > MAX_REPLY_LENGTH) return ConsumeResult.Rejected(ConsumeRejection.TOO_LONG)
+        if (entry.consumed) return ConsumeResult.Rejected(ConsumeRejection.ALREADY_CONSUMED, entry.binding)
+        if (text.isNullOrBlank()) return ConsumeResult.Rejected(ConsumeRejection.EMPTY, entry.binding)
+        if (text.length > MAX_REPLY_LENGTH) return ConsumeResult.Rejected(ConsumeRejection.TOO_LONG, entry.binding)
         entry.consumed = true
         return ConsumeResult.Dispatch(entry.binding, text)
     }

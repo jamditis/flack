@@ -196,6 +196,8 @@ Run a three-hour parked or bench session with the connection, screen state, navi
 
 Start with a development APK tested using Google's documented Android Auto development options, or Play internal distribution. The documented unknown-sources option applies to messaging-notification apps; installation and notification-access restrictions still need to be documented for the actual phone. [S9]
 
+Google requires developer verification for apps installed on certified Android devices, starting with four countries on September 30, 2026 and extending worldwide in 2027. Check whether sideloaded test builds for named testers are affected before each release cycle, and record the answer. [developer.android.com/developer-verification](https://developer.android.com/developer-verification)
+
 Public source availability is separate from Google Play acceptance. Google's car-app requirements cover working message receipt/replies, grouping/order, and appropriate messaging behavior. A Slack-specific bridge needs a distribution review; do not promise a public Play listing. [S10]
 
 Implement original code from documented APIs. AA Notification Forwarder is useful background evidence but declares a noncommercial license for most of its code and says its reply button is nonfunctional. Do not copy that implementation into a permissively licensed project without resolving its license terms. [S11]

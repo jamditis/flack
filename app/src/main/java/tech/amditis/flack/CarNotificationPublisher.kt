@@ -48,14 +48,17 @@ object CarNotificationPublisher {
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return false
         ensureChannel(context)
+        // The user can block just this channel; the post would then vanish silently.
+        if (manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) return false
         BridgeState.rememberConversation(binding.carNotificationId, conversation)
 
-        val me = Person.Builder().setName(context.getString(R.string.you)).build()
+        val me = Person.Builder().setName(context.getString(R.string.you)).setKey("self").build()
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle(conversation.title)
             .setGroupConversation(false)
         conversation.messages.takeLast(MAX_MESSAGES).forEach { message ->
-            val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).build()
+            // Keys keep senders apart within this one conversation. They are never routing keys.
+            val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).setKey("sender:${message.senderName}").build()
             style.addMessage(message.text, message.timestampMillis, sender)
         }
         // A local copy of what was handed to Slack, not proof of delivery.

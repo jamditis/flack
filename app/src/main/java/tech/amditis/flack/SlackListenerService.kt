@@ -1,5 +1,6 @@
 package tech.amditis.flack
 
+import android.content.ComponentName
 import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -46,6 +47,9 @@ class SlackListenerService : NotificationListenerService() {
         BridgeState.listenerConnected = false
         carSession?.stop()
         carSession = null
+        // The one call the docs allow here. Without it the system may leave Flack
+        // unbound after an update or a kill until notification access is toggled.
+        requestRebind(ComponentName(this, SlackListenerService::class.java))
         CarNotificationPublisher.cancel(this, BridgeState.registry.clear())
     }
 

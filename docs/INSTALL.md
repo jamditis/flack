@@ -20,7 +20,7 @@ Debug builds are signed with a different key each time. Uninstall the old versio
 
 1. Open **Flack**.
 2. Tap **Allow this app to post notifications** and allow it.
-3. Tap **Open notification access settings**, choose **Flack** and turn it on. Android warns that the app can read notifications. That is how it sees Slack messages. The app has no internet permission, so it cannot send them anywhere.
+3. Tap **Open settings** under notification access, choose **Flack** and turn it on. If the switch is greyed out, Android is protecting it because the app came from outside Google Play: open App info for Flack, tap the menu (three dots), tap **Allow restricted settings**, then try again. The **Switch greyed out?** button in the app walks through this. Android warns that the app can read notifications. That is how it sees Slack messages. The app has no internet permission, so it cannot send them anywhere.
 4. Turn on **Forward Slack direct messages to Android Auto**.
 5. In Settings → Apps → Flack → Battery, choose **Unrestricted**, so Samsung does not put the app to sleep.
 

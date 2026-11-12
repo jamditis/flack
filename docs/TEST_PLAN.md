@@ -82,6 +82,26 @@ Instrument the notification-to-reply contract with a purpose-built synthetic sou
 
 Use Android Auto's Desktop Head Unit for early integration checks, then validate on both target phones and the actual car. Test both the product's intended connection and any additional mode before claiming it as supported.
 
+## Desktop Head Unit checks
+
+The Desktop Head Unit (DHU) runs Android Auto on a computer, connected to a phone over USB. It is faster than the car for early checks, and does not replace them. [developer.android.com/training/cars/testing/dhu](https://developer.android.com/training/cars/testing/dhu)
+
+- Turn off "Only while Android Auto is connected" only for checks without the DHU or a car.
+- `mic play <file.wav>` plays a recorded reply as dictation, so a unique phrase can be checked in the Slack DM. `mic begin` uses the computer's microphone.
+- `restrict all` simulates driving restrictions. Check that the readout and reply still work.
+- Use a synthetic Slack DM. Record DHU and Android Auto versions in the device test record.
+
+## Checks the research added
+
+These come from Android documentation and AOSP behavior that could not be verified without a device. Record each result per phone.
+
+- **Repeated readout:** Flack sends up to the last 10 messages of a conversation on each update. Check whether Android Auto reads earlier messages again when a new one arrives (R17).
+- **Reply after idle:** reply with the screen off after a long idle and in Doze. Slack's action relies on a short background-start allowance that holds only while the listener is bound (R22, R28).
+- **Rebinding:** after an app update and after a reboot, check that new DMs still reach the car without toggling notification access (R23, R27).
+- **Refused reply:** an empty and an over-limit reply. The car should not report success, and the copy should stay usable (G4).
+- **Samsung sleeping apps:** with battery set to unrestricted, check Flack is not on Samsung's sleeping or deep sleeping lists after a day.
+- **Duplicate readout:** check that Slack itself does not also appear in Android Auto. If a Slack update adds native support, drivers would hear each DM twice.
+
 ## Privacy checks
 
 Inspect the merged release manifest and dependencies for unplanned permissions or network components. Trigger normal and error paths with a distinctive synthetic phrase; confirm it does not appear in logs, persistent files, backups, diagnostics, or crash artifacts created by the companion. Verify that the release APK excludes the diagnostic source app and test fixtures that enable mock input.

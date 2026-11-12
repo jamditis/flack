@@ -38,6 +38,8 @@ class StatusActivity : Activity() {
         val body: Int,
         val action: Int,
         val isDone: () -> Boolean,
+        val help: Int? = null,
+        val onHelp: () -> Unit = {},
         val onAction: () -> Unit,
     )
 
@@ -58,7 +60,10 @@ class StatusActivity : Activity() {
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_POST)
                 }
             },
-            Step(R.string.step_access_title, R.string.step_access_body, R.string.step_access_action, ::hasAccess) {
+            Step(
+                R.string.step_access_title, R.string.step_access_body, R.string.step_access_action, ::hasAccess,
+                help = R.string.step_access_help, onHelp = ::showRestrictedSettingsHelp,
+            ) {
                 open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             },
             Step(R.string.step_battery_title, R.string.step_battery_body, R.string.step_battery_action, ::runsInBackground) {
@@ -78,6 +83,12 @@ class StatusActivity : Activity() {
                 view.findViewById<MaterialButton>(R.id.step_action).apply {
                     setText(step.action)
                     setOnClickListener { step.onAction() }
+                }
+                step.help?.let { help ->
+                    view.findViewById<MaterialButton>(R.id.step_help).apply {
+                        setText(help)
+                        setOnClickListener { step.onHelp() }
+                    }
                 }
                 container.addView(view)
             }
@@ -108,6 +119,7 @@ class StatusActivity : Activity() {
                 setImageResource(if (isDone) R.drawable.ic_step_done else R.drawable.ic_step_todo)
             }
             view.findViewById<View>(R.id.step_action).visibility = if (isDone) View.GONE else View.VISIBLE
+            view.findViewById<View>(R.id.step_help).visibility = if (isDone || step.help == null) View.GONE else View.VISIBLE
             val state = getString(if (isDone) R.string.step_state_done else R.string.step_state_todo)
             view.contentDescription = "${getString(step.title)}. $state."
         }
@@ -146,6 +158,17 @@ class StatusActivity : Activity() {
     private fun hasAccess() = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
 
     private fun runsInBackground() = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+
+    /** Android 13+ blocks notification access for sideloaded apps until this is allowed. */
+    private fun showRestrictedSettingsHelp() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.step_access_help_title)
+            .setMessage(R.string.step_access_help_body)
+            .setPositiveButton(R.string.step_access_help_open) { _, _ ->
+                open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+            }
+            .show()
+    }
 
     private fun showAndroidAutoHelp() {
         MaterialAlertDialogBuilder(this)

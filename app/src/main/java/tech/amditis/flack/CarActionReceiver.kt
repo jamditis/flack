@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
 
 /**
@@ -32,7 +33,18 @@ class CarActionReceiver : BroadcastReceiver() {
             ?.toString()
             ?.trim()
         when (val result = BridgeState.registry.consume(token, text)) {
-            is ConsumeResult.Rejected -> BridgeState.countReplyRejection(result.reason)
+            is ConsumeResult.Rejected -> {
+                BridgeState.countReplyRejection(result.reason)
+                // Repost so the host stops waiting. Keep the reply action only if the
+                // token is still unused (empty or too-long text does not use it).
+                result.binding?.let { binding ->
+                    val conversation = BridgeState.conversation(binding.carNotificationId)
+                    if (conversation != null && BridgeState.registry.isCurrent(binding)) {
+                        val stillUsable = result.reason != ConsumeRejection.ALREADY_CONSUMED
+                        CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = stillUsable)
+                    }
+                }
+            }
             is ConsumeResult.Dispatch -> {
                 val key = result.binding.resultKey
                 val fillIn = Intent()
