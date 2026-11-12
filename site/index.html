@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flack: Slack DMs in Android Auto</title>
+  <meta name="description" content="Hear Slack direct messages in Android Auto and answer them by voice. An independent Android app, not affiliated with Slack.">
+  <link rel="canonical" href="https://jamditis.github.io/flack/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#F5F7FB" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1524" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flack">
+  <meta property="og:title" content="Flack: your messages, riding shotgun">
+  <meta property="og:description" content="Hear Slack direct messages in Android Auto and answer them by voice. Independent app, not affiliated with Slack.">
+  <meta property="og:url" content="https://jamditis.github.io/flack/">
+  <meta property="og:image" content="https://jamditis.github.io/flack/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Flack logo, a highway interchange in amber on navy, with the line: Your messages, riding shotgun.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flack: your messages, riding shotgun">
+  <meta name="twitter:description" content="Hear Slack direct messages in Android Auto and answer them by voice.">
+  <meta name="twitter:image" content="https://jamditis.github.io/flack/og-image.png">
+
+  <style>
+    @font-face {
+      font-family: "Manrope";
+      src: url("fonts/manrope-latin-wght.woff2") format("woff2");
+      font-weight: 200 800;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #F5F7FB;
+      --surface: #FFFFFF;
+      --text: #0E1A2B;
+      --muted: #4A5B73;
+      --line: #DCE3EC;
+      --accent: #8A5300;
+      --on-accent: #FFFFFF;
+      --mark-bg: #0B1524;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0B1524;
+        --surface: #13233C;
+        --text: #E8EEF7;
+        --muted: #A9B6CA;
+        --line: #22344F;
+        --accent: #FFB547;
+        --on-accent: #241600;
+        --mark-bg: #13233C;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 400 18px/1.6 "Manrope", system-ui, sans-serif;
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    header.top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 0;
+    }
+
+    header.top img { width: 40px; height: 40px; border-radius: 10px; }
+    header.top span { font-weight: 800; font-size: 22px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 40px;
+      align-items: center;
+      padding: 32px 0 56px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      line-height: 1.1;
+      font-weight: 800;
+      margin: 0 0 16px;
+    }
+
+    .lede { font-size: 20px; margin: 0 0 28px; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+
+    .button {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--on-accent);
+      font-weight: 700;
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 12px;
+      min-height: 48px;
+    }
+
+    .button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+    .note { color: var(--muted); font-size: 16px; margin-top: 16px; }
+
+    .shots { display: flex; gap: 16px; justify-content: center; }
+    .shots img { width: 48%; max-width: 220px; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+
+    section { padding: 40px 0; border-top: 1px solid var(--line); }
+
+    h2 { font-size: 28px; font-weight: 800; margin: 0 0 16px; }
+
+    ol, ul { padding-left: 1.3em; margin: 0; }
+    li { margin: 0 0 10px; }
+
+    .status {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 24px;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 0 48px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <img src="apple-touch-icon.png" alt="">
+      <span>Flack</span>
+    </header>
+
+    <main>
+      <div class="hero">
+        <div>
+          <h1>Your messages, riding shotgun.</h1>
+          <p class="lede">Hear Slack direct messages in Android Auto and answer them by voice. Flack hands your reply to the Slack app on your phone, which sends it.</p>
+          <div class="actions">
+            <a class="button" href="https://github.com/jamditis/flack/releases/latest/download/flack.apk">Download flack.apk</a>
+            <a href="https://github.com/jamditis/flack/blob/main/docs/INSTALL.md">Install steps</a>
+          </div>
+          <p class="note">For Android 12 or later. Open the download on your phone.</p>
+        </div>
+        <div class="shots">
+          <img src="setup-dark.png" alt="Flack setup screen in dark mode" width="412" height="915">
+          <img src="setup-light.png" alt="Flack setup screen in light mode" width="412" height="915">
+        </div>
+      </div>
+
+      <section aria-labelledby="how">
+        <h2 id="how">How it works</h2>
+        <ol>
+          <li>Flack reads notifications from the official Slack app only, and ignores every other app.</li>
+          <li>While Android Auto is connected, a new direct message appears in the car, ready to read aloud.</li>
+          <li>Reply by voice and confirm. Flack passes your words to Slack's reply button once. If it cannot tell where a reply would go, it offers none.</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="install">
+        <h2 id="install">Install</h2>
+        <ol>
+          <li>Download flack.apk on your phone and open it. Allow your browser to install apps if Android asks.</li>
+          <li>Open Flack and follow its five setup steps. If notification access is greyed out, the app shows how to allow it.</li>
+          <li>In Android Auto's developer settings, turn on Unknown sources. Flack is not from Google Play, so Android Auto hides it until you do.</li>
+        </ol>
+        <p>The <a href="https://github.com/jamditis/flack/blob/main/docs/INSTALL.md">full install guide</a> has each step in detail.</p>
+      </section>
+
+      <section aria-labelledby="privacy">
+        <h2 id="privacy">Privacy</h2>
+        <ul>
+          <li>Flack has no internet permission, so it cannot send your messages anywhere.</li>
+          <li>It has no Slack login or token. The Slack app does the sending.</li>
+          <li>Message text stays in memory. It is never saved, backed up or logged.</li>
+          <li>The only permission it asks for is posting notifications.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="status">
+        <h2 id="status">Status</h2>
+        <div class="status">
+          <p style="margin:0">Flack is an experiment for one-to-one direct messages, built for two testers. It has not been tested in a car yet. Group DMs, channels and threads stay off until each one is tested on a real phone. Results go in the <a href="https://github.com/jamditis/flack/blob/main/docs/DEVICE_TEST_RECORD.md">device test record</a>.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Flack is an independent project. It is not made by, affiliated with or endorsed by Slack, Google or Samsung.</p>
+      <p><a href="https://github.com/jamditis/flack">Source on GitHub</a> · Apache-2.0 · Font: Manrope, SIL Open Font License</p>
+    </footer>
+  </div>
+</body>
+</html>

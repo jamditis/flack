@@ -19,9 +19,24 @@ android {
         versionName = (findProperty("versionName") as String?) ?: "0.0.0-dev"
     }
 
+    // Release signing comes from the environment only, set by the release workflow
+    // from repository secrets. The keystore is never in the repository.
+    val releaseKeystore = System.getenv("FLACK_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("FLACK_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("FLACK_KEY_ALIAS")
+                keyPassword = System.getenv("FLACK_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
