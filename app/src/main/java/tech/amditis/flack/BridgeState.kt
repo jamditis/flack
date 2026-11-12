@@ -112,7 +112,7 @@ object BridgeState {
     /** Text for the status screen. Counts and labels only, never message content. */
     @Synchronized fun diagnostics(): String = buildString {
         appendLine("Forwarded to the car: $forwarded")
-        appendLine("Withdrawn as ambiguous: $ambiguous")
+        appendLine("Replies disabled as ambiguous: $ambiguous")
         appendLine("Opened in the car: $acknowledged")
         appendLine("Last reply: ${lastHandoff.label}")
         if (rejections.isNotEmpty()) {

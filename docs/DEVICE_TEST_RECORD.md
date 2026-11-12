@@ -57,9 +57,14 @@ Record every exercised R01–R36 case separately, including unexpected behavior 
 
 | Message type | Phone A (S24 Ultra) | Phone B (S21) | Limits |
 | --- | --- | --- | --- |
-| DM | Unverified | Unverified | |
-| Group DM | Unverified | Unverified | |
-| Channel mention | Unverified | Unverified | |
-| Existing thread reply | Unverified | Unverified | |
+| DM | Not yet tested | Not yet tested | Confirm exact destination, readback/cancel, one dispatch |
+| Group DM | Not yet tested | Not yet tested | Readout and reply to the same group |
+| Public channel mention | Not yet tested | Not yet tested | Readout and reply to the same channel |
+| Public channel without mention | Not yet tested | Not yet tested | Enable notifications for the synthetic channel |
+| Private channel | Not yet tested | Not yet tested | Readout and reply to the same private channel |
+| Existing thread reply | Not yet tested | Not yet tested | Two threads in one channel; reply stays in the selected thread |
+| Mixed channel/thread reply actions | Not yet tested | Not yet tested | Readout with no reply offered; neither destination receives text |
+| Unknown routing or missing group title | Not yet tested | Not yet tested | Readout with no reply offered |
+| Read-only copy on Android Auto | Not yet tested | Not yet tested | Verify the host reads MessagingStyle without a reply action |
 
 Release decision: pending. Keep sensitive evidence local and publish only a sanitized summary with exact software versions.

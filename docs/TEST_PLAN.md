@@ -25,7 +25,7 @@ Before writing the car wrapper, confirm that normal notification-shade replies w
 
 For each notification type, record source package/profile, whether text is available, whether it is a group summary, the number and kind of reply actions, free-form RemoteInput availability, whether the action opens UI, and whether distinct thread actions exist. Keep exact identifiers local; publish only structure and synthetic fixtures.
 
-Pass only the types with a usable, unambiguous background reply action and enough context to distinguish the destination. Do not infer support from the action's English label.
+Offer a reply only with a usable, unambiguous background action and enough destination context. Keep readable text available without a reply otherwise. Do not infer routing from the action's English label. Repeat for public channels (with and without mentions), private channels, group DMs and threads; see the capability table in ROADMAP.md.
 
 ## G2: Prove one complete DM
 
@@ -73,6 +73,10 @@ The target Slack DM must contain the exact response once. The phone remains lock
 | R34 | Unsupported message structure/app | No forwarding loop or accidental inclusion |
 | R35 | Source action cannot accept RemoteInput | Mark unsupported; no empty or incorrectly filled reply dispatch |
 | R36 | Explicit mutable wrapper and immutable acknowledgement | Wrapper receives exact input; acknowledgement cannot accept a reply or substitute a token |
+| R37 | Public channel, including a non-mention notification | Readout; any offered reply reaches only that channel, once |
+| R38 | Private channel | Readout; any offered reply reaches only that private channel, once |
+| R39 | Group DM | Readout; any offered reply reaches only that group, once |
+| R40 | Mixed channel/thread actions or unknown routing | Readout remains; no reply action or dispatch, including held old actions |
 
 ## Meaningful automated tests
 
@@ -84,7 +88,7 @@ Use Android Auto's Desktop Head Unit for early integration checks, then validate
 
 ## Emulator check in CI
 
-Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`): a DM becomes a car copy, a reply sent through the car copy's real PendingIntent reaches the source app once, group and two-action messages are refused, and turning Flack off removes its copies. It runs on a real Android system image, unlike the Robolectric tests, but it has no Android Auto and no real Slack.
+Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`). DMs, public/private channels, group DMs and two threads become separate car copies. Replies in reverse arrival order use the copies' real PendingIntents and reach only their original destination once, even with repeated callbacks. Mixed actions and unknown routing produce copies with no reply action. Turning Flack off removes all copies. This checks a real Android system image, but has no Android Auto or real Slack; it cannot prove host readout of read-only copies.
 
 ## Desktop Head Unit checks
 

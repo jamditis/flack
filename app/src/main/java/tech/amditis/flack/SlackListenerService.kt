@@ -6,6 +6,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationManagerCompat
 import tech.amditis.flack.core.Capability
+import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Observation
 
@@ -26,7 +27,7 @@ class SlackListenerService : NotificationListenerService() {
         // dead token. Remove them rather than leave replies that can only be refused.
         if (BridgeState.registry.bindingCount() == 0) NotificationManagerCompat.from(this).cancelAll()
         // Messages already in the shade are a baseline, not new arrivals. Every Slack
-        // notification's actions are recorded so no forwarded DM can share them.
+        // notification's actions are recorded so no forwarded reply can share them.
         activeNotifications.orEmpty().filter(::isOwnProfileSource).forEach { sbn ->
             recordWithoutForwarding(sbn, SlackNotificationParser.parse(sbn))
         }
@@ -35,10 +36,10 @@ class SlackListenerService : NotificationListenerService() {
     private fun recordWithoutForwarding(sbn: StatusBarNotification, parsed: ParsedNotification) {
         val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)
         val action = (capability as? Capability.Eligible)?.let { parsed.actionIntents[it.actionIndex] }
-        if (action != null) {
-            BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action)
+        if (capability !is Capability.Rejected) {
+            BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action, parsed.actionIntents.filterNotNull())
         } else {
-            BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
+            refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
         }
     }
 
@@ -67,10 +68,9 @@ class SlackListenerService : NotificationListenerService() {
         when (val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)) {
             is Capability.Rejected -> {
                 BridgeState.countRejection(capability.reason)
-                // Withdraws this key's car copy and any DM that shares one of its actions.
-                val withdrawn = BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
-                CarNotificationPublisher.cancel(this, withdrawn)
+                refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
             }
+            is Capability.ReadOnly -> forward(sbn, parsed, null)
             is Capability.Eligible -> forward(sbn, parsed, capability)
         }
     }
@@ -89,25 +89,31 @@ class SlackListenerService : NotificationListenerService() {
         BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
     }
 
-    private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible) {
-        val action = parsed.actionIntents[capability.actionIndex]
-        if (action == null) {
-            CarNotificationPublisher.cancel(this, BridgeState.registry.recordOther(sbn.key, emptyList()))
-            return
-        }
+    private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible?) {
+        val action = capability?.let { parsed.actionIntents[it.actionIndex] }
         val conversation = parsed.facts.conversation ?: return
         val newestFromSelf = conversation.messages.last().fromSelf
-        when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability.resultKey, newestFromSelf)) {
+        when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf, parsed.actionIntents.filterNotNull())) {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
+                refreshBindings(result.replyDisabled)
                 val posted = CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
                 if (posted && result.alert) BridgeState.countForwarded()
             }
-            is Observation.Ambiguous -> {
-                CarNotificationPublisher.cancel(this, result.withdrawn)
-                BridgeState.countAmbiguous()
-            }
             is Observation.Unchanged, is Observation.Baseline -> Unit
+        }
+    }
+
+    private fun refreshBindings(bindings: Collection<Binding<android.app.PendingIntent>>) {
+        bindings.forEach { binding ->
+            if (BridgeState.registry.isCurrent(binding)) {
+                BridgeState.conversation(binding.carNotificationId)?.let {
+                    CarNotificationPublisher.post(this, binding, it, alert = false)
+                }
+                BridgeState.countAmbiguous()
+            } else {
+                CarNotificationPublisher.cancel(this, listOf(binding))
+            }
         }
     }
 

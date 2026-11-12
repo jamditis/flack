@@ -5,7 +5,12 @@
     <string name="intro">Posts invented, Slack-shaped notifications so Flack can be tested without real Slack messages. Test builds of Flack accept this app; released builds ignore it.</string>
     <string name="post_dm">Post a DM from Riley Example</string>
     <string name="post_second_dm">Post a DM from Sam Example</string>
-    <string name="post_group">Post a group message</string>
+    <string name="post_group">Post a group DM</string>
+    <string name="post_channel">Post a public channel message</string>
+    <string name="post_private_channel">Post a private channel message</string>
+    <string name="post_thread">Post a reply in the launch thread</string>
+    <string name="post_second_thread">Post a reply in the folding thread</string>
+    <string name="post_unknown">Post a message with unknown routing</string>
     <string name="post_two_actions">Post a message with two reply actions</string>
     <string name="clear">Clear all test messages</string>
     <string name="reply">Reply</string>

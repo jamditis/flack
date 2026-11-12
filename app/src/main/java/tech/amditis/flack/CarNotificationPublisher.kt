@@ -42,7 +42,7 @@ object CarNotificationPublisher {
         binding: Binding<PendingIntent>,
         conversation: Conversation,
         alert: Boolean,
-        replyEnabled: Boolean = true,
+        replyEnabled: Boolean = binding.action != null,
         sentText: String? = null,
     ): Boolean {
         val manager = NotificationManagerCompat.from(context)
@@ -55,7 +55,7 @@ object CarNotificationPublisher {
         val me = Person.Builder().setName(context.getString(R.string.you)).setKey("self").build()
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle(conversation.title)
-            .setGroupConversation(false)
+            .setGroupConversation(conversation.isGroup == true)
         conversation.messages.takeLast(MAX_MESSAGES).forEach { message ->
             // Keys keep senders apart within this one conversation. They are never routing keys.
             val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).setKey("sender:${message.senderName}").build()
@@ -97,7 +97,7 @@ object CarNotificationPublisher {
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
             .setSilent(!alert)
             .addInvisibleAction(markRead)
-        if (replyEnabled) builder.addAction(reply)
+        if (replyEnabled && binding.action != null) builder.addAction(reply)
         return try {
             manager.notify(binding.carNotificationId, builder.build())
             true

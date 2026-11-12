@@ -47,7 +47,7 @@ class SlackNotificationParserTest {
     @Test fun aMissingGroupFlagIsUnknownAndFailsClosed() {
         val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context, isGroup = null))
         assertNull(parsed.facts.conversation!!.isGroup)
-        assertEquals(Capability.Rejected(RejectReason.NOT_A_DIRECT_MESSAGE), CapabilityCheck.evaluate(parsed.facts))
+        assertEquals(Capability.ReadOnly(RejectReason.UNKNOWN_CONVERSATION), CapabilityCheck.evaluate(parsed.facts))
     }
 
     @Test fun groupConversationsAreRecognized() {
@@ -66,7 +66,7 @@ class SlackNotificationParserTest {
         shadowOf(activityIntent).setCreatorUid(SyntheticSlack.SLACK_UID)
         val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context, reply = activityIntent))
         assertTrue(parsed.facts.replyActions.single().showsUserInterface)
-        assertEquals(Capability.Rejected(RejectReason.REPLY_OPENS_APP), CapabilityCheck.evaluate(parsed.facts))
+        assertEquals(Capability.ReadOnly(RejectReason.REPLY_OPENS_APP), CapabilityCheck.evaluate(parsed.facts))
     }
 
     @Test fun anImmutableActionIsMarked() {
@@ -94,9 +94,21 @@ class SlackNotificationParserTest {
         assertNull(parsed.facts.conversation)
     }
 
-    @Test fun aPlainNotificationHasNoConversation() {
-        val plain = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon).setContentText("Hi").build()
-        assertNull(SlackNotificationParser.parse(SyntheticSlack.statusBar(plain, "plain")).facts.conversation)
+    @Test fun aPlainTextNotificationIsReadOnly() {
+        val plain = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
+            .setContentTitle("Paper room").setContentText("Hi").build()
+        val parsed = SlackNotificationParser.parse(SyntheticSlack.statusBar(plain, "plain"))
+        assertEquals("Hi", parsed.facts.conversation!!.messages.single().text)
+        assertEquals(Capability.ReadOnly(RejectReason.UNKNOWN_CONVERSATION), CapabilityCheck.evaluate(parsed.facts))
+    }
+
+    @Test fun allKnownConversationFixturesPreserveTheirContextAndReply() {
+        SyntheticSlack.Kind.entries.filter { it != SyntheticSlack.Kind.UNKNOWN }.forEach { kind ->
+            val parsed = SlackNotificationParser.parse(SyntheticSlack.message(context, kind))
+            assertEquals(kind.title, parsed.facts.conversation!!.title)
+            assertEquals(kind.group, parsed.facts.conversation!!.isGroup)
+            assertEquals(Capability.Eligible(0, SyntheticSlack.REPLY_KEY), CapabilityCheck.evaluate(parsed.facts))
+        }
     }
 
     @Test fun fingerprintTracksContentNotIdentity() {

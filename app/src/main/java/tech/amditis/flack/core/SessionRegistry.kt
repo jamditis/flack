@@ -13,8 +13,9 @@ data class Binding<A : Any>(
     val token: String,
     /** Stable per source key, so updates replace the same car notification. */
     val carNotificationId: Int,
-    val action: A,
-    val resultKey: String,
+    /** Null for a read-only copy. Its token can never dispatch. */
+    val action: A?,
+    val resultKey: String?,
 )
 
 sealed interface Observation<A : Any> {
@@ -23,6 +24,7 @@ sealed interface Observation<A : Any> {
         val binding: Binding<A>,
         val alert: Boolean,
         val evicted: List<Binding<A>>,
+        val replyDisabled: List<Binding<A>> = emptyList(),
     ) : Observation<A>
 
     /** The same content seen again. Nothing changes and no new token is made. */
@@ -31,14 +33,9 @@ sealed interface Observation<A : Any> {
     /** Present when the listener connected. Not a new arrival, so not forwarded. */
     class Baseline<A : Any> : Observation<A>
 
-    /**
-     * The reply action is also bound to another conversation. Both are withdrawn,
-     * because the bridge cannot prove where a reply would go.
-     */
-    data class Ambiguous<A : Any>(val withdrawn: List<Binding<A>>) : Observation<A>
 }
 
-enum class ConsumeRejection { UNKNOWN_OR_EXPIRED, ALREADY_CONSUMED, EMPTY, TOO_LONG }
+enum class ConsumeRejection { UNKNOWN_OR_EXPIRED, ALREADY_CONSUMED, NO_REPLY_ACTION, EMPTY, TOO_LONG }
 
 sealed interface ConsumeResult<A : Any> {
     data class Dispatch<A : Any>(val binding: Binding<A>, val text: String) : ConsumeResult<A>
@@ -52,7 +49,7 @@ sealed interface ConsumeResult<A : Any> {
  * Rules (SPEC.md sections 6 to 8):
  * - Every content change makes a new generation and a new token. Old tokens die.
  * - A token dispatches at most once. Invalid text does not use it up.
- * - A reply action seen on two notifications, forwarded or not, is withdrawn.
+ * - An action seen on two notifications disables replies on both; readout stays.
  * - Nothing here is written to disk.
  *
  * [A] is the platform's action handle. On Android it is the PendingIntent, whose
@@ -72,8 +69,8 @@ class SessionRegistry<A : Any>(
 
     /**
      * The actions last seen on every live Slack notification, forwarded or not.
-     * A DM whose action also appears on any other notification is withheld, even
-     * after one side is withdrawn, until a source notification goes away.
+     * A reply whose action also appears on any other notification is disabled
+     * until that source notification goes away.
      */
     private val knownActions = HashMap<String, Set<A>>()
     private var nextGeneration = 1L
@@ -81,16 +78,16 @@ class SessionRegistry<A : Any>(
 
     /** An eligible notification already present when the listener connected. */
     @Synchronized
-    fun recordBaseline(notificationKey: String, fingerprint: String, action: A) {
+    fun recordBaseline(notificationKey: String, fingerprint: String, action: A?, actions: Collection<A> = listOfNotNull(action)) {
         if (notificationKey in entries) return
         baseline[notificationKey] = fingerprint
-        knownActions[notificationKey] = setOf(action)
+        knownActions[notificationKey] = actions.toSet()
     }
 
     /**
      * A Slack notification that cannot be forwarded. Its actions are remembered so
-     * no forwarded DM can share them. Returns bindings that must be withdrawn: this
-     * key's own, and any that share one of [actions].
+     * no forwarded conversation can share them. Returns this key's removed binding
+     * and current read-only bindings whose reply actions were disabled.
      */
     @Synchronized
     fun recordOther(notificationKey: String, actions: Collection<A>): List<Binding<A>> {
@@ -98,10 +95,7 @@ class SessionRegistry<A : Any>(
         knownActions[notificationKey] = actions.toSet()
         val withdrawn = mutableListOf<Binding<A>>()
         entries.remove(notificationKey)?.let { withdrawn.add(it.binding) }
-        for (key in clashingKeys(notificationKey, actions)) {
-            conflicted.add(key)
-            entries.remove(key)?.let { withdrawn.add(it.binding) }
-        }
+        withdrawn.addAll(disableReplies(clashingKeys(notificationKey, actions)))
         return withdrawn
     }
 
@@ -109,36 +103,35 @@ class SessionRegistry<A : Any>(
     fun observe(
         notificationKey: String,
         fingerprint: String,
-        action: A,
-        resultKey: String,
+        action: A?,
+        resultKey: String?,
         newestFromSelf: Boolean,
+        actions: Collection<A> = listOfNotNull(action),
     ): Observation<A> {
+        val previousActions = knownActions[notificationKey]
+        knownActions[notificationKey] = actions.toSet()
+        val clashes = clashingKeys(notificationKey, actions)
+        val disabled = disableReplies(clashes)
+        if (clashes.isNotEmpty()) conflicted.add(notificationKey)
+        val safeAction = action.takeUnless { notificationKey in conflicted }
+        val safeKey = resultKey.takeIf { safeAction != null }
         val existing = entries[notificationKey]
         // Same content and the same reply capability: a repeated callback.
         if (existing != null &&
+            disabled.isEmpty() &&
             existing.fingerprint == fingerprint &&
-            existing.binding.action == action &&
-            existing.binding.resultKey == resultKey
+            existing.binding.action == safeAction &&
+            existing.binding.resultKey == safeKey &&
+            previousActions == actions.toSet()
         ) {
             return Observation.Unchanged()
         }
         if (existing == null) {
             val baselineFingerprint = baseline.remove(notificationKey)
-            if (baselineFingerprint == fingerprint && knownActions[notificationKey] == setOf(action)) {
+            if (baselineFingerprint == fingerprint && previousActions == actions.toSet()) {
                 baseline[notificationKey] = fingerprint
                 return Observation.Baseline()
             }
-        }
-
-        knownActions[notificationKey] = setOf(action)
-        val clashes = clashingKeys(notificationKey, listOf(action))
-        if (notificationKey in conflicted || clashes.isNotEmpty()) {
-            val withdrawn = mutableListOf<Binding<A>>()
-            for (key in clashes + notificationKey) {
-                conflicted.add(key)
-                entries.remove(key)?.let { withdrawn.add(it.binding) }
-            }
-            return Observation.Ambiguous(withdrawn)
         }
 
         val binding = Binding(
@@ -146,8 +139,8 @@ class SessionRegistry<A : Any>(
             generation = nextGeneration++,
             token = newToken(),
             carNotificationId = carIds.getOrPut(notificationKey) { nextCarId++ },
-            action = action,
-            resultKey = resultKey,
+            action = safeAction,
+            resultKey = safeKey,
         )
         entries.remove(notificationKey)
         entries[notificationKey] = Entry(binding, fingerprint, consumed = false)
@@ -158,7 +151,16 @@ class SessionRegistry<A : Any>(
             evicted.add(entries.remove(oldestKey)!!.binding)
             carIds.remove(oldestKey)
         }
-        return Observation.Publish(binding, alert = !newestFromSelf, evicted = evicted)
+        return Observation.Publish(binding, alert = !newestFromSelf && existing?.fingerprint != fingerprint, evicted = evicted, replyDisabled = disabled)
+    }
+
+    private fun disableReplies(keys: List<String>): List<Binding<A>> = keys.mapNotNull { key ->
+        conflicted.add(key)
+        val entry = entries[key] ?: return@mapNotNull null
+        if (entry.binding.action == null) return@mapNotNull null
+        val readOnly = entry.binding.copy(generation = nextGeneration++, token = newToken(), action = null, resultKey = null)
+        entries[key] = Entry(readOnly, entry.fingerprint, consumed = false)
+        readOnly
     }
 
     /** The source notification is gone. Returns the binding whose car notification must be removed. */
@@ -205,6 +207,9 @@ class SessionRegistry<A : Any>(
     fun consume(token: String, text: String?): ConsumeResult<A> {
         val entry = entries.values.firstOrNull { it.binding.token == token }
             ?: return ConsumeResult.Rejected(ConsumeRejection.UNKNOWN_OR_EXPIRED)
+        if (entry.binding.action == null || entry.binding.resultKey == null) {
+            return ConsumeResult.Rejected(ConsumeRejection.NO_REPLY_ACTION, entry.binding)
+        }
         if (entry.consumed) return ConsumeResult.Rejected(ConsumeRejection.ALREADY_CONSUMED, entry.binding)
         if (text.isNullOrBlank()) return ConsumeResult.Rejected(ConsumeRejection.EMPTY, entry.binding)
         if (text.length > MAX_REPLY_LENGTH) return ConsumeResult.Rejected(ConsumeRejection.TOO_LONG, entry.binding)

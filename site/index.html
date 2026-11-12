@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Flack: Slack DMs in Android Auto</title>
-  <meta name="description" content="Hear Slack direct messages in Android Auto and answer them by voice. An independent Android app, not affiliated with Slack.">
+  <title>Flack: Slack messages in Android Auto</title>
+  <meta name="description" content="Hear Slack messages in Android Auto and reply by voice when available. An independent Android app, not affiliated with Slack.">
   <link rel="canonical" href="https://jamditis.github.io/flack/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -15,7 +15,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Flack">
   <meta property="og:title" content="Flack: your messages, riding shotgun">
-  <meta property="og:description" content="Hear Slack direct messages in Android Auto and answer them by voice. Independent app, not affiliated with Slack.">
+  <meta property="og:description" content="Hear Slack messages in Android Auto and reply by voice when available. Independent app, not affiliated with Slack.">
   <meta property="og:url" content="https://jamditis.github.io/flack/">
   <meta property="og:image" content="https://jamditis.github.io/flack/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
   <meta property="og:image:alt" content="Flack logo, a highway interchange in amber on navy, with the line: Your messages, riding shotgun.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Flack: your messages, riding shotgun">
-  <meta name="twitter:description" content="Hear Slack direct messages in Android Auto and answer them by voice.">
+  <meta name="twitter:description" content="Hear Slack messages in Android Auto and reply by voice when available.">
   <meta name="twitter:image" content="https://jamditis.github.io/flack/og-image.png">
 
   <style>
@@ -159,7 +159,7 @@
       <div class="hero">
         <div>
           <h1>Your messages, riding shotgun.</h1>
-          <p class="lede">Hear Slack direct messages in Android Auto and answer them by voice. Flack hands your reply to the Slack app on your phone, which sends it.</p>
+          <p class="lede">Hear Slack messages in Android Auto and reply by voice when available. Flack hands your reply to the Slack app on your phone, which sends it.</p>
           <div class="actions">
             <a class="button" href="https://github.com/jamditis/flack/releases/latest/download/flack.apk">Download flack.apk</a>
             <a href="https://github.com/jamditis/flack/blob/main/docs/INSTALL.md">Install steps</a>
@@ -176,7 +176,7 @@
         <h2 id="how">How it works</h2>
         <ol>
           <li>Flack reads notifications from the official Slack app only, and ignores every other app.</li>
-          <li>While Android Auto is connected, a new direct message appears in the car, ready to read aloud.</li>
+          <li>While Android Auto is connected, Flack copies new text notifications from DMs, group DMs, public/private channels and threads for readout.</li>
           <li>Reply by voice and confirm. Flack passes your words to Slack's reply button once. If it cannot tell where a reply would go, it offers none.</li>
         </ol>
       </section>
@@ -204,7 +204,7 @@
       <section aria-labelledby="status">
         <h2 id="status">Status</h2>
         <div class="status">
-          <p style="margin:0">Flack is an experiment for one-to-one direct messages, built for two testers. It has not been tested in a car yet. Group DMs, channels and threads stay off until each one is tested on a real phone. Results go in the <a href="https://github.com/jamditis/flack/blob/main/docs/DEVICE_TEST_RECORD.md">device test record</a>.</p>
+          <p style="margin:0">Flack has experimental support for DMs, group DMs, public/private channels and threads. Ambiguous notifications keep their text without a reply action. Real Slack and car behavior, including readout without a reply action, still need device tests. Results go in the <a href="https://github.com/jamditis/flack/blob/main/docs/DEVICE_TEST_RECORD.md">device test record</a>.</p>
         </div>
       </section>
     </main>

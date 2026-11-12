@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check on a real Android system image, with the test-only fake Slack:
-# a DM becomes a car copy, a car reply reaches the source app once, group
-# messages are not forwarded, and turning Flack off removes its copies.
+# every text conversation gets a car copy, safe replies reach their exact source
+# once, ambiguous copies have no reply, and turning Flack off removes copies.
 # Needs one running emulator or device on adb, and debug builds of :app and :fixture.
 set -euo pipefail
 
@@ -69,16 +69,39 @@ sleep 3
 if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "an untargeted test reply was sent"; fi
 adb logcat -d -s FlackDebug:W | grep -q "refused" || fail "the debug hook did not report refusing the reply"
 
-step "A group message is not forwarded"
-before=$(flack_copies)
-fixture_post group-project "Riley Example" "Notes are in the shared folder." GROUP
-sleep 5
-[ "$(flack_copies)" -eq "$before" ] || fail "a group message was forwarded"
+step "Group DMs, public/private channels and two threads become separate car copies"
+for item in group-project:GROUP channel-kites:CHANNEL private-paper:PRIVATE_CHANNEL thread-launch:THREAD thread-folding:THREAD; do
+  conversation=${item%:*}
+  kind=${item#*:}
+  before=$(flack_copies)
+  fixture_post "$conversation" "Riley Example" "Synthetic paper update." "$kind"
+  wait_for 15 has_new_copy || fail "no car copy for $conversation"
+done
 
-step "A message with two reply actions is not forwarded"
-fixture_post dm-thread "Sam Example" "See the thread above." TWO_ACTIONS
-sleep 5
-[ "$(flack_copies)" -eq "$before" ] || fail "an ambiguous message was forwarded"
+step "Replies in reverse arrival order keep their conversation and thread, with duplicate callbacks refused"
+for conversation in thread-folding thread-launch private-paper channel-kites group-project; do
+  reply="e2e-$conversation-$RANDOM"
+  adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation $conversation --es text $reply --ez repeat true" > /dev/null
+  got_target_reply() { adb logcat -d -s FlackFixture:I | grep -q "reply conversation=$conversation text=$reply"; }
+  wait_for 15 got_target_reply || fail "reply did not reach $conversation"
+  sleep 1
+  count=$(adb logcat -d -s FlackFixture:I | grep -c "text=$reply" || true)
+  [ "$count" -eq 1 ] || fail "reply for $conversation dispatched $count times"
+done
+
+step "Ambiguous actions and unknown routing are read-only"
+for item in mixed-paper:TWO_ACTIONS unknown-paper:UNKNOWN; do
+  conversation=${item%:*}
+  kind=${item#*:}
+  before=$(flack_copies)
+  fixture_post "$conversation" "Sam Example" "Read this without replying." "$kind"
+  wait_for 15 has_new_copy || fail "no read-only copy for $conversation"
+  adb logcat -c
+  adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation $conversation --es text should-not-send" > /dev/null
+  refused_read_only() { adb logcat -d -s FlackDebug:W | grep -q "car copy has no reply action"; }
+  wait_for 10 refused_read_only || fail "$conversation still offers a reply"
+  if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "read-only copy sent a reply"; fi
+done
 
 step "Turning Flack off removes every car copy"
 flack_configure false false

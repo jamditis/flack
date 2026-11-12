@@ -2,6 +2,7 @@ package tech.amditis.flack.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,14 +71,18 @@ class SessionRegistryTest {
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (registry().consume("made-up", "Hi") as ConsumeResult.Rejected).reason)
     }
 
-    @Test fun sameActionOnTwoConversationsWithdrawsBoth() {
+    @Test fun sameActionOnTwoConversationsDisablesBothRepliesAndKeepsReadout() {
         val reg = registry()
         val riley = reg.publish("dm-riley", "f1", target = "shared-op").binding
         val result = reg.observe("dm-sam", "g1", FakeAction("shared-op"), "reply_text", false)
-        assertEquals(listOf(riley), (result as Observation.Ambiguous).withdrawn)
+        val published = result as Observation.Publish
+        assertNull(published.binding.action)
+        assertEquals(riley.carNotificationId, published.replyDisabled.single().carNotificationId)
+        assertNull(published.replyDisabled.single().action)
+        assertEquals(2, reg.bindingCount())
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(riley.token, "Hi") as ConsumeResult.Rejected).reason)
-        // Both stay withdrawn on later updates until the source notification goes away.
-        assertTrue(reg.observe("dm-riley", "f2", FakeAction("riley-op"), "reply_text", false) is Observation.Ambiguous)
+        // Both stay read-only on later updates until the source notification goes away.
+        assertNull((reg.observe("dm-riley", "f2", FakeAction("riley-op"), "reply_text", false) as Observation.Publish).binding.action)
         reg.remove("dm-riley")
         assertTrue(reg.observe("dm-riley", "f3", FakeAction("riley-op"), "reply_text", false) is Observation.Publish)
     }
@@ -89,7 +94,7 @@ class SessionRegistryTest {
         reg.publish("dm-riley", "f1", target = "shared-op")
         reg.observe("dm-sam", "g1", FakeAction("shared-op"), "reply_text", false)
         reg.remove("dm-riley")
-        assertTrue(reg.observe("dm-riley", "f2", FakeAction("shared-op"), "reply_text", false) is Observation.Ambiguous)
+        assertNull((reg.observe("dm-riley", "f2", FakeAction("shared-op"), "reply_text", false) as Observation.Publish).binding.action)
     }
 
     @Test fun sameContentWithANewActionIsANewGenerationAndIsChecked() {
@@ -98,7 +103,7 @@ class SessionRegistryTest {
         reg.publish("dm-sam", "g1", target = "op-2")
         // Same text, but Slack attached Sam's action to Riley's notification.
         val result = reg.observe("dm-riley", "f1", FakeAction("op-2"), "reply_text", false)
-        assertTrue(result is Observation.Ambiguous)
+        assertNull((result as Observation.Publish).binding.action)
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(first.token, "Hi") as ConsumeResult.Rejected).reason)
     }
 
@@ -110,17 +115,19 @@ class SessionRegistryTest {
     }
 
     @Test fun actionsOfNotificationsThatCannotBeForwardedStillBlockAClash() {
-        // A channel notification is not forwarded, but if it carries the DM's action
-        // the DM's reply could land in the channel.
+        // Even a suppressed summary must stop a DM from using its action.
         val reg = registry()
         reg.recordOther("channel-general", listOf(FakeAction("shared-op")))
-        assertTrue(reg.observe("dm-riley", "f1", FakeAction("shared-op"), "reply_text", false) is Observation.Ambiguous)
+        assertNull((reg.observe("dm-riley", "f1", FakeAction("shared-op"), "reply_text", false) as Observation.Publish).binding.action)
     }
 
     @Test fun aLaterIneligibleNotificationWithTheSameActionWithdrawsThePublishedOne() {
         val reg = registry()
         val riley = reg.publish("dm-riley", "f1", target = "shared-op").binding
-        assertEquals(listOf(riley), reg.recordOther("channel-general", listOf(FakeAction("shared-op"))))
+        val disabled = reg.recordOther("channel-general", listOf(FakeAction("shared-op"))).single()
+        assertEquals(riley.carNotificationId, disabled.carNotificationId)
+        assertNull(disabled.action)
+        assertEquals(ConsumeRejection.NO_REPLY_ACTION, (reg.consume(disabled.token, "Hi") as ConsumeResult.Rejected).reason)
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(riley.token, "Hi") as ConsumeResult.Rejected).reason)
     }
 
@@ -135,7 +142,7 @@ class SessionRegistryTest {
         val reg = registry()
         reg.publish("dm-a", "f1", target = "shared-op")
         reg.observe("dm-b", "g1", FakeAction("shared-op"), "reply_text", false)
-        assertTrue(reg.observe("dm-c", "h1", FakeAction("shared-op"), "reply_text", false) is Observation.Ambiguous)
+        assertNull((reg.observe("dm-c", "h1", FakeAction("shared-op"), "reply_text", false) as Observation.Publish).binding.action)
     }
 
     @Test fun aChangedResultKeyIsANewGeneration() {
@@ -176,7 +183,30 @@ class SessionRegistryTest {
         val riley = reg.publish("dm-riley", "f1", target = "shared-op").binding
         assertEquals(listOf(riley), reg.withdrawAll())
         assertEquals(0, reg.bindingCount())
-        assertTrue(reg.observe("dm-sam", "g1", FakeAction("shared-op"), "reply_text", false) is Observation.Ambiguous)
+        assertNull((reg.observe("dm-sam", "g1", FakeAction("shared-op"), "reply_text", false) as Observation.Publish).binding.action)
+    }
+
+    @Test fun readOnlyCopiesDeduplicateExpireAndCannotConsumeTheirToken() {
+        val reg = registry()
+        val binding = (reg.observe("unknown", "f1", null, null, false) as Observation.Publish).binding
+        assertEquals(ConsumeRejection.NO_REPLY_ACTION, (reg.consume(binding.token, "Hi") as ConsumeResult.Rejected).reason)
+        assertTrue(reg.observe("unknown", "f1", null, null, false) is Observation.Unchanged)
+        reg.withdrawAll()
+        assertTrue(reg.observe("unknown", "f1", null, null, false) is Observation.Baseline)
+        assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(binding.token, "Hi") as ConsumeResult.Rejected).reason)
+    }
+
+    @Test fun readOnlyMultipleActionsStillDisableEveryConflictingReply() {
+        val reg = registry()
+        val channel = reg.publish("channel", "c1", "channel-op").binding
+        val thread = reg.publish("thread", "t1", "thread-op").binding
+        val mixed = reg.observe("mixed", "m1", null, null, false, listOf(FakeAction("channel-op"), FakeAction("thread-op"))) as Observation.Publish
+        assertEquals(2, mixed.replyDisabled.size)
+        assertNull(mixed.binding.action)
+        listOf(channel, thread).forEach {
+            assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(it.token, "Hi") as ConsumeResult.Rejected).reason)
+        }
+        assertEquals(3, reg.bindingCount())
     }
 
     @Test fun notificationsPresentAtConnectAreNotReplayed() {

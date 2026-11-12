@@ -1,5 +1,22 @@
 # Milestones and issue briefs
 
+## Notification capabilities
+
+The implementation supports all text notification types below. Invented fixtures do not establish real Slack compatibility. Source/profile validation, creator package/UID checks, one free-form result key, a mutable background action, generation validation and one-dispatch tokens apply to every reply.
+
+| Notification | Readout copy | Voice reply rule | Evidence |
+| --- | --- | --- | --- |
+| One-to-one DM | Yes | Explicit non-group MessagingStyle with a title or incoming sender; one original action | Synthetic parser/routing tests; device not yet tested |
+| Public channel, mention or other subscribed message | Yes | Explicit group MessagingStyle with a destination title; one original action | Synthetic fixtures/emulator check; device not yet tested |
+| Private channel | Yes | Same titled-group rule; never derive identifiers from the title | Synthetic fixtures/emulator check; device not yet tested |
+| Group DM | Yes | Same titled-group rule; preserve the original action | Synthetic fixtures/emulator check; device not yet tested |
+| Thread reply | Yes | One original thread action, isolated from other source keys/actions; never substitute a channel action | Two synthetic threads/emulator check; device not yet tested |
+| Two text actions, multiple keys, missing group title, unknown flag, plain title/text | Yes, with text and context | No reply action | Synthetic read-only/lifecycle tests; host readout not yet tested |
+| Shared action across notifications, including suppressed sources | Yes for readable children | Disable every conflicting reply; old tokens expire | Synthetic collision/held-action tests |
+| Group summary, empty or context-free notification, other app/profile | No | No reply action | Source and duplicate-suppression checks |
+
+The emulator check runs on GitHub-hosted CI. It exercises Android PendingIntents but has neither real Slack nor Android Auto. Phone/car results remain in [DEVICE_TEST_RECORD.md](DEVICE_TEST_RECORD.md).
+
 The identifiers below are planning labels, not published GitHub issue numbers. Work is ordered to test feasibility before investing in a complete application.
 
 ## M0: Choose the route
@@ -16,7 +33,7 @@ Run G0 from TEST_PLAN.md and record exact versions, connection mode, fresh-messa
 
 Build a small local diagnostic instrument using the documented notification listener. Identify supported structures and genuine inline actions. Keep private text out of output. Exercise notification-shade replies first.
 
-**Done:** Synthetic fixtures and a capability table for DM, group DM, mention, and thread notifications. Unsupported cases are explicit.
+**Implementation:** Synthetic fixtures and per-type rules cover DMs, group DMs, public/private channels, threads, and read-only ambiguous notifications (#19). The table above describes the rules. Real source inspection is pending.
 
 ### P03 — Complete one Android Auto DM round trip
 

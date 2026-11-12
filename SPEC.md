@@ -2,7 +2,7 @@
 
 Flack was called Slack car bridge while it was being planned.
 
-Version 0.1 · November 11, 2026
+Version 0.2 · November 12, 2026
 
 Build a small Android companion that makes supported incoming Slack messages available through Android Auto and returns a confirmed voice reply to the original Slack conversation. The first targets are a Samsung Galaxy S24 Ultra (primary) and a Samsung Galaxy S21 (second tester), each using Android Auto on a car's display.
 
@@ -43,13 +43,13 @@ The sources and their precise limits are in docs/SOURCES.md. Requirements below 
 ### First supported release
 
 - New, eligible Slack text notifications received during an active Android Auto session.
-- Direct messages first. Group DMs, channel mentions, and thread replies each require separate evidence before being enabled.
-- Readout and reply through Android Auto's native messaging flow.
+- DMs, group DMs, public channel messages (mentions and other subscribed messages), private channel messages, and thread replies.
+- Readout through Android Auto's native messaging flow; a voice reply only when the original action identifies one destination and thread without ambiguity.
 - Clear sender and destination context when the notification exposes it reliably.
 - A phone-side enable/pause control, setup status, supported-message list, and content-free diagnostics.
 - Session cleanup and an explicit recovery path when notification access, the source action, or the connection is unavailable.
 
-If only direct messages pass the tests, the first release supports direct messages. That is an acceptable scope reduction.
+Readable notifications with unsafe or unknown reply routing remain read-only. Device testing records each type separately; synthetic support is not a claim of verified Slack or head-unit compatibility.
 
 ### Later work requiring a separate design
 
@@ -62,7 +62,7 @@ A Slack API client would require a different authentication, permissions, distri
 | Gate | Evidence required | Consequence if it fails |
 | --- | --- | --- |
 | G0 Native test | Fresh Slack DM read and replied to through the actual car, including a locked-phone test | Continue to G1 after checking setup; record whether phone-only behavior differs |
-| G1 Source capability | Real Slack notification contains usable text and an unambiguous inline reply action | Exclude that message type; stop this architecture if no useful type qualifies |
+| G1 Source capability | Real Slack notification contains usable text; replies also require an unambiguous inline action | Keep readable text read-only when the reply cannot be validated |
 | G2 One DM round trip | Car readout, dictation, review, confirmation, and one reply in the intended DM | Fix the feasibility experiment before building product UI |
 | G3 Concurrent routing | Correct destination under updates, two conversations, identical names, and thread cases | Any misroute blocks a pilot |
 | G4 Host interaction | Actual car flow provides intelligible context, confirmation/cancel, and acceptable failure behavior | Redesign or stop; do not manufacture a reassuring status |
@@ -106,11 +106,11 @@ Process only the verified official Slack package in the permitted Android profil
 
 Each reply binding includes the source package, Android user/profile, notification key, observed generation, original reply action, exact RemoteInput result key, and a unique random bridge token. Store any trustworthy conversation metadata supplied by Slack, but do not invent Slack IDs or derive recipients from display names.
 
-The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. If the user cannot distinguish two destinations from the exposed context, withhold the ambiguous item from the two-way car stream.
+The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. A one-to-one MessagingStyle conversation can use its incoming sender as context. A group DM, channel, or thread requires a nonblank conversation title. Unknown conversation flags and plain text notifications are read-only. Two text reply actions (including channel and thread choices), multiple input keys, unsafe creators, immutable actions, and actions opening UI never offer a reply. If context cannot identify the destination, retain readable content without a reply action. No label is parsed into a Slack identifier or used to select a route.
 
 Do not assume a PendingIntent is a frozen snapshot. Its creator may update its underlying operation. Equality checks are useful consistency checks, not proof of an immutable destination. [S6] Detect a reply capability observed across conflicting conversation bindings and reject it until its safety is established. Revalidate the latest observed source generation and action immediately before dispatch. The bridge cannot inspect or atomically freeze Slack's underlying operation; real-device race tests remain essential. An update during dictation must never retarget the dictated text to the most recent conversation.
 
-Supported notification formats must be described in a versioned compatibility fixture set. Unrecognized structures fail closed. A button labelled Reply is insufficient: require a usable free-form RemoteInput and an action compatible with background execution.
+Supported notification formats are described in the capability table in docs/ROADMAP.md and synthetic fixtures. MessagingStyle supplies sender, text and group context. Standard title/text or expanded-text notifications can be copied read-only; empty, context-free and summary notifications are excluded. Unrecognized routing fails closed. A button labelled Reply is insufficient: require one usable free-form RemoteInput and an action compatible with background execution. A sole thread action is kept distinct by its original capability and source notification key; never replace it with a channel action.
 
 ## 7. Message updates and session behavior
 
@@ -208,6 +208,6 @@ The public repository should include the specification, a compatibility matrix, 
 
 A pilot requires a passing record for each target phone and car for each advertised message type, zero observed wrong-destination replies, no duplicate dispatch in the defined repeated-action tests, a working cancel path, explicit handling of stale/unknown outcomes, recovery from supported lifecycle events, and a clean privacy inspection.
 
-A passing finite test suite is evidence for the tested versions and configuration. It does not prove universal Slack or head-unit compatibility. Keep unsupported types disabled and publish the exact tested combination.
+A passing finite test suite is evidence for the tested versions and configuration. It does not prove universal Slack or head-unit compatibility. Keep unsafe replies disabled, retain eligible text for readout, and publish the exact tested combination. Android Auto readout of copies without reply actions must be checked on the actual host; an emulator has no Android Auto.
 
 If the original-action route cannot meet these requirements, document the failure and evaluate a separately scoped Slack API client or accept a listening-only tool. Do not disguise a broken reply path as a complete solution.
