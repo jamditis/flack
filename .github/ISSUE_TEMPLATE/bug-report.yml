@@ -1,0 +1,26 @@
+name: Bug report
+description: Something in Flack does not work as described.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is public. **Do not include real message text, real names or workspace details.** If a reply went to the wrong conversation, was sent twice, or content leaked, report it privately through the security policy instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong
+      description: What you did, what you expected and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Test report from the app
+      description: In Flack, tap "Copy test report" and paste it here.
+      render: text
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps, with made-up messages.

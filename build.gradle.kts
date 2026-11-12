@@ -1,4 +1,5 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.roborazzi) apply false
+    alias(libs.plugins.cyclonedx) apply false
 }

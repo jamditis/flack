@@ -37,6 +37,8 @@ If Flack cannot tell where a reply would go, it does not offer one. Group DMs, c
 - Message text stays in memory and is never saved, backed up or logged.
 - The only permission is posting notifications. CI fails any build that asks for more.
 
+The full [privacy page](https://jamditis.github.io/flack/privacy.html) covers what Flack reads, keeps and sends.
+
 ## Supported phones
 
 The intended test phones are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21. Neither has been tested yet; results and exact versions go in the [device test record](docs/DEVICE_TEST_RECORD.md). Flack needs Android 12 or later.
@@ -48,7 +50,7 @@ The intended test phones are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21
 - [Test plan](docs/TEST_PLAN.md) and [device test record](docs/DEVICE_TEST_RECORD.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Brand guide](docs/BRAND.md), [design rules](docs/DESIGN_RULES.md) and [writing rules](docs/WRITING_RULES.md)
-- [Releasing](docs/RELEASING.md)
+- [Releasing](docs/RELEASING.md) and [changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 
 ## Build

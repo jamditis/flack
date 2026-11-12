@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.cyclonedx)
 }
 
 android {
@@ -73,4 +74,10 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)
     testImplementation(libs.androidx.test.core)
+}
+
+// Software bill of materials for the release: only what ships inside the APK.
+// The release workflow attaches it and a signed attestation to each release.
+tasks.named<org.cyclonedx.gradle.CyclonedxDirectTask>("cyclonedxDirectBom") {
+    includeConfigs.set(listOf("releaseRuntimeClasspath"))
 }

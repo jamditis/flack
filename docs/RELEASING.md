@@ -70,9 +70,20 @@ Do this on your own computer, not in a cloud session, so the key never passes th
    - runs the tests and lint
    - builds and signs the APK with the key from the secrets, then deletes the key from the runner
    - checks the APK's signature and permissions
-   - publishes the release with `flack.apk`, its SHA-256 checksum and install notes, and marks it as the latest release
+   - records a signed attestation of where `flack.apk` was built and of the libraries inside it
+   - publishes the release with `flack.apk`, its SHA-256 checksum, the library list (`flack-sbom.json`) and install notes, and marks it as the latest release
 
 4. Send testers the single link above. It always points at the newest release.
+
+## Checking a release
+
+Anyone can confirm that a download was built by this repository's release workflow:
+
+```bash
+gh attestation verify flack.apk --repo jamditis/flack
+```
+
+Before each release, move the "Unreleased" notes in CHANGELOG.md under the new version.
 
 ## The first signed release
 

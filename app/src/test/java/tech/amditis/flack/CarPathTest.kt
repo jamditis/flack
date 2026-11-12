@@ -78,6 +78,18 @@ class CarPathTest {
         assertEquals(0, manager.size())
     }
 
+    @Test fun theTestReportNeverContainsMessageTextOrNames() {
+        post(SyntheticSlack.dm(app, sender = "Riley Example", text = "Meet at the blue door at six"))
+        replyFromCar("Bringing snacks")
+        val report = TestReport.build(app)
+        assertFalse(report.contains("blue door"))
+        assertFalse(report.contains("Riley"))
+        assertFalse(report.contains("snacks"))
+        assertFalse(report.contains("com.Slack|42"))
+        assertTrue(report.contains("Forwarded to the car: "))
+        assertTrue(report.contains("Notification access: "))
+    }
+
     @Test fun nothingIsForwardedOutsideTheCar() {
         listener.onCarConnectionChanged(false)
         post(SyntheticSlack.dm(app))

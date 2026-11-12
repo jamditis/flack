@@ -17,6 +17,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      # Signed build provenance and SBOM attestations for flack.apk.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,7 +52,7 @@ jobs:
           FLACK_KEYSTORE_PASSWORD: ${{ secrets.FLACK_KEYSTORE_PASSWORD }}
           FLACK_KEY_ALIAS: ${{ secrets.FLACK_KEY_ALIAS }}
           FLACK_KEY_PASSWORD: ${{ secrets.FLACK_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon -PversionName="${TAG#v}" -PversionCode="$GITHUB_RUN_NUMBER" ":app:testDebugUnitTest" ":app:lintRelease" ":app:assembleRelease"
+        run: ./gradlew --no-daemon -PversionName="${TAG#v}" -PversionCode="$GITHUB_RUN_NUMBER" ":app:testDebugUnitTest" ":app:lintRelease" ":app:assembleRelease" ":app:cyclonedxDirectBom"
       - name: Remove the signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/flack-release.jks"
@@ -60,13 +63,25 @@ jobs:
           bash scripts/check-apk-permissions.sh "$apk"
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$apksigner" verify --print-certs "$apk" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+      - name: Name the release files
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk flack.apk
+          cp app/build/reports/cyclonedx-direct/bom.json flack-sbom.json
+          sha256sum flack.apk > flack.apk.sha256
+      - name: Attest where flack.apk was built
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: flack.apk
+      - name: Attest what is inside flack.apk
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: flack.apk
+          sbom-path: flack-sbom.json
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk flack.apk
-          sha256sum flack.apk > flack.apk.sha256
           link="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/flack.apk"
           notes=$(cat <<NOTES
           ## Install
@@ -77,16 +92,20 @@ jobs:
 
           This is an experiment build. It has not been tested in a car yet.
 
-          To check the file, compare its SHA-256 with flack.apk.sha256 below.
+          To check the file, compare its SHA-256 with flack.apk.sha256 below, or confirm GitHub built it from this repository:
+
+          \`gh attestation verify flack.apk --repo $GITHUB_REPOSITORY\`
+
+          flack-sbom.json lists every library inside the APK.
           NOTES
           )
           # A release made on the Releases page already exists for this tag: add the
           # files to it instead of failing on a second create.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$TAG" flack.apk flack.apk.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" flack.apk flack.apk.sha256 flack-sbom.json --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest
           else
-            gh release create "$TAG" flack.apk flack.apk.sha256 \
+            gh release create "$TAG" flack.apk flack.apk.sha256 flack-sbom.json \
               --repo "$GITHUB_REPOSITORY" --latest --title "Flack $TAG" \
               --notes "$notes" --generate-notes
           fi

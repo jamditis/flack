@@ -41,6 +41,11 @@
     <string name="step_state_done">Done</string>
     <string name="step_state_todo">Not done</string>
 
+    <!-- Test report -->
+    <string name="test_report_button">Copy test report</string>
+    <string name="test_report_label">Flack test report</string>
+    <string name="test_report_copied">Copied. Paste it into a device test result on GitHub. It contains no message text.</string>
+
     <!-- Status -->
     <string name="status_title">Status</string>
     <string name="status_summary">Forwarding: %1$s\nAndroid Auto: %2$s\nListener: %3$s\nLast reply: %4$s</string>

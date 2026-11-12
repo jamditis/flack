@@ -1,0 +1,67 @@
+name: Device test result
+description: Record what happened when you tested Flack on a phone, in the Desktop Head Unit or in a car.
+title: "Device test: "
+labels: ["device test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. This repository is public, so **do not include real message text, real names, workspace names or screenshots of real conversations.** Use a test message with made-up words.
+  - type: textarea
+    id: report
+    attributes:
+      label: Test report from the app
+      description: In Flack, tap "Copy test report" and paste it here. It contains versions, setup state and counts, never message text.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did you test?
+      options:
+        - In the car
+        - Desktop Head Unit
+        - Phone only
+    validations:
+      required: true
+  - type: input
+    id: car
+    attributes:
+      label: Car or head unit, and connection
+      description: For example, the car's make and year, and wired or wireless Android Auto.
+  - type: input
+    id: one_ui
+    attributes:
+      label: One UI version
+      description: Settings → About phone → Software information → One UI version.
+  - type: dropdown
+    id: message_type
+    attributes:
+      label: Message type
+      options:
+        - Direct message
+        - Group DM
+        - Channel mention
+        - Thread reply
+    validations:
+      required: true
+  - type: checkboxes
+    id: results
+    attributes:
+      label: What worked
+      description: Tick only what you saw happen.
+      options:
+        - label: The message appeared in Android Auto
+        - label: Android Auto read it aloud
+        - label: I could dictate a reply and confirm it
+        - label: The reply arrived once, in the right Slack conversation
+        - label: Cancelling a reply sent nothing
+        - label: It also worked with the phone locked
+  - type: textarea
+    id: notes
+    attributes:
+      label: What happened
+      description: What Android Auto said, anything that went wrong, and anything surprising. No real message text.
+    validations:
+      required: true
