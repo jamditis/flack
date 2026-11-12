@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar and Android Auto icon: the small mark as a white silhouette (brand/flack-mark-small.svg). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:scaleX="0.3704"
+        android:scaleY="0.3704"
+        android:translateX="-7.852"
+        android:translateY="-8.148">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M23.9,54.9H46.1V44.8A17.1,17.1 0 1 1 77,54.9H83.3V61.9H53.1V68A13.1,13.1 0 1 1 28.41,61.9H23.9ZM63.2,54.9A10.1,10.1 0 1 0 53.1,44.8V54.9ZM40,61.9A6.1,6.1 0 1 0 46.1,68V61.9Z" />
+    </group>
+</vector>

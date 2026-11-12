@@ -1,10 +1,14 @@
-# Slack car bridge
+# Flack
 
 A proposed Android companion for listening to incoming Slack messages and replying by voice through Android Auto.
 
 The first targets are two phones connected to a car's Android Auto display: a Samsung Galaxy S24 Ultra (primary) and a Samsung Galaxy S21 (second tester). The two phones can run different Android and One UI versions, so each one needs its own test record. The companion would turn eligible Slack notifications into Android Auto message notifications, then return a confirmed voice reply through Slack's existing notification action.
 
-**Status: specification and feasibility plan. There is no application or validated compatibility claim yet.** The native Gemini route remains a device test, and the custom route depends on proving that Slack's reply actions can be forwarded reliably.
+**Status: first experiment build for one Slack DM. It is not device tested, and there is no validated compatibility claim yet.** The native Gemini route was reported to read Slack messages in the car without offering a voice reply, so the custom route is being tested. It depends on proving that Slack's reply actions can be forwarded reliably.
+
+## Download
+
+Newest build, for phones: [flack.apk](https://github.com/jamditis/flack/releases/latest/download/flack.apk). Then follow [the install steps](docs/INSTALL.md). It is an experiment and has not been tested in a car yet.
 
 ## Start here
 
@@ -12,6 +16,8 @@ The first targets are two phones connected to a car's Android Auto display: a Sa
 - [Feasibility tests and acceptance criteria](docs/TEST_PLAN.md)
 - [Implementation milestones and issue briefs](docs/ROADMAP.md)
 - [Device test record](docs/DEVICE_TEST_RECORD.md)
+- [Install and test the experiment build](docs/INSTALL.md)
+- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 - [Evidence and source limits](docs/SOURCES.md)
 - [Repository setup and coding-agent handoff](docs/HANDOFF.md)
 
@@ -33,9 +39,9 @@ The local companion design does not make Slack or Google's voice services offlin
 
 ## Project setup
 
-Repository: **jamditis/slack-car-bridge**, public.
+Name: **Flack**. Repository: **jamditis/flack**, public.
 
-Proposed application ID: **tech.amditis.slackcarbridge**.
+Application ID: **tech.amditis.flack**.
 
 License: **Apache-2.0** for original project work (see LICENSE and NOTICE). The repository does not include third-party application code.
 

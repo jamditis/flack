@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # Gradle plugins and libraries: one weekly PR for minor and patch updates.
+  # Major updates still come as separate PRs for review.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gradle-minor-and-patch:
+        update-types: [minor, patch]
+  # Actions are pinned by commit SHA; Dependabot keeps the SHA and its version
+  # comment current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

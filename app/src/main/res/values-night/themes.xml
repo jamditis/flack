@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night drive: navy background, amber accent. -->
+    <style name="Theme.Flack" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/flack_amber</item>
+        <item name="colorOnPrimary">@color/flack_on_amber</item>
+        <item name="colorPrimaryContainer">#FF4A3000</item>
+        <item name="colorOnPrimaryContainer">@color/flack_amber_soft</item>
+        <item name="colorSecondary">@color/flack_mist</item>
+        <item name="colorOnSecondary">@color/flack_night</item>
+        <item name="colorSecondaryContainer">#FF4A3000</item>
+        <item name="colorOnSecondaryContainer">@color/flack_amber_soft</item>
+        <item name="colorTertiary">@color/flack_amber</item>
+        <item name="colorSurfaceContainerHigh">@color/flack_night_surface</item>
+        <item name="colorSurfaceContainerHighest">#FF22344F</item>
+        <item name="android:colorBackground">@color/flack_night</item>
+        <item name="colorOnBackground">@color/flack_mist</item>
+        <item name="colorSurface">@color/flack_night</item>
+        <item name="colorOnSurface">@color/flack_mist</item>
+        <item name="colorOnSurfaceVariant">@color/flack_fog</item>
+        <item name="colorSurfaceContainerLow">@color/flack_night_raised</item>
+        <item name="colorSurfaceContainer">@color/flack_night_surface</item>
+        <item name="colorOutline">@color/flack_outline_night</item>
+        <item name="colorOutlineVariant">#FF22344F</item>
+        <item name="flackSuccess">@color/flack_signal_green</item>
+        <item name="colorError">@color/flack_signal_red</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowSplashScreenBackground">@color/flack_night</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+    </style>
+</resources>

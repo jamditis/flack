@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flack</string>
+    <string name="listener_label">Flack</string>
+    <string name="tagline">Hear and answer Slack DMs in Android Auto</string>
+
+    <!-- Car notification -->
+    <string name="channel_name">Slack messages for the car</string>
+    <string name="channel_description">Copies of supported Slack direct messages, for Android Auto to read aloud.</string>
+    <string name="reply_label">Reply</string>
+    <string name="you">You</string>
+    <string name="mark_read">Mark as read</string>
+
+    <!-- Setup -->
+    <string name="setup_title_progress">Set up · %1$d/%2$d</string>
+    <string name="setup_title_done">You\'re set up</string>
+    <string name="step_post_title">Allow Flack to post notifications</string>
+    <string name="step_post_body">Android Auto reads Flack\'s copy of each message, so Flack needs to post it.</string>
+    <string name="step_post_action">Allow</string>
+    <string name="step_access_title">Turn on notification access</string>
+    <string name="step_access_body">This lets Flack see Slack messages. Flack has no internet permission, so it cannot send them anywhere.</string>
+    <string name="step_access_action">Open settings</string>
+    <string name="step_access_help">Switch greyed out?</string>
+    <string name="step_access_help_title">Allow restricted settings</string>
+    <string name="step_access_help_body">Android protects this setting for apps installed outside Google Play.\n\n1. Tap Open App info below.\n2. Tap the menu (three dots) in the top corner.\n3. Tap Allow restricted settings and confirm.\n4. Come back and turn on notification access.</string>
+    <string name="step_access_help_open">Open App info</string>
+    <string name="step_battery_title">Let Flack run in the background</string>
+    <string name="step_battery_body">Samsung puts apps to sleep. Choose \"Allow\" or \"Unrestricted\" for Flack so messages keep coming while you drive.</string>
+    <string name="step_battery_action">Open battery settings</string>
+    <string name="step_auto_title">Allow Flack in Android Auto</string>
+    <string name="step_auto_body">Flack is not from Google Play, so Android Auto hides it until you turn on \"Unknown sources\".</string>
+    <string name="step_auto_action">Show me how</string>
+    <string name="step_auto_dialog_title">Turn on Unknown sources</string>
+    <string name="step_auto_dialog_body">1. Open Android Auto settings (Settings, then Connected devices, then Android Auto).\n2. Scroll down and tap Version about 10 times, then allow developer mode.\n3. Open the menu (three dots), then Developer settings.\n4. Turn on Unknown sources.</string>
+    <string name="step_auto_open">Open Android Auto</string>
+    <string name="step_auto_confirm">I\'ve done this</string>
+    <string name="step_auto_unavailable">Android Auto is not installed on this phone.</string>
+    <string name="enable_switch">Forward Slack DMs to Android Auto</string>
+    <string name="car_only_switch">Only while Android Auto is connected</string>
+    <string name="car_only_body">Keeps copies off your phone the rest of the day. Turn off to test without a car.</string>
+    <string name="step_state_done">Done</string>
+    <string name="step_state_todo">Not done</string>
+
+    <!-- Status -->
+    <string name="status_title">Status</string>
+    <string name="status_summary">Forwarding: %1$s\nAndroid Auto: %2$s\nListener: %3$s\nLast reply: %4$s</string>
+    <string name="state_on">on</string>
+    <string name="state_off">off</string>
+    <string name="listener_connected">connected</string>
+    <string name="listener_not_connected">not connected</string>
+    <string name="footer">Flack %1$s · Independent app. Not affiliated with Slack, Google or Samsung.\nForwards new messages only. Message text stays in memory and is never saved.</string>
+</resources>

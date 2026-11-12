@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Read-only token. Pull requests from forks get no secrets: this workflow uses
+# pull_request, never pull_request_target.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No keys, local config, captures or tokens in the repository
+        run: bash scripts/check-forbidden-files.sh
+      - name: Shell scripts pass shellcheck
+        run: shellcheck scripts/*.sh
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Also validates the Gradle wrapper jar against Gradle's published checksums.
+      - uses: gradle/actions/setup-gradle@7296c772c13d12d9871528814b51fb2143c138ef # v6.4.1
+      - name: Unit tests, lint and debug APK
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - name: APK asks only for allowed permissions
+        run: bash scripts/check-apk-permissions.sh app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload debug APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flack-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  # The one required status check. It passes only when every job above passed.
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build]
+    if: ${{ always() }}
+    steps:
+      - name: Require every job
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: test "$BUILD_RESULT" = success

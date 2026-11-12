@@ -1,4 +1,6 @@
-# Slack car bridge specification
+# Flack specification
+
+Flack was called Slack car bridge while it was being planned.
 
 Version 0.1 · November 11, 2026
 
@@ -21,9 +23,9 @@ The user should not need to unlock or touch the phone during this flow. Setup, t
 | Connection | Record whether wired or wireless; validate the connection actually used |
 | Slack | Current installed official Android app; record version and profile |
 | Assistant | Record Google/Gemini and Android Auto versions; do not assume phone and car capabilities are identical |
-| Repository | Proposed public repository jamditis/slack-car-bridge |
+| Repository | Public repository jamditis/flack |
 | Implementation | Kotlin, AndroidX notification support, small phone setup interface |
-| Minimum SDK | Provisional API 30; confirm against the test phone and chosen dependencies |
+| Minimum SDK | API 31, the first with `PendingIntent.isActivity` and `isImmutable`, which the reply checks need. Both target phones run newer versions |
 | Build versions | Pin supported stable versions when implementation starts; verify current SDK and distribution requirements then |
 
 ## 2. Native route and evidence
@@ -193,6 +195,8 @@ Run a three-hour parked or bench session with the connection, screen state, navi
 ## 13. Distribution and repository
 
 Start with a development APK tested using Google's documented Android Auto development options, or Play internal distribution. The documented unknown-sources option applies to messaging-notification apps; installation and notification-access restrictions still need to be documented for the actual phone. [S9]
+
+Google requires developer verification for apps installed on certified Android devices, starting with four countries on September 30, 2026 and extending worldwide in 2027. Check whether sideloaded test builds for named testers are affected before each release cycle, and record the answer. [developer.android.com/developer-verification](https://developer.android.com/developer-verification)
 
 Public source availability is separate from Google Play acceptance. Google's car-app requirements cover working message receipt/replies, grouping/order, and appropriate messaging behavior. A Slack-specific bridge needs a distribution review; do not promise a public Play listing. [S10]
 
