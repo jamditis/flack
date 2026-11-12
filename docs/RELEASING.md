@@ -51,6 +51,10 @@ Do this on your own computer, not in a cloud session, so the key never passes th
 
 4. Delete `flack-release.txt`. Keep `flack-release.jks` and its password backed up somewhere safe and private, such as your password manager. Never commit either one; CI refuses keystore files.
 
+## Release certificate
+
+The release key's certificate SHA-256 is `B5:D3:F4:12:48:D7:94:F6:36:66:20:25:F2:4B:FE:06:E7:91:9A:B9:8D:7B:60:CF:79:13:AA:80:E1:08:C7:24`. The release workflow refuses an APK signed with any other key. The key and its password are kept in the fleet password store under `claude/flack/`.
+
 ## Making a release
 
 1. Merge the changes you want into `main`.

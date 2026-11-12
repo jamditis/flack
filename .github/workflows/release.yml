@@ -62,7 +62,12 @@ jobs:
           test -f "$apk" || { echo "No signed APK was produced. Check the signing secrets."; exit 1; }
           bash scripts/check-apk-permissions.sh "$apk"
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$apksigner" verify --print-certs "$apk" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          echo "apksigner: $apksigner"
+          certs=$("$apksigner" verify --print-certs "$apk")
+          echo "$certs"
+          # SHA-256 of the Flack release certificate (public; see docs/RELEASING.md).
+          echo "$certs" | grep -qi 'SHA-256 digest: b5d3f41248d794f636662025f24bfe06e7919ab98d7b60cf7913aa80e108c724' \
+            || { echo "The APK is not signed with the Flack release key."; exit 1; }
       - name: Name the release files
         run: |
           cp app/build/outputs/apk/release/app-release.apk flack.apk
