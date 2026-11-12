@@ -29,6 +29,7 @@ object BridgeState {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_AUTO_CONFIRMED = "android_auto_confirmed"
     private const val KEY_CAR_ONLY = "car_only"
+    private const val KEY_HIDE_COPIES = "hide_phone_copies"
 
     private val random = SecureRandom()
 
@@ -51,6 +52,9 @@ object BridgeState {
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
     val replyActionDiagnostics = ReplyActionDiagnostics()
+    private data class CopyRecord(val id: Int, val channel: String, var opened: Boolean = false)
+    private val copyRecords = LinkedHashMap<String, CopyRecord>()
+    private var nextCopyRecord = 1
 
     @Volatile var listenerConnected = false
 
@@ -80,6 +84,36 @@ object BridgeState {
     fun setCarOnly(context: Context, carOnly: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_CAR_ONLY, carOnly) }
         if (!shouldForward(context)) CarNotificationPublisher.cancel(context, registry.withdrawAll())
+    }
+
+    fun hidesPhoneCopies(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HIDE_COPIES, true)
+
+    fun setHidePhoneCopies(context: Context, hide: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_HIDE_COPIES, hide) }
+        // Switching channels withdraws old copies and tokens. Receive a new Slack
+        // message to test the new mode; never restore a spent reply capability.
+        CarNotificationPublisher.cancel(context, registry.withdrawAll())
+    }
+
+    @Synchronized fun recordCopy(token: String, channel: String) {
+        if (token in copyRecords) return
+        if (copyRecords.size == 20) copyRecords.remove(copyRecords.keys.first())
+        copyRecords[token] = CopyRecord(nextCopyRecord++, channel)
+    }
+
+    @Synchronized fun acknowledgeCopy(token: String) {
+        val record = copyRecords[token] ?: return
+        record.opened = true
+        countAcknowledged()
+    }
+
+    @Synchronized fun copyDiagnostics(): String = buildString {
+        appendLine("Recent copies (last 20):")
+        copyRecords.values.forEach {
+            appendLine("  Copy ${it.id}: channel=${it.channel}; opened in Android Auto=${it.opened}")
+        }
+        appendLine("Android Auto display: Not reported by the host. Opened confirms its mark-as-read action only.")
     }
 
     /** Forward new messages only when switched on and, unless the user opted out, in the car. */

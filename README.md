@@ -30,12 +30,24 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 
 If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
 Android Auto requires both reply and mark-as-read actions, so it may hide these
-read-only copies. For a one-to-one DM with several text actions, Flack accepts only one background
-action labeled Reply with the REPLY semantic action. Ambiguous direct choices,
+read-only copies. For every conversation type, Flack uses the phone notification's
+single free-form action with the REPLY semantic action, after checking that it
+does not open an app. No label selects a route. Ambiguous semantic reply choices,
 unknown conversation shape, missing group context, or a shared source action
 disable replying. Flack never chooses a destination from a sender or channel
 name. The [capability table](docs/ROADMAP.md#notification-capabilities) records
 the rules and evidence limits.
+
+Flack follows your Slack mobile notification settings. Whatever Slack notifies
+you about on your phone can reach the car. For channel messages, Slack must be
+set to notify you about mentions or All new messages.
+
+The status screen's **Hide Flack copies on the phone** switch is on by default.
+It puts copies in a silent channel with minimum importance; Android cannot
+remove them from the phone shade completely. Android Auto may also hide these
+quiet copies. If the car stays empty, turn the switch off and receive a new
+Slack message. Switching clears current copies and their reply tokens. The
+alerting mode can produce a duplicate phone alert.
 
 ## Privacy
 

@@ -14,7 +14,7 @@ class CapabilityCheckTest {
         creatorUid: Int? = slackUid,
         showsUi: Boolean = false,
         immutable: Boolean = false,
-    ) = ReplyActionFacts(creatorPackage, creatorUid, slackUid, keys, showsUi, immutable)
+    ) = ReplyActionFacts(creatorPackage, creatorUid, slackUid, keys, showsUi, immutable, semanticAction = 1)
 
     private fun dm(
         title: String? = null,
@@ -92,38 +92,36 @@ class CapabilityCheckTest {
         assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(), thread))))
     }
 
-    @Test fun anExplicitDirectReplyWinsOverAThreadOrSmartReply() {
+    @Test fun theUniqueSemanticReplyIsSelectedForEveryConversationType() {
         val direct = replyAction().copy(title = "Reply", semanticAction = 1)
-        listOf("Reply in thread", "Smart reply").forEach { title ->
-            val other = replyAction(keys = listOf("thread_text")).copy(title = title, semanticAction = 1)
-            assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(other, direct))))
-            assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(direct, other))))
+        val other = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0)
+        listOf(false, true).forEach { group ->
+            assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(other, direct))))
+            assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, other))))
         }
     }
 
-    @Test fun ambiguousUnknownAndForegroundChoicesStayReadOnly() {
-        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
-        listOf(
-            listOf(direct, direct),
-            listOf(direct.copy(semanticAction = 0), replyAction()),
-            listOf(direct.copy(title = "Unknown label"), replyAction()),
-            listOf(direct.copy(showsUserInterface = true), replyAction()),
-        ).forEach { actions ->
-            assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = actions)))
-        }
-    }
-
-    @Test fun multiActionGroupsAndThreadsNeverSelectAChannelReplyByLabel() {
+    @Test fun titlesNeverChooseBetweenTwoSemanticReplyRoutes() {
         val direct = replyAction().copy(title = "Reply", semanticAction = 1)
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
-        listOf("Paper room", "Paper room thread").forEach { title ->
+        listOf(false, true).forEach { group ->
             assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
-                CapabilityCheck.evaluate(dm(isGroup = true, title = title, actions = listOf(direct, thread))))
+                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, thread))))
         }
+    }
+
+    @Test fun aReplyLabelWithoutTheReplySemanticIsReadOnly() {
+        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(dm(actions = listOf(replyAction().copy(title = "Reply", semanticAction = 0)))))
+    }
+
+    @Test fun aUniqueSemanticThreadReplyKeepsItsOriginalActionAndKey() {
+        val channel = replyAction().copy(title = "Reply", semanticAction = 0)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
+        assertEquals(Capability.Eligible(1, "thread_text"), CapabilityCheck.evaluate(dm(isGroup = true, title = "Paper room", actions = listOf(channel, thread))))
     }
 
     @Test fun selectionStillValidatesCreatorMutabilityAndResultKeys() {
-        val other = replyAction().copy(title = "Reply in thread", semanticAction = 1)
+        val other = replyAction().copy(title = "Reply in thread", semanticAction = 0)
         val direct = replyAction().copy(title = "Reply", semanticAction = 1)
         listOf(
             direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,

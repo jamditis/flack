@@ -7,6 +7,10 @@
     <!-- Car notification -->
     <string name="channel_name">Slack messages for the car</string>
     <string name="channel_description">Copies of Slack messages, for Android Auto to read aloud.</string>
+    <string name="quiet_channel_name">Quiet Slack copies for the car</string>
+    <string name="quiet_channel_description">Silent copies with minimum importance. Android Auto may hide these.</string>
+    <string name="hide_phone_copies">Hide Flack copies on the phone</string>
+    <string name="hide_phone_copies_body">On by default. Copies stay in the silent section; Android cannot hide them fully. If the car stays empty, turn this off and receive a new Slack message. Changing this clears current copies.</string>
     <string name="reply_label">Reply</string>
     <string name="you">You</string>
     <string name="mark_read">Mark as read</string>

@@ -58,8 +58,8 @@ object SyntheticSlack {
         packageName: String = SLACK_PACKAGE,
         user: UserHandle = Process.myUserHandle(),
         extraMessages: List<Pair<String?, String>> = emptyList(),
-        replySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_NONE,
-        extraReplySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_NONE,
+        replySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+        extraReplySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
     ): StatusBarNotification {
         val me = Person.Builder().setName("Me").build()
         val style = NotificationCompat.MessagingStyle(me).setConversationTitle(title)

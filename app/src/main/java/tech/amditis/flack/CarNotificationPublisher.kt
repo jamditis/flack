@@ -21,6 +21,7 @@ import tech.amditis.flack.core.Conversation
  */
 object CarNotificationPublisher {
     private const val CHANNEL_ID = "car_messages"
+    private const val QUIET_CHANNEL_ID = "car_messages_quiet"
     const val REPLY_KEY = "bridge_reply"
     const val EXTRA_TOKEN = "token"
     const val ACTION_REPLY = "tech.amditis.flack.REPLY"
@@ -30,6 +31,15 @@ object CarNotificationPublisher {
         val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
         channel.description = context.getString(R.string.channel_description)
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        // This driveway-test option reduces duplicate phone alerts. Android Auto
+        // may hide MIN-importance notifications; turn it off and receive a new
+        // Slack message if the car list stays empty (#23).
+        val quiet = NotificationChannel(QUIET_CHANNEL_ID, context.getString(R.string.quiet_channel_name), NotificationManager.IMPORTANCE_MIN)
+        quiet.description = context.getString(R.string.quiet_channel_description)
+        quiet.setSound(null, null)
+        quiet.enableVibration(false)
+        quiet.setShowBadge(false)
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(quiet)
     }
 
     /**
@@ -48,8 +58,10 @@ object CarNotificationPublisher {
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return false
         ensureChannel(context)
+        val hide = BridgeState.hidesPhoneCopies(context)
+        val channelId = if (hide) QUIET_CHANNEL_ID else CHANNEL_ID
         // The user can block just this channel; the post would then vanish silently.
-        if (manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) return false
+        if (manager.getNotificationChannel(channelId)?.importance == NotificationManager.IMPORTANCE_NONE) return false
         BridgeState.rememberConversation(binding.carNotificationId, conversation)
 
         val me = Person.Builder().setName(context.getString(R.string.you)).setKey("self").build()
@@ -89,21 +101,20 @@ object CarNotificationPublisher {
             .setShowsUserInterface(false)
             .build()
 
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(CapabilityCheck.contextLabel(conversation))
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
-            // New messages must remain alerting for Android Auto. Updates and own
-            // replies stay quiet; a separate quiet-phone setting is not available here.
-            .setSilent(!alert)
+            .setSilent(hide || !alert)
             .setOnlyAlertOnce(true)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
         if (replyEnabled && binding.action != null) builder.addAction(reply)
         return try {
             manager.notify(binding.carNotificationId, builder.build())
+            BridgeState.recordCopy(binding.token, channelId)
             true
         } catch (_: SecurityException) {
             // Notification permission was revoked between the check and the post.

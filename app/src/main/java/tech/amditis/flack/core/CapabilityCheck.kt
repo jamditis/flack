@@ -48,20 +48,14 @@ object CapabilityCheck {
         if (conversation.isGroup == null) return readOnly(RejectReason.UNKNOWN_CONVERSATION)
         if (conversation.isGroup && conversation.title.isNullOrBlank()) return readOnly(RejectReason.NO_CONTEXT)
 
-        val candidates = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
-        if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
-        val selected = if (candidates.size == 1) candidates.single() else {
-            // Group facts do not distinguish channel-level and thread-level routes.
-            if (conversation.isGroup) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
-            // With several destinations, require an explicit direct reply label and
-            // Android's REPLY semantic. Unknown/localized labels stay read-only until
-            // their action shape has been verified. Never route by a result key or name.
-            candidates.singleOrNull {
-                it.value.semanticAction == SEMANTIC_ACTION_REPLY &&
-                    it.value.title == "Reply" && !it.value.showsUserInterface
-            } ?: return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
+        // Joe accepted the phone notification's inline reply route for every
+        // conversation type on 2026-11-12 (#23). Labels never select a destination.
+        val candidates = facts.replyActions.withIndex().filter {
+            it.value.freeFormResultKeys.isNotEmpty() && it.value.semanticAction == SEMANTIC_ACTION_REPLY
         }
-        val (index, action) = selected
+        if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
+        if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
+        val (index, action) = candidates.single()
         if (action.freeFormResultKeys.size > 1) return readOnly(RejectReason.MULTIPLE_RESULT_KEYS)
         if (action.showsUserInterface) return readOnly(RejectReason.REPLY_OPENS_APP)
         if (action.isImmutable) return readOnly(RejectReason.REPLY_ACTION_IMMUTABLE)

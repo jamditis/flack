@@ -15,10 +15,19 @@ Android Auto's [notification messaging contract](https://developer.android.com/t
 requires both reply and mark-as-read actions. A read-only phone copy has no
 reply action and can be absent from the car list. Do not treat the phone's copy
 count as proof that Android Auto displayed it. Verify the eligible multi-action
-one-to-one DM case on the car, including correct destination, confirmation, cancel and one
-dispatch. Verify that updates and own replies make no extra sound or vibration.
-New message alerts remain enabled for Android Auto, so a duplicate phone alert
-is a known issue. Android Auto controls its launcher notice; Flack does not post it.
+channel case on the car, including spoken destination, thread context when
+applicable, confirmation, cancel and one dispatch to the same destination as the
+phone notification's inline reply. Repeat for DMs, group DMs and threads.
+Joe accepted this original-action routing on November 12, 2026 (#23).
+
+Test with Hide Flack copies on the phone on first. Copies use the silent channel
+with minimum importance. If the car stays empty, turn the switch off and receive
+a new Slack message. Switching clears existing copies and tokens. The report
+names each copy's channel and whether its mark-as-read action ran; the host
+does not provide a display receipt. In alerting mode, new copies can alert on the
+phone. Verify that updates and own replies stay quiet, and that source removal
+and car disconnection remove Flack's copies. Android Auto controls its launcher
+notice; Flack does not post it.
 
 ## G0: Test the native route
 

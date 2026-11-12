@@ -89,7 +89,7 @@ class SlackListenerService : NotificationListenerService() {
      */
     fun onCarConnectionChanged(connected: Boolean) {
         BridgeState.carConnected = connected
-        if (!BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
+        if (!connected || !BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -99,7 +99,12 @@ class SlackListenerService : NotificationListenerService() {
 
     private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible?) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
-        val conversation = parsed.facts.conversation ?: return
+        val original = parsed.facts.conversation ?: return
+        val selectedTitle = capability?.let { parsed.facts.replyActions[it.actionIndex].title }
+        val isThreadReply = selectedTitle?.contains("thread", ignoreCase = true) == true
+        val conversation = if (isThreadReply && original.title?.contains("thread", ignoreCase = true) != true) {
+            original.copy(title = "${CapabilityCheck.contextLabel(original)} · thread")
+        } else original
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf, parsed.actionIntents.filterNotNull())) {
             is Observation.Publish -> {
