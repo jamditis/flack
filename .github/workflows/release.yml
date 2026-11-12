@@ -2,7 +2,7 @@ name: Release
 
 # Push a tag such as v0.1.0 on main. The release gets the APK under one fixed
 # name, so this link always downloads the newest build:
-# https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk
+# https://github.com/jamditis/flack/releases/latest/download/flack.apk
 on:
   push:
     tags: ["v*"]
@@ -41,13 +41,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk slack-car-bridge.apk
-          sha256sum slack-car-bridge.apk > slack-car-bridge.apk.sha256
-          link="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/slack-car-bridge.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk flack.apk
+          sha256sum flack.apk > flack.apk.sha256
+          link="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/flack.apk"
           notes=$(printf '%s\n\n%s\n\n%s\n' \
-            "**Download on your phone:** [slack-car-bridge.apk]($link)" \
+            "**Download on your phone:** [flack.apk]($link)" \
             "Experiment build, not yet tested in a car. Debug-signed: uninstall the old version before installing this one." \
             "Install and test steps: https://github.com/$GITHUB_REPOSITORY/blob/main/docs/INSTALL.md")
-          gh release create "$TAG" slack-car-bridge.apk slack-car-bridge.apk.sha256 \
+          gh release create "$TAG" flack.apk flack.apk.sha256 \
             --repo "$GITHUB_REPOSITORY" --latest --notes "$notes" --generate-notes \
             --title "$TAG"

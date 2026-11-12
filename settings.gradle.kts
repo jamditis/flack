@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "slack-car-bridge"
+rootProject.name = "flack"
 include(":app")

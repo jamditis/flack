@@ -1,4 +1,4 @@
-# Copilot review context for slack-car-bridge
+# Copilot review context for Flack
 
 ## What this is
 

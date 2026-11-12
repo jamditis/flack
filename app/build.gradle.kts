@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace = "tech.amditis.slackcarbridge"
+    namespace = "tech.amditis.flack"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "tech.amditis.slackcarbridge"
+        applicationId = "tech.amditis.flack"
         // API 31 is the first with PendingIntent.isActivity and isImmutable, which
         // the reply checks need. Both target phones run newer versions.
         minSdk = 31

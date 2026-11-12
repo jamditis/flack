@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge.core
+package tech.amditis.flack.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

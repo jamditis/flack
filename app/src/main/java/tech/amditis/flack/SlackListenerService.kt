@@ -1,13 +1,13 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationManagerCompat
-import tech.amditis.slackcarbridge.core.Capability
-import tech.amditis.slackcarbridge.core.CapabilityCheck
-import tech.amditis.slackcarbridge.core.Observation
-import tech.amditis.slackcarbridge.core.SLACK_PACKAGE
+import tech.amditis.flack.core.Capability
+import tech.amditis.flack.core.CapabilityCheck
+import tech.amditis.flack.core.Observation
+import tech.amditis.flack.core.SLACK_PACKAGE
 
 /**
  * Watches Slack notifications and keeps the car copies in step with them.

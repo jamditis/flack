@@ -12,7 +12,7 @@ aapt2=$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name aapt2 | sort -V | 
 allowed=(
   "android.permission.POST_NOTIFICATIONS"
   # Added by AndroidX core to protect the app's own dynamic receivers.
-  "tech.amditis.slackcarbridge.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+  "tech.amditis.flack.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )
 
 dump=$("$aapt2" dump permissions "$apk")

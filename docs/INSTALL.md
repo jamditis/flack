@@ -5,8 +5,8 @@ This build is for the G2 test in [TEST_PLAN.md](TEST_PLAN.md). It is not device 
 ## Get the APK
 
 1. On the phone, open this link. It always downloads the newest release:
-   https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk
-2. Optional: check the file against `slack-car-bridge.apk.sha256` on the same release.
+   https://github.com/jamditis/flack/releases/latest/download/flack.apk
+2. Optional: check the file against `flack.apk.sha256` on the same release.
 
 Debug builds are signed with a different key each time. Uninstall the old version before you install a new one.
 
@@ -18,11 +18,11 @@ Debug builds are signed with a different key each time. Uninstall the old versio
 
 ## Set it up
 
-1. Open **Slack car bridge**.
+1. Open **Flack**.
 2. Tap **Allow this app to post notifications** and allow it.
-3. Tap **Open notification access settings**, choose **Slack car bridge** and turn it on. Android warns that the app can read notifications. That is how it sees Slack messages. The app has no internet permission, so it cannot send them anywhere.
+3. Tap **Open notification access settings**, choose **Flack** and turn it on. Android warns that the app can read notifications. That is how it sees Slack messages. The app has no internet permission, so it cannot send them anywhere.
 4. Turn on **Forward Slack direct messages to Android Auto**.
-5. In Settings → Apps → Slack car bridge → Battery, choose **Unrestricted**, so Samsung does not put the app to sleep.
+5. In Settings → Apps → Flack → Battery, choose **Unrestricted**, so Samsung does not put the app to sleep.
 
 ## Set up Android Auto
 

@@ -1,12 +1,12 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.app.PendingIntent
 import android.content.Context
 import androidx.core.content.edit
-import tech.amditis.slackcarbridge.core.ConsumeRejection
-import tech.amditis.slackcarbridge.core.Conversation
-import tech.amditis.slackcarbridge.core.RejectReason
-import tech.amditis.slackcarbridge.core.SessionRegistry
+import tech.amditis.flack.core.ConsumeRejection
+import tech.amditis.flack.core.Conversation
+import tech.amditis.flack.core.RejectReason
+import tech.amditis.flack.core.SessionRegistry
 import java.security.SecureRandom
 import java.util.EnumMap
 

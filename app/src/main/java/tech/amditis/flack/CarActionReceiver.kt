@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.app.PendingIntent
 import android.app.RemoteInput
@@ -6,7 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import tech.amditis.slackcarbridge.core.ConsumeResult
+import tech.amditis.flack.core.ConsumeResult
 
 /**
  * Receives the car's reply and mark-as-read actions.

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Slack car bridge</string>
-    <string name="listener_label">Slack car bridge listener</string>
+    <string name="app_name">Flack</string>
+    <string name="listener_label">Flack</string>
     <string name="channel_name">Slack messages for the car</string>
     <string name="channel_description">Copies of supported Slack direct messages, for Android Auto to read aloud.</string>
     <string name="reply_label">Reply</string>

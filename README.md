@@ -1,4 +1,4 @@
-# Slack car bridge
+# Flack
 
 A proposed Android companion for listening to incoming Slack messages and replying by voice through Android Auto.
 
@@ -8,7 +8,7 @@ The first targets are two phones connected to a car's Android Auto display: a Sa
 
 ## Download
 
-Newest build, for phones: [slack-car-bridge.apk](https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk). Then follow [the install steps](docs/INSTALL.md). It is an experiment and has not been tested in a car yet.
+Newest build, for phones: [flack.apk](https://github.com/jamditis/flack/releases/latest/download/flack.apk). Then follow [the install steps](docs/INSTALL.md). It is an experiment and has not been tested in a car yet.
 
 ## Start here
 
@@ -39,9 +39,9 @@ The local companion design does not make Slack or Google's voice services offlin
 
 ## Project setup
 
-Repository: **jamditis/slack-car-bridge**, public.
+Name: **Flack**. Repository: **jamditis/flack**, public.
 
-Proposed application ID: **tech.amditis.slackcarbridge**.
+Application ID: **tech.amditis.flack**.
 
 License: **Apache-2.0** for original project work (see LICENSE and NOTICE). The repository does not include third-party application code.
 

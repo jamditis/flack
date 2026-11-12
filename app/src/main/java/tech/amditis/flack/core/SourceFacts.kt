@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge.core
+package tech.amditis.flack.core
 
 /**
  * What the Android parser observed about one source notification.

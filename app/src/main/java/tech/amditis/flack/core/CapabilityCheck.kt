@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge.core
+package tech.amditis.flack.core
 
 /** The official Slack Android app. Other packages are ignored before any content is read. */
 const val SLACK_PACKAGE = "com.Slack"

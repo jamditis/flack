@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,9 +10,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
-import tech.amditis.slackcarbridge.core.Binding
-import tech.amditis.slackcarbridge.core.CapabilityCheck
-import tech.amditis.slackcarbridge.core.Conversation
+import tech.amditis.flack.core.Binding
+import tech.amditis.flack.core.CapabilityCheck
+import tech.amditis.flack.core.Conversation
 
 /**
  * Posts the car copy of a Slack conversation as a MessagingStyle notification
@@ -22,8 +22,8 @@ object CarNotificationPublisher {
     private const val CHANNEL_ID = "car_messages"
     const val REPLY_KEY = "bridge_reply"
     const val EXTRA_TOKEN = "token"
-    const val ACTION_REPLY = "tech.amditis.slackcarbridge.REPLY"
-    const val ACTION_MARK_READ = "tech.amditis.slackcarbridge.MARK_READ"
+    const val ACTION_REPLY = "tech.amditis.flack.REPLY"
+    const val ACTION_MARK_READ = "tech.amditis.flack.MARK_READ"
 
     fun ensureChannel(context: Context) {
         val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
@@ -116,7 +116,7 @@ object CarNotificationPublisher {
     private fun actionIntent(context: Context, action: String, token: String) =
         Intent(context, CarActionReceiver::class.java)
             .setAction(action)
-            .setData(Uri.Builder().scheme("slackcarbridge").authority("token").appendPath(token).build())
+            .setData(Uri.Builder().scheme("flack").authority("token").appendPath(token).build())
             .putExtra(EXTRA_TOKEN, token)
 
     /** Provisional product limit from SPEC.md section 7. */

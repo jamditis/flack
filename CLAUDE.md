@@ -21,7 +21,7 @@ docs/DEVICE_TEST_RECORD.md  # Real phone/car results, one column per phone
 docs/INSTALL.md             # Sideload and test steps for testers
 docs/ROADMAP.md             # Milestones P01-P08 (GitHub issues #1-#3 so far)
 docs/SOURCES.md, HANDOFF.md # Evidence limits and handoff notes
-app/src/main/java/tech/amditis/slackcarbridge/
+app/src/main/java/tech/amditis/flack/
   core/SourceFacts.kt       # Plain data the rules read (no Android imports)
   core/CapabilityCheck.kt   # Can this Slack notification take a car reply? Fails closed
   core/SessionRegistry.kt   # In-memory single-use reply tokens per content generation

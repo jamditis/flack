@@ -1,4 +1,6 @@
-# Slack car bridge specification
+# Flack specification
+
+Flack was called Slack car bridge while it was being planned.
 
 Version 0.1 · November 11, 2026
 
@@ -21,7 +23,7 @@ The user should not need to unlock or touch the phone during this flow. Setup, t
 | Connection | Record whether wired or wireless; validate the connection actually used |
 | Slack | Current installed official Android app; record version and profile |
 | Assistant | Record Google/Gemini and Android Auto versions; do not assume phone and car capabilities are identical |
-| Repository | Proposed public repository jamditis/slack-car-bridge |
+| Repository | Public repository jamditis/flack |
 | Implementation | Kotlin, AndroidX notification support, small phone setup interface |
 | Minimum SDK | API 31, the first with `PendingIntent.isActivity` and `isImmutable`, which the reply checks need. Both target phones run newer versions |
 | Build versions | Pin supported stable versions when implementation starts; verify current SDK and distribution requirements then |

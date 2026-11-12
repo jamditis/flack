@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.Manifest
 import android.app.Activity

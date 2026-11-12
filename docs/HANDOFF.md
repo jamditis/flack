@@ -2,7 +2,7 @@
 
 ## Intended destination
 
-The public repository jamditis/slack-car-bridge was created on November 12, 2026, after the maintainer reported that the native route fails: Gemini reads Slack notifications in the car but offers no voice reply. That report has no recorded versions yet; see the device test record.
+The public repository jamditis/flack was created on November 12, 2026, after the maintainer reported that the native route fails: Gemini reads Slack notifications in the car but offers no voice reply. That report has no recorded versions yet; see the device test record.
 
 The custom route is selected on that basis. If a recorded repeat of the native test passes on both target phones, stop this implementation path unless the maintainer requests a separate benefit.
 

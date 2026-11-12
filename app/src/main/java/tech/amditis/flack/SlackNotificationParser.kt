@@ -1,13 +1,13 @@
-package tech.amditis.slackcarbridge
+package tech.amditis.flack
 
 import android.app.Notification
 import android.app.PendingIntent
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
-import tech.amditis.slackcarbridge.core.Conversation
-import tech.amditis.slackcarbridge.core.Message
-import tech.amditis.slackcarbridge.core.ReplyActionFacts
-import tech.amditis.slackcarbridge.core.SourceFacts
+import tech.amditis.flack.core.Conversation
+import tech.amditis.flack.core.Message
+import tech.amditis.flack.core.ReplyActionFacts
+import tech.amditis.flack.core.SourceFacts
 import java.security.MessageDigest
 
 /** Facts for the core rules, plus the Android handles they refer to. */

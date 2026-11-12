@@ -3,7 +3,7 @@
 ## Reporting a problem
 
 Report security or privacy problems privately through GitHub's
-[private vulnerability reporting](https://github.com/jamditis/slack-car-bridge/security/advisories/new).
+[private vulnerability reporting](https://github.com/jamditis/flack/security/advisories/new).
 Do not open a public issue for them.
 
 Problems that count:

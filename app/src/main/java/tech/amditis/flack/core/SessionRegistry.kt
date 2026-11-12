@@ -1,4 +1,4 @@
-package tech.amditis.slackcarbridge.core
+package tech.amditis.flack.core
 
 /** Replies longer than this are refused, never shortened (SPEC.md section 8). */
 const val MAX_REPLY_LENGTH = 4000
