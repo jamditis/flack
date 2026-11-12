@@ -160,6 +160,9 @@ class CarPathTest {
 
     private fun slackReplies() = shadowOf(app).broadcastIntents.filter { it.action == "test.slack.REPLY" }
 
+    private fun reasonCount(reason: String) = Regex("  $reason: (\\d+)")
+        .findAll(BridgeState.diagnostics()).sumOf { it.groupValues[1].toInt() }
+
     @Test fun aDirectMessageBecomesACarMessage() {
         post(SyntheticSlack.dm(app))
         val notification = carCopy()
@@ -222,17 +225,93 @@ class CarPathTest {
         assertEquals(1, slackReplies().size)
     }
 
-    @Test fun twoConversationsSharingOneSlackActionAreBothWithdrawn() {
+    @Test fun twoConversationsSharingOneSlackActionAreBothReadOnly() {
         val shared = SyntheticSlack.replyIntent(app, "shared")
         post(SyntheticSlack.dm(app, key = "dm-riley", reply = shared))
+        val held = replyAction()
         assertEquals(1, manager.size())
         post(SyntheticSlack.dm(app, key = "dm-sam", sender = "Sam Example", reply = shared))
-        assertEquals(0, manager.size())
+        assertEquals(2, manager.size())
+        assertTrue(manager.allNotifications.all { it.actions.orEmpty().none { action -> action.remoteInputs?.isNotEmpty() == true } })
+        fire(held, "Cannot route this")
+        assertTrue(slackReplies().isEmpty())
     }
 
     @Test fun aReplyActionNotCreatedBySlackIsRefused() {
         post(SyntheticSlack.dm(app, reply = SyntheticSlack.replyIntent(app, "x", creator = "com.example.other")))
+        assertEquals(1, manager.size())
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+    }
+
+    @Test fun concurrentTypesAndTwoThreadsDispatchOnlyToTheirOriginalDestinationOnce() {
+        val destinations = SyntheticSlack.Kind.entries.filter { it != SyntheticSlack.Kind.UNKNOWN }.map { it to it.name } +
+            (SyntheticSlack.Kind.THREAD to "second-thread")
+        val held = destinations.map { (kind, key) ->
+            post(SyntheticSlack.message(app, kind, key))
+            val id = BridgeState.registry.findBinding { it.notificationKey == key }!!.carNotificationId
+            val copy = manager.getNotification(id)
+            val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
+            assertEquals(kind.group, style.isGroupConversation)
+            key to copy.actions.single { it.remoteInputs?.isNotEmpty() == true }
+        }
+        held.reversed().forEach { (key, action) ->
+            fire(action, "Reply for $key")
+            fire(action, "Duplicate for $key")
+        }
+        assertEquals(destinations.size, slackReplies().size)
+        slackReplies().forEach { sent ->
+            val key = sent.getStringExtra("conversation")!!
+            assertEquals("Reply for $key", RemoteInput.getResultsFromIntent(sent)!!.getCharSequence(SyntheticSlack.REPLY_KEY).toString())
+        }
+    }
+
+    @Test fun unknownAndMissingRepliesStillReadAndTrackTheirLifecycle() {
+        val sbn = SyntheticSlack.message(app, SyntheticSlack.Kind.UNKNOWN)
+        post(sbn)
+        val first = carCopy()
+        post(sbn)
+        assertEquals(1, manager.size())
+        assertTrue(first === carCopy())
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        listener.onNotificationRemoved(sbn)
         assertEquals(0, manager.size())
+        post(SyntheticSlack.dm(app, reply = null))
+        assertEquals(1, manager.size())
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        BridgeState.setEnabled(app, false)
+        assertEquals(0, manager.size())
+    }
+
+    @Test fun mixedChannelAndThreadActionsKeepReadoutAndInvalidateHeldReplies() {
+        val beforeReasons = reasonCount("MULTIPLE_REPLY_ACTIONS")
+        val channel = SyntheticSlack.replyIntent(app, "channel-paper")
+        val thread = SyntheticSlack.replyIntent(app, "thread-paper")
+        post(SyntheticSlack.dm(app, key = "channel", title = "Paper room", isGroup = true, reply = channel))
+        val held = replyAction()
+        val mixed = SyntheticSlack.dm(app, key = "mixed", title = "Paper room", isGroup = true, reply = channel, extraReply = thread)
+        post(mixed)
+        assertEquals(2, manager.size())
+        assertTrue(manager.allNotifications.all { it.actions.orEmpty().none { action -> action.remoteInputs?.isNotEmpty() == true } })
+        fire(held, "Do not send this")
+        assertTrue(slackReplies().isEmpty())
+        assertEquals(beforeReasons + 1, reasonCount("MULTIPLE_REPLY_ACTIONS"))
+        val before = BridgeState.forwarded
+        post(mixed)
+        assertEquals(before, BridgeState.forwarded)
+        assertEquals(2, manager.size())
+    }
+
+    @Test fun losingSafeReplyShapeExpiresTheHeldTokenAndKeepsText() {
+        val beforeReasons = reasonCount("NO_CONTEXT")
+        post(SyntheticSlack.dm(app, key = "changing"))
+        val held = replyAction()
+        post(SyntheticSlack.dm(app, key = "changing", isGroup = true))
+        assertEquals(1, manager.size())
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        fire(held, "Late reply")
+        assertTrue(slackReplies().isEmpty())
+        assertTrue(BridgeState.diagnostics().contains("Slack notifications read-only (reply not offered):"))
+        assertEquals(beforeReasons + 1, reasonCount("NO_CONTEXT"))
     }
 
     @Test fun removingTheSlackNotificationRemovesTheCarCopy() {

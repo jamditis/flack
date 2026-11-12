@@ -28,6 +28,11 @@ class FixtureActivity : Activity() {
         column.addView(button(R.string.post_dm) { post("dm-riley", "Riley Example", "Lunch at noon?", FixtureMessages.Kind.DM) })
         column.addView(button(R.string.post_second_dm) { post("dm-sam", "Sam Example", "Running ten minutes late.", FixtureMessages.Kind.DM) })
         column.addView(button(R.string.post_group) { post("group-project", "Riley Example", "Notes are in the shared folder.", FixtureMessages.Kind.GROUP) })
+        column.addView(button(R.string.post_channel) { post("channel-kites", "Riley Example", "Paper launch at noon.", FixtureMessages.Kind.CHANNEL) })
+        column.addView(button(R.string.post_private_channel) { post("private-paper", "Sam Example", "The paper samples arrived.", FixtureMessages.Kind.PRIVATE_CHANNEL) })
+        column.addView(button(R.string.post_thread) { post("thread-launch", "Riley Example", "Blue paper works.", FixtureMessages.Kind.THREAD) })
+        column.addView(button(R.string.post_second_thread) { post("thread-folding", "Sam Example", "Fold twice.", FixtureMessages.Kind.THREAD) })
+        column.addView(button(R.string.post_unknown) { post("unknown-paper", "Sam Example", "Read without replying.", FixtureMessages.Kind.UNKNOWN) })
         column.addView(button(R.string.post_two_actions) { post("dm-thread", "Sam Example", "See the thread above.", FixtureMessages.Kind.TWO_ACTIONS) })
         column.addView(button(R.string.clear) { FixtureMessages.clear(this) })
         status = TextView(this).apply { setPadding(0, pad, 0, 0) }

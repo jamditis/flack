@@ -33,11 +33,12 @@ class DebugControlReceiver : BroadcastReceiver() {
                 context,
                 conversation = intent.getStringExtra("conversation"),
                 text = intent.getStringExtra("text").orEmpty(),
+                repeat = intent.getBooleanExtra("repeat", false),
             )
         }
     }
 
-    private fun replyFromCar(context: Context, conversation: String?, text: String) {
+    private fun replyFromCar(context: Context, conversation: String?, text: String, repeat: Boolean) {
         val binding = conversation?.let { fixtureBinding(it) }
         if (binding == null) {
             Log.w(TAG, "refused: no car copy for that fake Slack conversation")
@@ -53,6 +54,7 @@ class DebugControlReceiver : BroadcastReceiver() {
         val fill = Intent()
         RemoteInput.addResultsToIntent(action.remoteInputs, fill, Bundle().apply { putCharSequence(CarNotificationPublisher.REPLY_KEY, text) })
         action.actionIntent.send(context, 0, fill)
+        if (repeat) action.actionIntent.send(context, 0, fill)
         Log.i(TAG, "sent car reply")
     }
 

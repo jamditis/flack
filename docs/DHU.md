@@ -26,7 +26,7 @@ Only debug builds of Flack accept the fake Slack. The released `flack.apk` ignor
    ```
 
 3. Open Flack on the phone and finish its setup steps.
-4. On the phone, open Android Auto settings, turn on developer mode (tap Version about ten times), then in the menu choose **Start head unit server**. Turn on **Unknown sources** if you have not already.
+4. On the phone, open **Settings → Connected devices → Android Auto**. If Samsung opens **App info**, tap **Configure in Android Auto**. Scroll down and tap the **Version** row 10 times, until it asks to allow development settings, then accept. This is Android Auto's own developer mode, separate from the phone's developer options. In the three-dot menu choose **Start head unit server**. Turn on **Unknown sources** in **Developer settings** if you have not already.
 5. On the computer:
 
    ```bash
@@ -38,6 +38,8 @@ Only debug builds of Flack accept the fake Slack. The released `flack.apk` ignor
 6. Open **Flack test source** on the phone and tap **Post a DM from Riley Example**. The message should appear in the DHU.
 7. Reply by voice. In the DHU console, `mic begin` uses the computer's microphone, or `mic play reply.wav` plays a recording. Confirm the reply.
 8. Back in Flack test source, the screen shows the last reply it received. It should match what you said, once.
+
+Repeat with the group DM, public/private channel, and both thread buttons. Each reply must reach only the selected destination. The unknown-routing and two-action buttons should produce read-only copies; verify that the DHU reads them without offering a reply. Record a host that hides those copies as a failure.
 
 ## Useful DHU commands
 

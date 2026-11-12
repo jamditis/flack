@@ -26,6 +26,7 @@ class CapabilityCheckTest {
     ) = SourceFacts(packageName, 0, "0|com.Slack|42|null|10123", summary, Conversation(title, isGroup, messages), actions)
 
     private fun rejected(reason: RejectReason) = Capability.Rejected(reason)
+    private fun readOnly(reason: RejectReason) = Capability.ReadOnly(reason)
 
     @Test fun directMessageWithOneBackgroundReplyIsEligible() {
         assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm()))
@@ -46,7 +47,7 @@ class CapabilityCheckTest {
     @Test fun anActionMustComeFromTheSameAppAsTheNotification() {
         val fixture = "tech.amditis.flack.fixture"
         val facts = dm(packageName = fixture, actions = listOf(replyAction(creatorPackage = SLACK_PACKAGE)))
-        assertEquals(rejected(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(facts, setOf(SLACK_PACKAGE, fixture)))
+        assertEquals(readOnly(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(facts, setOf(SLACK_PACKAGE, fixture)))
     }
 
     @Test fun otherPackagesAreRejectedFirst() {
@@ -62,9 +63,10 @@ class CapabilityCheckTest {
         assertEquals(rejected(RejectReason.NO_CONVERSATION), CapabilityCheck.evaluate(facts))
     }
 
-    @Test fun groupConversationsAndUnknownKindsFailClosed() {
-        assertEquals(rejected(RejectReason.NOT_A_DIRECT_MESSAGE), CapabilityCheck.evaluate(dm(isGroup = true)))
-        assertEquals(rejected(RejectReason.NOT_A_DIRECT_MESSAGE), CapabilityCheck.evaluate(dm(isGroup = null)))
+    @Test fun groupsNeedDestinationContextAndUnknownKindsAreReadOnly() {
+        assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(isGroup = true, title = "Paper room")))
+        assertEquals(readOnly(RejectReason.NO_CONTEXT), CapabilityCheck.evaluate(dm(isGroup = true)))
+        assertEquals(readOnly(RejectReason.UNKNOWN_CONVERSATION), CapabilityCheck.evaluate(dm(isGroup = null)))
     }
 
     @Test fun emptyMessageListIsRejected() {
@@ -82,35 +84,35 @@ class CapabilityCheckTest {
     }
 
     @Test fun missingReplyActionIsRejected() {
-        assertEquals(rejected(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(dm(actions = emptyList())))
+        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(dm(actions = emptyList())))
     }
 
     @Test fun twoTextActionsAreAmbiguous() {
         val thread = replyAction(keys = listOf("thread_text"))
-        assertEquals(rejected(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(), thread))))
+        assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(), thread))))
     }
 
     @Test fun oneActionWithTwoTextKeysIsAmbiguous() {
         val action = replyAction(keys = listOf("a", "b"))
-        assertEquals(rejected(RejectReason.MULTIPLE_RESULT_KEYS), CapabilityCheck.evaluate(dm(actions = listOf(action))))
+        assertEquals(readOnly(RejectReason.MULTIPLE_RESULT_KEYS), CapabilityCheck.evaluate(dm(actions = listOf(action))))
     }
 
     @Test fun replyThatOpensTheAppIsRejected() {
-        assertEquals(rejected(RejectReason.REPLY_OPENS_APP), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(showsUi = true)))))
+        assertEquals(readOnly(RejectReason.REPLY_OPENS_APP), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(showsUi = true)))))
     }
 
     @Test fun immutableReplyActionCannotTakeText() {
-        assertEquals(rejected(RejectReason.REPLY_ACTION_IMMUTABLE), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(immutable = true)))))
+        assertEquals(readOnly(RejectReason.REPLY_ACTION_IMMUTABLE), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(immutable = true)))))
     }
 
     @Test fun actionCreatedByAnotherAppIsRejected() {
         val foreign = replyAction(creatorPackage = "com.example.other")
-        assertEquals(rejected(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(foreign))))
+        assertEquals(readOnly(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(foreign))))
     }
 
     @Test fun actionFromAnotherUidOrUnknownUidIsRejected() {
-        assertEquals(rejected(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(creatorUid = 999)))))
-        assertEquals(rejected(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(creatorUid = null)))))
+        assertEquals(readOnly(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(creatorUid = 999)))))
+        assertEquals(readOnly(RejectReason.CREATOR_MISMATCH), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(creatorUid = null)))))
     }
 
     @Test fun titleWinsOverSenderForContext() {

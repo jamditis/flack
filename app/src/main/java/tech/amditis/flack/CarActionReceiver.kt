@@ -40,13 +40,14 @@ class CarActionReceiver : BroadcastReceiver() {
                 result.binding?.let { binding ->
                     val conversation = BridgeState.conversation(binding.carNotificationId)
                     if (conversation != null && BridgeState.registry.isCurrent(binding)) {
-                        val stillUsable = result.reason != ConsumeRejection.ALREADY_CONSUMED
+                        val stillUsable = result.reason == ConsumeRejection.EMPTY || result.reason == ConsumeRejection.TOO_LONG
                         CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = stillUsable)
                     }
                 }
             }
             is ConsumeResult.Dispatch -> {
-                val key = result.binding.resultKey
+                val key = result.binding.resultKey ?: return
+                val action = result.binding.action ?: return
                 val fillIn = Intent()
                 RemoteInput.addResultsToIntent(
                     arrayOf(RemoteInput.Builder(key).build()),
@@ -55,7 +56,7 @@ class CarActionReceiver : BroadcastReceiver() {
                 )
                 RemoteInput.setResultsSource(fillIn, RemoteInput.SOURCE_FREE_FORM_INPUT)
                 val status = try {
-                    result.binding.action.send(context, 0, fillIn)
+                    action.send(context, 0, fillIn)
                     HandoffStatus.HANDED_TO_SLACK
                 } catch (_: PendingIntent.CanceledException) {
                     HandoffStatus.HANDOFF_FAILED

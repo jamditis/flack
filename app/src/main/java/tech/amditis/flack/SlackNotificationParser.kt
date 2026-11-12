@@ -32,7 +32,7 @@ class ParsedNotification(
         conversation?.messages?.forEach {
             add(it.senderName); add(it.fromSelf); add(it.text); add(it.timestampMillis)
         }
-        facts.replyActions.forEach { add(it.freeFormResultKeys); add(it.showsUserInterface) }
+        facts.replyActions.forEach { add(it) }
         digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
@@ -61,11 +61,10 @@ object SlackNotificationParser {
 
     private fun conversation(notification: Notification): Conversation? {
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
-            ?: return null
+            ?: return plainConversation(notification)
         val title = style.conversationTitle?.toString()
         val extras = notification.extras
-        // Without the flag, a channel message could pass for a DM from its sender.
-        // Fail closed: G1 records whether Slack sets it on direct messages.
+        // Without the flag the destination shape is unknown: read-only.
         val isGroup = if (extras.containsKey(Notification.EXTRA_IS_GROUP_CONVERSATION)) {
             extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)
         } else {
@@ -83,6 +82,20 @@ object SlackNotificationParser {
             )
         }
         return Conversation(title, isGroup, messages)
+    }
+
+    private fun plainConversation(notification: Notification): Conversation? {
+        // A title and text can describe a call or upload, not a chat message.
+        // Only standard message notifications qualify for this read-only fallback.
+        if (notification.category != Notification.CATEGORY_MESSAGE ||
+            notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0
+        ) return null
+        val extras = notification.extras
+        val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+            ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+            ?: return null
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        return Conversation(title, null, listOf(Message(title, false, text, notification.`when`)))
     }
 
     private fun replyFacts(action: Notification.Action, sourceUid: Int): ReplyActionFacts {

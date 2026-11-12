@@ -10,7 +10,7 @@ bash scripts/check-forbidden-files.sh
 bash scripts/check-apk-permissions.sh app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Needs JDK 21 and the Android SDK (`ANDROID_HOME`). Lint treats warnings as errors.
+Needs JDK 21, the Android SDK (`ANDROID_HOME`), and Bash 4 or newer for the permission check. On macOS, install Bash with Homebrew and put `/opt/homebrew/bin` first on PATH when running the commands above. Lint treats warnings as errors.
 
 ## Files
 

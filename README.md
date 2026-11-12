@@ -7,9 +7,9 @@
 [![Latest release](https://img.shields.io/github/v/release/jamditis/flack?label=release)](https://github.com/jamditis/flack/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-Flack lets you hear Slack direct messages in Android Auto and answer them by voice. It copies a new Slack DM into the format Android Auto reads aloud. When you dictate and confirm a reply, Flack hands your words to the Slack app's own reply button, once.
+Flack copies new Slack messages into the format Android Auto reads aloud: DMs, group DMs, public and private channels, and thread replies. When a notification provides one safe reply action, you can dictate and confirm a reply. Flack hands your words to that original Slack action, once.
 
-**Status:** an experiment build for one-to-one DMs. It has not been tested in a car yet. See the [device test record](docs/DEVICE_TEST_RECORD.md) for what has been checked.
+**Status:** experimental support for these notification types, with synthetic routing tests. Real Slack and car behavior, including readout without a reply action, still need device tests. See the [device test record](docs/DEVICE_TEST_RECORD.md).
 
 ## Download
 
@@ -25,10 +25,10 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 ## How it works
 
 1. Flack reads notifications from the official Slack app only. It ignores every other app before reading anything.
-2. For a direct message with an inline reply, and only while Android Auto is connected, it posts a copy that Android Auto can read aloud and reply to.
+2. While Android Auto is connected, it posts a readable copy of each eligible text notification. Group summaries are suppressed to avoid duplicate announcements.
 3. When you confirm a reply in the car, Flack checks a one-time token and passes your text to Slack's reply action. Slack sends the message.
 
-If Flack cannot tell where a reply would go, it does not offer one. Group DMs, channels and threads are off until each one is tested on a real phone.
+If Flack cannot tell where a reply would go, it keeps the text available without a reply action. Two text reply actions, unknown conversation shape, missing group context, or a shared source action disable replying. Flack never guesses a destination from a sender or channel name. The [capability table](docs/ROADMAP.md#notification-capabilities) records the rules and evidence limits.
 
 ## Privacy
 

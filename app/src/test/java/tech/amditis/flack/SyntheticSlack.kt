@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Process
 import android.os.UserHandle
 import android.service.notification.StatusBarNotification
@@ -23,12 +24,26 @@ object SyntheticSlack {
 
     /** Stand-in for Slack's reply action, sent to a broadcast the test can observe. */
     fun replyIntent(context: Context, conversation: String, creator: String = SLACK_PACKAGE, creatorUid: Int = SLACK_UID): PendingIntent {
-        val intent = Intent("test.slack.REPLY").setPackage(context.packageName).putExtra("conversation", conversation)
+        val intent = Intent("test.slack.REPLY").setPackage(context.packageName)
+            .setData(Uri.Builder().scheme("test").authority("slack").appendPath(conversation).build())
+            .putExtra("conversation", conversation)
         val pending = PendingIntent.getBroadcast(context, conversation.hashCode(), intent, PendingIntent.FLAG_MUTABLE)
         shadowOf(pending).setCreatorPackage(creator)
         shadowOf(pending).setCreatorUid(creatorUid)
         return pending
     }
+
+    enum class Kind(val title: String?, val group: Boolean?) {
+        DM(null, false),
+        CHANNEL("#paper-kites", true),
+        PRIVATE_CHANNEL("Private paper room", true),
+        GROUP_DM("Riley Example, Sam Example", true),
+        THREAD("#paper-kites · Paper launch thread", true),
+        UNKNOWN("Paper room", null),
+    }
+
+    fun message(context: Context, kind: Kind, key: String = kind.name, reply: PendingIntent? = replyIntent(context, key)) =
+        dm(context, key = key, isGroup = kind.group, title = kind.title, reply = reply)
 
     fun dm(
         context: Context,
@@ -38,6 +53,7 @@ object SyntheticSlack {
         isGroup: Boolean? = false,
         title: String? = null,
         reply: PendingIntent? = replyIntent(context, key),
+        extraReply: PendingIntent? = null,
         freeForm: Boolean = true,
         packageName: String = SLACK_PACKAGE,
         user: UserHandle = Process.myUserHandle(),
@@ -61,6 +77,14 @@ object SyntheticSlack {
             builder.addAction(
                 NotificationCompat.Action.Builder(0, "Reply", reply)
                     .addRemoteInput(input.build())
+                    .setShowsUserInterface(false)
+                    .build(),
+            )
+        }
+        if (extraReply != null) {
+            builder.addAction(
+                NotificationCompat.Action.Builder(0, "Reply in thread", extraReply)
+                    .addRemoteInput(RemoteInput.Builder("thread_text").build())
                     .setShowsUserInterface(false)
                     .build(),
             )
