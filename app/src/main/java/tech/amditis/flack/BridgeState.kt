@@ -26,6 +26,7 @@ object BridgeState {
     private const val PREFS = "bridge"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_AUTO_CONFIRMED = "android_auto_confirmed"
+    private const val KEY_CAR_ONLY = "car_only"
 
     private val random = SecureRandom()
 
@@ -42,6 +43,9 @@ object BridgeState {
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
 
     @Volatile var listenerConnected = false
+
+    /** True while Android Auto is projecting from this phone. Set by [CarSession]. */
+    @Volatile var carConnected = false
     @Volatile var lastHandoff = HandoffStatus.NONE
         private set
     @Volatile var forwarded = 0
@@ -58,6 +62,19 @@ object BridgeState {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
         if (!enabled) CarNotificationPublisher.cancel(context, registry.withdrawAll())
     }
+
+    /** On by default: copies exist only during an Android Auto session (SPEC.md section 5). */
+    fun isCarOnly(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CAR_ONLY, true)
+
+    fun setCarOnly(context: Context, carOnly: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_CAR_ONLY, carOnly) }
+        if (!shouldForward(context)) CarNotificationPublisher.cancel(context, registry.withdrawAll())
+    }
+
+    /** Forward new messages only when switched on and, unless the user opted out, in the car. */
+    fun shouldForward(context: Context): Boolean =
+        isEnabled(context) && (carConnected || !isCarOnly(context))
 
     /** Android Auto's Unknown sources setting cannot be read, so the user confirms it. */
     fun isAndroidAutoConfirmed(context: Context): Boolean =

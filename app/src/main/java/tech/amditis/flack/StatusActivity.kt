@@ -44,6 +44,7 @@ class StatusActivity : Activity() {
     private lateinit var steps: List<Step>
     private lateinit var stepViews: List<View>
     private lateinit var forwarding: MaterialSwitch
+    private lateinit var carOnly: MaterialSwitch
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +84,7 @@ class StatusActivity : Activity() {
         }
 
         forwarding = findViewById(R.id.forwarding)
+        carOnly = findViewById(R.id.car_only)
         val version = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
         findViewById<TextView>(R.id.footer).text = getString(R.string.footer, version)
     }
@@ -115,6 +117,9 @@ class StatusActivity : Activity() {
         forwarding.isChecked = forwardingOn
         forwarding.setOnCheckedChangeListener { _, on -> BridgeState.setEnabled(this, on); refresh() }
         if (forwardingOn) done++
+        carOnly.setOnCheckedChangeListener(null)
+        carOnly.isChecked = BridgeState.isCarOnly(this)
+        carOnly.setOnCheckedChangeListener { _, on -> BridgeState.setCarOnly(this, on); refresh() }
 
         val total = steps.size + 1
         findViewById<TextView>(R.id.setup_title).text =
@@ -127,6 +132,7 @@ class StatusActivity : Activity() {
         findViewById<TextView>(R.id.status_summary).text = getString(
             R.string.status_summary,
             getString(if (forwardingOn) R.string.state_on else R.string.state_off),
+            getString(if (BridgeState.carConnected) R.string.listener_connected else R.string.listener_not_connected),
             getString(if (BridgeState.listenerConnected) R.string.listener_connected else R.string.listener_not_connected),
             BridgeState.lastHandoff.label,
         )

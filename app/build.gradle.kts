@@ -43,6 +43,7 @@ android {
 dependencies {
     implementation(libs.androidx.core)
     implementation(libs.material)
+    implementation(libs.androidx.car.app)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)

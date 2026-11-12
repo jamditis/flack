@@ -17,8 +17,11 @@ import tech.amditis.flack.core.SLACK_PACKAGE
  */
 class SlackListenerService : NotificationListenerService() {
 
+    private var carSession: CarSession? = null
+
     override fun onListenerConnected() {
         BridgeState.listenerConnected = true
+        carSession = CarSession(this, ::onCarConnectionChanged).also { it.start() }
         // After a restart the registry is empty, so any car copy still showing holds a
         // dead token. Remove them rather than leave replies that can only be refused.
         if (BridgeState.registry.bindingCount() == 0) NotificationManagerCompat.from(this).cancelAll()
@@ -41,15 +44,18 @@ class SlackListenerService : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         BridgeState.listenerConnected = false
+        carSession?.stop()
+        carSession = null
         CarNotificationPublisher.cancel(this, BridgeState.registry.clear())
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!isOwnProfileSlack(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
-        if (!BridgeState.isEnabled(this)) {
-            // Forward nothing, but keep the baseline and every action on record, so
-            // turning the switch on neither replays old messages nor hides a shared action.
+        if (!BridgeState.shouldForward(this)) {
+            // Forward nothing, but keep the baseline and every action on record, so turning
+            // the switch on or reaching the car neither replays old messages nor hides a
+            // shared action.
             recordWithoutForwarding(sbn, parsed)
             return
         }
@@ -62,6 +68,15 @@ class SlackListenerService : NotificationListenerService() {
             }
             is Capability.Eligible -> forward(sbn, parsed, capability)
         }
+    }
+
+    /**
+     * Leaving the car withdraws every copy and its token (SPEC.md section 7). What
+     * was forwarded becomes the baseline, so reconnecting does not replay it.
+     */
+    fun onCarConnectionChanged(connected: Boolean) {
+        BridgeState.carConnected = connected
+        if (!BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {

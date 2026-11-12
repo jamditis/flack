@@ -40,12 +40,57 @@ class CarPathTest {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         BridgeState.registry.clear()
         BridgeState.setEnabled(app, true)
+        BridgeState.setCarOnly(app, true)
         listener = Robolectric.buildService(SlackListenerService::class.java).create().get()
+        listener.onCarConnectionChanged(true)
     }
 
     @After fun tearDown() {
         BridgeState.setEnabled(app, false)
+        BridgeState.carConnected = false
         BridgeState.registry.clear()
+    }
+
+    @Test fun nothingIsForwardedOutsideTheCar() {
+        listener.onCarConnectionChanged(false)
+        post(SyntheticSlack.dm(app))
+        assertEquals(0, manager.size())
+    }
+
+    @Test fun leavingTheCarWithdrawsCopiesAndTheirTokens() {
+        post(SyntheticSlack.dm(app))
+        val held = replyAction()
+        listener.onCarConnectionChanged(false)
+        assertEquals(0, manager.size())
+        fire(held, "Too late")
+        assertTrue(slackReplies().isEmpty())
+    }
+
+    @Test fun reconnectingDoesNotReplayWhatWasAlreadyForwarded() {
+        val sbn = SyntheticSlack.dm(app)
+        post(sbn)
+        listener.onCarConnectionChanged(false)
+        listener.onCarConnectionChanged(true)
+        post(sbn)
+        assertEquals(0, manager.size())
+        post(SyntheticSlack.dm(app, text = "A new message"))
+        assertEquals(1, manager.size())
+    }
+
+    @Test fun aMessageThatArrivedOutsideTheCarIsNotReplayedOnConnect() {
+        listener.onCarConnectionChanged(false)
+        val sbn = SyntheticSlack.dm(app)
+        post(sbn)
+        listener.onCarConnectionChanged(true)
+        post(sbn)
+        assertEquals(0, manager.size())
+    }
+
+    @Test fun turningCarOnlyOffForwardsWithoutACar() {
+        listener.onCarConnectionChanged(false)
+        BridgeState.setCarOnly(app, false)
+        post(SyntheticSlack.dm(app))
+        assertEquals(1, manager.size())
     }
 
     private fun post(sbn: StatusBarNotification) = listener.onNotificationPosted(sbn)

@@ -32,12 +32,14 @@
     <string name="step_auto_confirm">I\'ve done this</string>
     <string name="step_auto_unavailable">Android Auto is not installed on this phone.</string>
     <string name="enable_switch">Forward Slack DMs to Android Auto</string>
+    <string name="car_only_switch">Only while Android Auto is connected</string>
+    <string name="car_only_body">Keeps copies off your phone the rest of the day. Turn off to test without a car.</string>
     <string name="step_state_done">Done</string>
     <string name="step_state_todo">Not done</string>
 
     <!-- Status -->
     <string name="status_title">Status</string>
-    <string name="status_summary">Forwarding: %1$s\nListener: %2$s\nLast reply: %3$s</string>
+    <string name="status_summary">Forwarding: %1$s\nAndroid Auto: %2$s\nListener: %3$s\nLast reply: %4$s</string>
     <string name="state_on">on</string>
     <string name="state_off">off</string>
     <string name="listener_connected">connected</string>
