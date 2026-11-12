@@ -14,7 +14,7 @@ class CapabilityCheckTest {
         creatorUid: Int? = slackUid,
         showsUi: Boolean = false,
         immutable: Boolean = false,
-    ) = ReplyActionFacts(creatorPackage, creatorUid, slackUid, keys, showsUi, immutable)
+    ) = ReplyActionFacts(creatorPackage, creatorUid, slackUid, keys, showsUi, immutable, semanticAction = 1)
 
     private fun dm(
         title: String? = null,
@@ -90,6 +90,46 @@ class CapabilityCheckTest {
     @Test fun twoTextActionsAreAmbiguous() {
         val thread = replyAction(keys = listOf("thread_text"))
         assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(), thread))))
+    }
+
+    @Test fun theUniqueSemanticReplyIsSelectedForEveryConversationType() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        val other = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0)
+        listOf(false, true).forEach { group ->
+            assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(other, direct))))
+            assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, other))))
+        }
+    }
+
+    @Test fun titlesNeverChooseBetweenTwoSemanticReplyRoutes() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
+        listOf(false, true).forEach { group ->
+            assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, thread))))
+        }
+    }
+
+    @Test fun aReplyLabelWithoutTheReplySemanticIsReadOnly() {
+        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(dm(actions = listOf(replyAction().copy(title = "Reply", semanticAction = 0)))))
+    }
+
+    @Test fun aUniqueSemanticThreadReplyKeepsItsOriginalActionAndKey() {
+        val channel = replyAction().copy(title = "Reply", semanticAction = 0)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
+        assertEquals(Capability.Eligible(1, "thread_text"), CapabilityCheck.evaluate(dm(isGroup = true, title = "Paper room", actions = listOf(channel, thread))))
+    }
+
+    @Test fun selectionStillValidatesCreatorMutabilityAndResultKeys() {
+        val other = replyAction().copy(title = "Reply in thread", semanticAction = 0)
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        listOf(
+            direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,
+            direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
+            direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
+        ).forEach { (action, reason) ->
+            assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(other, action))))
+        }
     }
 
     @Test fun oneActionWithTwoTextKeysIsAmbiguous() {

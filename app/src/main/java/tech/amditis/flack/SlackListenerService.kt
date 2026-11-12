@@ -58,6 +58,11 @@ class SlackListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!isOwnProfileSource(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
+        // Capture multi-action facts even when the selector can safely choose one,
+        // so the driveway test still reveals Slack's actual action shape.
+        if (parsed.facts.replyActions.count { it.freeFormResultKeys.isNotEmpty() } > 1) {
+            BridgeState.replyActionDiagnostics.record(parsed.facts.replyActions)
+        }
         if (!BridgeState.shouldForward(this)) {
             // Forward nothing, but keep the baseline and every action on record, so turning
             // the switch on or reaching the car neither replays old messages nor hides a
@@ -84,7 +89,7 @@ class SlackListenerService : NotificationListenerService() {
      */
     fun onCarConnectionChanged(connected: Boolean) {
         BridgeState.carConnected = connected
-        if (!BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
+        if (!connected || !BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -94,7 +99,12 @@ class SlackListenerService : NotificationListenerService() {
 
     private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible?) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
-        val conversation = parsed.facts.conversation ?: return
+        val original = parsed.facts.conversation ?: return
+        val selectedTitle = capability?.let { parsed.facts.replyActions[it.actionIndex].title }
+        val isThreadReply = selectedTitle?.contains("thread", ignoreCase = true) == true
+        val conversation = if (isThreadReply && original.title?.contains("thread", ignoreCase = true) != true) {
+            original.copy(title = "${CapabilityCheck.contextLabel(original)} · thread")
+        } else original
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf, parsed.actionIntents.filterNotNull())) {
             is Observation.Publish -> {

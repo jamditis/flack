@@ -46,6 +46,7 @@ class StatusActivity : Activity() {
     private lateinit var stepViews: List<View>
     private lateinit var forwarding: MaterialSwitch
     private lateinit var carOnly: MaterialSwitch
+    private lateinit var hidePhoneCopies: MaterialSwitch
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,6 +97,7 @@ class StatusActivity : Activity() {
         findViewById<MaterialButton>(R.id.copy_report).setOnClickListener { copyTestReport() }
         forwarding = findViewById(R.id.forwarding)
         carOnly = findViewById(R.id.car_only)
+        hidePhoneCopies = findViewById(R.id.hide_phone_copies)
         val version = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
         findViewById<TextView>(R.id.footer).text = getString(R.string.footer, version)
     }
@@ -132,6 +134,9 @@ class StatusActivity : Activity() {
         carOnly.setOnCheckedChangeListener(null)
         carOnly.isChecked = BridgeState.isCarOnly(this)
         carOnly.setOnCheckedChangeListener { _, on -> BridgeState.setCarOnly(this, on); refresh() }
+        hidePhoneCopies.setOnCheckedChangeListener(null)
+        hidePhoneCopies.isChecked = BridgeState.hidesPhoneCopies(this)
+        hidePhoneCopies.setOnCheckedChangeListener { _, on -> BridgeState.setHidePhoneCopies(this, on); refresh() }
 
         val total = steps.size + 1
         findViewById<TextView>(R.id.setup_title).text =

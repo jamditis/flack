@@ -22,7 +22,10 @@ class CarActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             CarNotificationPublisher.ACTION_REPLY -> reply(context, intent)
             // Local car acknowledgement only. Slack's read state is not touched.
-            CarNotificationPublisher.ACTION_MARK_READ -> BridgeState.countAcknowledged()
+            CarNotificationPublisher.ACTION_MARK_READ -> {
+                val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN) ?: return
+                if (BridgeState.registry.findBinding { it.token == token } != null) BridgeState.acknowledgeCopy(token)
+            }
         }
     }
 

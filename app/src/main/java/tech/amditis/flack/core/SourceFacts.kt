@@ -42,4 +42,10 @@ data class ReplyActionFacts(
     val showsUserInterface: Boolean,
     /** True when the PendingIntent is immutable, so it cannot take reply text. */
     val isImmutable: Boolean,
+    /** Action UI label, never a sender or conversation label. Memory only until sanitized. */
+    val title: String? = null,
+    val semanticAction: Int = 0,
+    val allowGeneratedReplies: Boolean = false,
+    /** All input names, including choice-only inputs. Kept out of reports unless known static values. */
+    val resultKeys: List<String> = freeFormResultKeys,
 )

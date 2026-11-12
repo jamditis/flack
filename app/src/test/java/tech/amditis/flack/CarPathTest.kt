@@ -2,6 +2,7 @@ package tech.amditis.flack
 
 import android.Manifest
 import android.app.Application
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.RemoteInput
 import android.content.Intent
@@ -39,6 +40,7 @@ class CarPathTest {
 
     @Before fun setUp() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        app.getSharedPreferences("bridge", Application.MODE_PRIVATE).edit().clear().commit()
         BridgeState.registry.clear()
         BridgeState.setEnabled(app, true)
         BridgeState.setCarOnly(app, true)
@@ -62,6 +64,7 @@ class CarPathTest {
     }
 
     @Test fun aBlockedCarChannelIsNotCountedAsForwarded() {
+        BridgeState.setHidePhoneCopies(app, false)
         CarNotificationPublisher.ensureChannel(app)
         val nm = app.getSystemService(NotificationManager::class.java)
         val channel = nm.getNotificationChannel("car_messages")
@@ -88,6 +91,18 @@ class CarPathTest {
         assertFalse(report.contains("com.Slack|42"))
         assertTrue(report.contains("Forwarded to the car: "))
         assertTrue(report.contains("Notification access: "))
+    }
+
+    @Test fun theTestReportIncludesAmbiguousActionShapesWithoutConversationContent() {
+        post(SyntheticSlack.dm(app, sender = "Secret Example", text = "Private meeting at six",
+            extraReply = SyntheticSlack.replyIntent(app, "secret-thread")))
+        val report = TestReport.build(app)
+        assertTrue(report.contains("Multiple reply action diagnostics"))
+        assertTrue(report.contains("title=Reply in thread"))
+        assertTrue(report.contains("resultKeys=[thread_text]"))
+        listOf("Secret Example", "Private meeting", "secret-thread", "com.Slack|42").forEach {
+            assertFalse(report.contains(it))
+        }
     }
 
     @Test fun nothingIsForwardedOutsideTheCar() {
@@ -174,6 +189,144 @@ class CarPathTest {
         assertFalse(reply.showsUserInterface)
         assertFalse(replyAction().actionIntent.isImmutable)
         assertTrue(NotificationCompat.getInvisibleActions(notification).any { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ })
+    }
+
+    @Test fun aChannelWithOneSemanticReplyMeetsTheCarContractAndUsesThePhoneRoute() {
+        post(SyntheticSlack.dm(app, key = "channel", title = "#paper-kites", isGroup = true,
+            extraReply = SyntheticSlack.replyIntent(app, "thread"),
+            replySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+            extraReplySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_NONE))
+        val notification = carCopy()
+        val reply = NotificationCompat.getAction(notification, notification.actions.indexOf(replyAction()))!!
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_REPLY, reply.semanticAction)
+        assertFalse(reply.showsUserInterface)
+        assertEquals(1, reply.remoteInputs!!.size)
+        val read = NotificationCompat.getInvisibleActions(notification).single()
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, read.semanticAction)
+        assertFalse(read.showsUserInterface)
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)!!
+        assertEquals("#paper-kites", style.conversationTitle.toString())
+        assertTrue(TestReport.build(app).contains("title=Reply in thread"))
+        replyFromCar("Synthetic reply")
+        assertEquals("channel", slackReplies().single().getStringExtra("conversation"))
+    }
+
+    @Test fun everyKnownConversationTypeCanUseItsUniquePhoneNotificationReply() {
+        SyntheticSlack.Kind.entries.filter { it != SyntheticSlack.Kind.UNKNOWN }.forEach { kind ->
+            val source = SyntheticSlack.dm(app, key = kind.name, title = kind.title, isGroup = kind.group,
+                extraReply = SyntheticSlack.replyIntent(app, "${kind.name}-other"),
+                extraReplySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_NONE)
+            post(source)
+            assertNotNull(replyAction())
+            assertTrue(NotificationCompat.getInvisibleActions(carCopy()).any { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ })
+            replyFromCar("Synthetic reply for ${kind.name}")
+            assertEquals(kind.name, slackReplies().last().getStringExtra("conversation"))
+            listener.onNotificationRemoved(source)
+            assertEquals(0, manager.size())
+        }
+    }
+
+    @Test fun aUniqueSemanticThreadReplyNamesTheThreadAndKeepsItsOriginalRoute() {
+        post(SyntheticSlack.dm(app, key = "channel", title = "#paper-kites", isGroup = true,
+            extraReply = SyntheticSlack.replyIntent(app, "selected-thread"),
+            replySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_NONE))
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(carCopy())!!
+        assertEquals("#paper-kites · thread", style.conversationTitle.toString())
+        replyFromCar("Synthetic thread reply")
+        assertEquals("selected-thread", slackReplies().single().getStringExtra("conversation"))
+        assertEquals("Synthetic thread reply", RemoteInput.getResultsFromIntent(slackReplies().single())!!.getCharSequence("thread_text").toString())
+    }
+
+    @Test fun disconnectClearsCopiesEvenWhenOutsideCarTestingIsEnabled() {
+        BridgeState.setCarOnly(app, false)
+        post(SyntheticSlack.dm(app))
+        val held = replyAction()
+        listener.onCarConnectionChanged(false)
+        assertEquals(0, manager.size())
+        fire(held, "Expired")
+        assertTrue(slackReplies().isEmpty())
+    }
+
+    @Test fun readOnlyCopiesKeepMarkAsReadWithoutInventingAReply() {
+        post(SyntheticSlack.dm(app, extraReply = SyntheticSlack.replyIntent(app, "ambiguous")))
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, read.semanticAction)
+        assertFalse(read.showsUserInterface)
+    }
+
+    @Test fun twoSemanticChannelThreadRepliesStayReadOnlyEvenWithAnExplicitReplyLabel() {
+        post(SyntheticSlack.dm(app, key = "thread", title = "Paper room thread", isGroup = true,
+            extraReply = SyntheticSlack.replyIntent(app, "thread-reply"),
+            replySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+            extraReplySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY))
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        assertTrue(slackReplies().isEmpty())
+    }
+
+    @Test fun newIncomingMessagesCanAlertAndOwnReplyUpdatesStayQuietWithoutAlteringTheSource() {
+        BridgeState.setHidePhoneCopies(app, false)
+        val source = SyntheticSlack.dm(app)
+        val sourceFlags = source.notification.flags
+        post(source)
+        val notification = carCopy()
+        assertEquals(0, notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+        assertEquals(Notification.GROUP_ALERT_ALL, notification.groupAlertBehavior)
+        assertEquals("flack_car_messages", notification.group)
+        assertEquals(sourceFlags, source.notification.flags)
+        post(SyntheticSlack.dm(app, text = "Synthetic second incoming message"))
+        assertEquals(1, manager.size())
+        assertEquals(0, carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE)
+        assertEquals(Notification.GROUP_ALERT_ALL, carCopy().groupAlertBehavior)
+        replyFromCar("Synthetic reply")
+        assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals(Notification.GROUP_ALERT_SUMMARY, carCopy().groupAlertBehavior)
+        assertEquals(0, carCopy().defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
+        assertNull(carCopy().sound)
+        assertNull(carCopy().vibrate)
+    }
+
+    @Test fun anOlderCurrentCopyStillCountsAsOpenedAfterDiagnosticHistoryEviction() {
+        post(SyntheticSlack.dm(app, key = "oldest"))
+        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        repeat(20) { index -> post(SyntheticSlack.dm(app, key = "new-$index")) }
+        val before = BridgeState.acknowledged
+        CarActionReceiver().onReceive(app, shadowOf(read.actionIntent).savedIntent)
+        assertEquals(before + 1, BridgeState.acknowledged)
+    }
+
+    @Test fun quietPhoneCopiesAreTheDefaultAndTheReportDoesNotClaimCarDisplay() {
+        assertTrue(BridgeState.hidesPhoneCopies(app))
+        post(SyntheticSlack.dm(app))
+        assertEquals("car_messages_quiet", carCopy().channelId)
+        val channel = app.getSystemService(NotificationManager::class.java).getNotificationChannel(carCopy().channelId)
+        assertEquals(NotificationManager.IMPORTANCE_MIN, channel.importance)
+        assertNull(channel.sound)
+        assertFalse(channel.shouldVibrate())
+        assertFalse(channel.canShowBadge())
+        assertTrue(TestReport.build(app).contains("channel=car_messages_quiet"))
+        assertTrue(TestReport.build(app).contains("Android Auto display: Not reported by the host"))
+        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        CarActionReceiver().onReceive(app, shadowOf(read.actionIntent).savedIntent)
+        assertTrue(TestReport.build(app).contains("opened in Android Auto=true"))
+    }
+
+    @Test fun switchingPhoneCopyModeClearsOldTokensAndUsesTheAlertChannelForNewMessages() {
+        post(SyntheticSlack.dm(app))
+        val held = replyAction()
+        val activity = Robolectric.buildActivity(StatusActivity::class.java).setup().get()
+        val toggle = activity.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.hide_phone_copies)
+        assertTrue(toggle.isChecked)
+        toggle.performClick()
+        assertFalse(BridgeState.hidesPhoneCopies(app))
+        assertEquals(0, manager.size())
+        fire(held, "Expired")
+        assertTrue(slackReplies().isEmpty())
+        post(SyntheticSlack.dm(app, text = "Synthetic new message"))
+        assertEquals("car_messages", carCopy().channelId)
+        assertEquals(Notification.GROUP_ALERT_ALL, carCopy().groupAlertBehavior)
+        assertTrue(TestReport.build(app).contains("channel=car_messages"))
+        activity.recreate()
     }
 
     @Test fun otherAppsAreIgnored() {

@@ -48,11 +48,13 @@ object CapabilityCheck {
         if (conversation.isGroup == null) return readOnly(RejectReason.UNKNOWN_CONVERSATION)
         if (conversation.isGroup && conversation.title.isNullOrBlank()) return readOnly(RejectReason.NO_CONTEXT)
 
-        val candidates = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
+        // Joe accepted the phone notification's inline reply route for every
+        // conversation type on 2026-11-12 (#23). Labels never select a destination.
+        val candidates = facts.replyActions.withIndex().filter {
+            it.value.freeFormResultKeys.isNotEmpty() && it.value.semanticAction == SEMANTIC_ACTION_REPLY
+        }
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
-        // Two text actions (for example "reply" and "reply in thread") are ambiguous.
         if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
-
         val (index, action) = candidates.single()
         if (action.freeFormResultKeys.size > 1) return readOnly(RejectReason.MULTIPLE_RESULT_KEYS)
         if (action.showsUserInterface) return readOnly(RejectReason.REPLY_OPENS_APP)
@@ -76,4 +78,7 @@ object CapabilityCheck {
 
     private fun reject(reason: RejectReason) = Capability.Rejected(reason)
     private fun readOnly(reason: RejectReason) = Capability.ReadOnly(reason)
+
+    // Android's Notification.Action.SEMANTIC_ACTION_REPLY. Core has no Android dependency.
+    private const val SEMANTIC_ACTION_REPLY = 1
 }

@@ -158,6 +158,21 @@
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:textIsSelectable="true" />
 
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/hide_phone_copies"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
+                    android:text="@string/hide_phone_copies"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hide_phone_copies_body"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/copy_report"
                     style="@style/Widget.Flack.Button.Tonal"

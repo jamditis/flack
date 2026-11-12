@@ -58,6 +58,23 @@ class SlackNotificationParserTest {
     @Test fun choiceOnlyRepliesAreNotFreeForm() {
         val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context, freeForm = false))
         assertTrue(parsed.facts.replyActions.single().freeFormResultKeys.isEmpty())
+        assertEquals(listOf(SyntheticSlack.REPLY_KEY), parsed.facts.replyActions.single().resultKeys)
+    }
+
+    @Test fun readsActionMetadataWithoutRemoteInputChoices() {
+        val notification = Notification.Builder(context, "slack")
+            .setSmallIcon(android.R.drawable.sym_def_app_icon)
+            .addAction(Notification.Action.Builder(null, "Reply in thread", SyntheticSlack.replyIntent(context, "metadata"))
+                .addRemoteInput(android.app.RemoteInput.Builder("thread_text").build())
+                .setSemanticAction(Notification.Action.SEMANTIC_ACTION_REPLY)
+                .setAllowGeneratedReplies(true)
+                .build())
+            .build()
+        val action = SlackNotificationParser.parse(SyntheticSlack.statusBar(notification, "metadata")).facts.replyActions.single()
+        assertEquals("Reply in thread", action.title)
+        assertEquals(Notification.Action.SEMANTIC_ACTION_REPLY, action.semanticAction)
+        assertTrue(action.allowGeneratedReplies)
+        assertEquals(listOf("thread_text"), action.freeFormResultKeys)
     }
 
     @Test fun anActionThatOpensAnActivityShowsUserInterface() {

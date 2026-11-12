@@ -4,7 +4,37 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
-First experiment build for one-to-one Slack direct messages. Not yet tested in a car.
+## 0.2.1
+
+- The test report includes content-free facts for the last 20 multi-action
+  notifications, including cases where a reply can be selected. Unknown labels
+  and result keys are omitted to protect private content.
+- DMs, group DMs, channels and threads use the same inline reply action as the
+  phone notification: The single free-form action with the REPLY semantic,
+  validated for background execution. Zero or multiple semantic reply actions
+  stay read-only. A selected thread action keeps its thread context.
+- Flack follows your Slack mobile notification settings. Whatever Slack notifies
+  you about on your phone can reach the car. Slack sends channel notifications
+  only when your channel settings permit them, such as mentions or All new messages.
+- Hide Flack copies on the phone is on by default. It uses a silent channel
+  with minimum importance. Android cannot fully hide the copies, and Android
+  Auto may hide quiet copies too. If the car stays empty, turn the switch off
+  and receive a new Slack message. Switching clears current copies.
+- The report names each recent copy's channel and whether its car open action
+  ran. Android Auto does not report whether a copy was displayed.
+- Alerting mode groups copies and lets new incoming messages alert. Reposts of
+  existing content and own replies stay quiet with only-alert-once. Duplicate
+  phone alerts remain possible in this mode.
+  Slack's original notifications are unchanged. Source removal and car
+  disconnection remove Flack's copies and expire their reply tokens.
+- Android Auto requires both reply and mark-as-read actions. Read-only copies
+  may appear only on the phone. A phone copy count does not prove a car display.
+- Android Auto owns the app list and the Flack available notice. This release
+  does not change that notice. A physical car test is still required.
+
+## Earlier experiment
+
+First experiment build for one-to-one Slack direct messages.
 
 ### What Flack does
 
