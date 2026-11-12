@@ -23,6 +23,8 @@ An Android app (Kotlin, sideloaded APK) that copies supported Slack direct-messa
 - **Fail closed:** new or unknown notification shapes are rejected, not guessed.
 - **Privacy:** no message text in logs, disk, backups or diagnostics. No new permissions. `scripts/check-apk-permissions.sh` holds the allowlist.
 - **Public repo:** tests and docs use invented people and messages only.
+- **Writing:** text follows docs/WRITING_RULES.md (no filler words, inflated claims or AI writing tics).
+- **Design:** visual changes follow docs/DESIGN_RULES.md (no eyebrows, pill-everything, gradients, tiny low-contrast text).
 
 ## Common issues
 

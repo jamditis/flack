@@ -15,3 +15,5 @@
 - [ ] No new permission, network access or persistent storage of message content.
 - [ ] A reply can still go only to the conversation it was bound to, once.
 - [ ] Docs and the device test record match the change.
+- [ ] Visual changes follow docs/DESIGN_RULES.md.
+- [ ] Text, including this PR, follows docs/WRITING_RULES.md.
