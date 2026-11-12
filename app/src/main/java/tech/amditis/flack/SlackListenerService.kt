@@ -46,6 +46,8 @@ class SlackListenerService : NotificationListenerService() {
         BridgeState.listenerConnected = false
         carSession?.stop()
         carSession = null
+        // Without an observer the state is unknown; wait for the next one to report it.
+        BridgeState.carConnected = false
         CarNotificationPublisher.cancel(this, BridgeState.registry.clear())
     }
 
