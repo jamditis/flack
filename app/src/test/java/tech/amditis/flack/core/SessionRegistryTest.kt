@@ -154,6 +154,14 @@ class SessionRegistryTest {
         assertTrue(reg.observe("dm-riley", "f2", FakeAction("dm-riley"), "reply_text", false) is Observation.Publish)
     }
 
+    @Test fun findBindingMatchesOnlyTheRequestedSource() {
+        val reg = registry()
+        val riley = reg.publish("0|tech.amditis.flack.fixture|7|null|10", "f1").binding
+        reg.publish("0|com.Slack|7|null|20", "g1")
+        assertEquals(riley, reg.findBinding { it.notificationKey.split("|")[1] == "tech.amditis.flack.fixture" })
+        assertEquals(null, reg.findBinding { it.notificationKey == "missing" })
+    }
+
     @Test fun onlyTheNewestGenerationIsCurrent() {
         val reg = registry()
         val first = reg.publish("dm-riley", "f1").binding

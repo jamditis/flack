@@ -56,12 +56,18 @@ wait_for 30 has_new_copy || fail "no car copy appeared for the DM"
 
 step "A car reply reaches the source app once"
 reply="e2e-$RANDOM-$RANDOM"
-adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es text $reply" > /dev/null
+adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation dm-riley --es text $reply" > /dev/null
 got_reply() { adb logcat -d -s FlackFixture:I | grep -q "reply conversation=dm-riley text=$reply"; }
 wait_for 30 got_reply || fail "the fake Slack never received the reply"
 sleep 3
 count=$(adb logcat -d -s FlackFixture:I | grep -c "text=$reply" || true)
 [ "$count" -eq 1 ] || fail "reply delivered $count times, expected 1"
+
+step "A reply that names no fake Slack conversation is refused"
+adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation dm-nobody --es text should-not-send" > /dev/null
+sleep 3
+if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "an untargeted test reply was sent"; fi
+adb logcat -d -s FlackDebug:W | grep -q "refused" || fail "the debug hook did not report refusing the reply"
 
 step "A group message is not forwarded"
 before=$(flack_copies)
