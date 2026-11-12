@@ -49,7 +49,7 @@ sealed interface ConsumeResult<A : Any> {
  * Rules (SPEC.md sections 6 to 8):
  * - Every content change makes a new generation and a new token. Old tokens die.
  * - A token dispatches at most once. Invalid text does not use it up.
- * - An action seen on two notifications disables replies on both; readout stays.
+ * - A reply whose action appears on another live notification is disabled; readout stays.
  * - Nothing here is written to disk.
  *
  * [A] is the platform's action handle. On Android it is the PendingIntent, whose
