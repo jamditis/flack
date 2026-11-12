@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light: paper background, ink text, deep amber for contrast on white. -->
+    <style name="Theme.Flack" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/flack_amber_deep</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorPrimaryContainer">@color/flack_amber_soft</item>
+        <item name="colorOnPrimaryContainer">@color/flack_on_amber</item>
+        <item name="colorSecondary">@color/flack_ink</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+        <item name="colorSecondaryContainer">@color/flack_amber_soft</item>
+        <item name="colorOnSecondaryContainer">@color/flack_on_amber</item>
+        <item name="colorTertiary">@color/flack_amber_deep</item>
+        <item name="colorSurfaceContainerHigh">#FFFFFFFF</item>
+        <item name="colorSurfaceContainerHighest">#FFE4E9F1</item>
+        <item name="android:colorBackground">@color/flack_paper</item>
+        <item name="colorOnBackground">@color/flack_ink</item>
+        <item name="colorSurface">#FFFFFFFF</item>
+        <item name="colorOnSurface">@color/flack_ink</item>
+        <item name="colorOnSurfaceVariant">@color/flack_slate</item>
+        <item name="colorSurfaceContainerLow">#FFFFFFFF</item>
+        <item name="colorSurfaceContainer">#FFEEF2F8</item>
+        <item name="colorOutline">#FFC5CFDC</item>
+        <item name="colorOutlineVariant">#FFDCE3EC</item>
+        <item name="flackSuccess">#FF167A4C</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowSplashScreenBackground">@color/flack_night</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+
+    <attr name="flackSuccess" format="color" />
+</resources>

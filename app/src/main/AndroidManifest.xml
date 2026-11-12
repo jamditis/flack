@@ -4,11 +4,18 @@
     <!-- The only permission. No network, microphone, contacts, SMS, location or accessibility. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Lets the setup guide open Android Auto. Package visibility only, not a permission. -->
+    <queries>
+        <package android:name="com.google.android.projection.gearhead" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.Flack"
         android:label="@string/app_name"
         android:supportsRtl="true">
 

@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.content.ContextCompat
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Conversation
@@ -90,6 +91,7 @@ object CarNotificationPublisher {
             .setContentTitle(CapabilityCheck.contextLabel(conversation))
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setColor(ContextCompat.getColor(context, R.color.flack_amber))
             .setSilent(!alert)
             .addInvisibleAction(markRead)
         if (replyEnabled) builder.addAction(reply)

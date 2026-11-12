@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -24,6 +25,13 @@ android {
         }
     }
 
+    // Robolectric needs merged resources to render the screens for screenshots.
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // Robolectric on Android 16 images reads JDK internals that Java 17+ hides.
+        unitTests.all { it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED") }
+    }
+
     lint {
         warningsAsErrors = true
         abortOnError = true
@@ -34,5 +42,9 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
+    implementation(libs.material)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.androidx.test.core)
 }

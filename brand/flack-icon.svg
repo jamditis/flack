@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512">
+  <title>Flack icon</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#13233C"/>
+      <stop offset="1" stop-color="#0B1524"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="24" fill="url(#sky)"/>
+  <!-- Speech bubble -->
+  <path fill="#FFB547" d="M34,32h40a9,9 0 0 1 9,9v22a9,9 0 0 1 -9,9h-22l-12,10v-10h-6a9,9 0 0 1 -9,-9v-22a9,9 0 0 1 9,-9z"/>
+  <!-- Road running to the horizon -->
+  <path fill="#0B1524" d="M43,72L52.6,38h2.8L65,72z"/>
+  <!-- Centre line -->
+  <path fill="#FFB547" d="M53.2,63h1.6l0.4,6h-2.4z M53.5,53.5h1l0.3,4.5h-1.6z M53.7,46h0.6l0.2,3.2h-1z"/>
+</svg>

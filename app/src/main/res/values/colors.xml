@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flack "night drive" palette. Source of truth: docs/BRAND.md. -->
+<resources>
+    <color name="flack_night">#FF0B1524</color>
+    <color name="flack_night_raised">#FF13233C</color>
+    <color name="flack_night_surface">#FF182A45</color>
+    <color name="flack_outline_night">#FF2E4263</color>
+    <color name="flack_amber">#FFFFB547</color>
+    <color name="flack_amber_deep">#FF8A5300</color>
+    <color name="flack_amber_soft">#FFFFDDB0</color>
+    <color name="flack_on_amber">#FF241600</color>
+    <color name="flack_ink">#FF0E1A2B</color>
+    <color name="flack_paper">#FFF5F7FB</color>
+    <color name="flack_mist">#FFE8EEF7</color>
+    <color name="flack_slate">#FF4A5B73</color>
+    <color name="flack_fog">#FFA9B6CA</color>
+    <color name="flack_signal_green">#FF5BD69B</color>
+    <color name="flack_signal_red">#FFFF7A70</color>
+</resources>

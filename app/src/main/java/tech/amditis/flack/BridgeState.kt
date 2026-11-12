@@ -25,6 +25,7 @@ enum class HandoffStatus(val label: String) {
 object BridgeState {
     private const val PREFS = "bridge"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_AUTO_CONFIRMED = "android_auto_confirmed"
 
     private val random = SecureRandom()
 
@@ -56,6 +57,14 @@ object BridgeState {
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
         if (!enabled) CarNotificationPublisher.cancel(context, registry.withdrawAll())
+    }
+
+    /** Android Auto's Unknown sources setting cannot be read, so the user confirms it. */
+    fun isAndroidAutoConfirmed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO_CONFIRMED, false)
+
+    fun confirmAndroidAuto(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_AUTO_CONFIRMED, true) }
     }
 
     @Synchronized fun countRejection(reason: RejectReason) {

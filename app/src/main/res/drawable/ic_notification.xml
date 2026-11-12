@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar and Android Auto icon: the mark as a white silhouette. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M4,4h16a2,2 0,0 1,2 2v10a2,2 0,0 1,-2 2H8l-4,4V6a2,2 0,0 1,2 -2z" />
+    android:viewportWidth="62"
+    android:viewportHeight="62">
+    <group
+        android:translateX="-23"
+        android:translateY="-26">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M34,32h40a9,9 0 0 1 9,9v22a9,9 0 0 1 -9,9h-22l-12,10v-10h-6a9,9 0 0 1 -9,-9v-22a9,9 0 0 1 9,-9z M43,72L52.6,38h2.8L65,72z M53.2,63h1.6l0.4,6h-2.4z M53.5,53.5h1l0.3,4.5h-1.6z M53.7,46h0.6l0.2,3.2h-1z" />
+    </group>
 </vector>
