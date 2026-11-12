@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Flack mark: a chat bubble with a road running to the horizon. Source: brand/flack-icon.svg -->
+<!-- Flack mark: a highway with a cloverleaf loop pair. The loops sit inside the 66dp safe zone; the highway runs off the edge under any mask. Source: brand/flack-icon.svg -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="@color/flack_amber" android:pathData="M34,32h40a9,9 0 0 1 9,9v22a9,9 0 0 1 -9,9h-22l-12,10v-10h-6a9,9 0 0 1 -9,-9v-22a9,9 0 0 1 9,-9z" />
-    <path android:fillColor="@color/flack_night" android:pathData="M43,72L52.6,38h2.8L65,72z" />
-    <path android:fillColor="@color/flack_amber" android:pathData="M53.2,63h1.6l0.4,6h-2.4z M53.5,53.5h1l0.3,4.5h-1.6z M53.7,46h0.6l0.2,3.2h-1z" />
+    <path
+        android:fillColor="@color/flack_amber"
+        android:fillType="evenOdd"
+        android:pathData="M0,54.9H45.5V44.7A17.8,17.8 0 1 1 77.89,54.9H108V62.5H53.1V67.2A12.3,12.3 0 1 1 29.43,62.5H0ZM63.3,54.9A10.2,10.2 0 1 0 53.1,44.7V54.9ZM40.8,62.5A4.7,4.7 0 1 0 45.5,67.2V62.5Z" />
+    <path
+        android:fillColor="@color/flack_night"
+        android:pathData="M39.9,58H43.9V59.4H39.9ZM32.5,58H36.5V59.4H32.5ZM25.1,58H29.1V59.4H25.1ZM17.7,58H21.7V59.4H17.7ZM54.7,58H58.7V59.4H54.7ZM62.1,58H66.1V59.4H62.1ZM69.5,58H73.5V59.4H69.5ZM76.9,58H80.9V59.4H76.9ZM84.3,58H88.3V59.4H84.3Z" />
+    <path
+        android:fillColor="@color/flack_night"
+        android:pathData="M50.8,36.9A14.7,14.7 0 0 1 53.5,33.7L54.5,34.8A13.3,13.3 0 0 0 52,37.7ZM56.5,31.7A14.7,14.7 0 0 1 60.4,30.3L60.7,31.7A13.3,13.3 0 0 0 57.1,32.9ZM63.9,30A14.7,14.7 0 0 1 68.1,30.8L67.6,32.1A13.3,13.3 0 0 0 63.9,31.4ZM71.3,32.3A14.7,14.7 0 0 1 74.4,35.1L73.4,36A13.3,13.3 0 0 0 70.5,33.5ZM76.4,38A14.7,14.7 0 0 1 77.8,42L76.4,42.3A13.3,13.3 0 0 0 75.2,38.7ZM78,45.6A14.7,14.7 0 0 1 77.1,49.7L75.8,49.2A13.3,13.3 0 0 0 76.6,45.5ZM75.5,52.8A14.7,14.7 0 0 1 72.7,56L71.8,54.9A13.3,13.3 0 0 0 74.4,52.1Z" />
+    <path
+        android:fillColor="@color/flack_night"
+        android:pathData="M47.9,73.1A9.2,9.2 0 0 1 44.4,75.6L43.9,74.4A7.8,7.8 0 0 0 46.8,72.2ZM40.9,76.4A9.2,9.2 0 0 1 36.7,75.4L37.3,74.2A7.8,7.8 0 0 0 40.9,75ZM33.8,73.2A9.2,9.2 0 0 1 31.9,69.4L33.2,69A7.8,7.8 0 0 0 34.9,72.3ZM31.7,65.7A9.2,9.2 0 0 1 33.4,61.8L34.5,62.6A7.8,7.8 0 0 0 33.1,65.9Z" />
 </vector>
