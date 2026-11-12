@@ -108,7 +108,9 @@ object CarNotificationPublisher {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
             .setSilent(hide || !alert)
-            .setOnlyAlertOnce(true)
+            // The source key keeps one notification ID across new messages.
+            // Suppress repeats, but let each new incoming message alert in alerting mode.
+            .setOnlyAlertOnce(hide || !alert)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
         if (replyEnabled && binding.action != null) builder.addAction(reply)

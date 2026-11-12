@@ -103,8 +103,7 @@ object BridgeState {
     }
 
     @Synchronized fun acknowledgeCopy(token: String) {
-        val record = copyRecords[token] ?: return
-        record.opened = true
+        copyRecords[token]?.opened = true
         countAcknowledged()
     }
 

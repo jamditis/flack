@@ -264,22 +264,35 @@ class CarPathTest {
         assertTrue(slackReplies().isEmpty())
     }
 
-    @Test fun phoneCopiesAlertOnceAndOwnReplyUpdatesAreQuietWithoutAlteringTheSource() {
+    @Test fun newIncomingMessagesCanAlertAndOwnReplyUpdatesStayQuietWithoutAlteringTheSource() {
         BridgeState.setHidePhoneCopies(app, false)
         val source = SyntheticSlack.dm(app)
         val sourceFlags = source.notification.flags
         post(source)
         val notification = carCopy()
-        assertTrue(notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals(0, notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         assertEquals(Notification.GROUP_ALERT_ALL, notification.groupAlertBehavior)
         assertEquals("flack_car_messages", notification.group)
         assertEquals(sourceFlags, source.notification.flags)
+        post(SyntheticSlack.dm(app, text = "Synthetic second incoming message"))
+        assertEquals(1, manager.size())
+        assertEquals(0, carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE)
+        assertEquals(Notification.GROUP_ALERT_ALL, carCopy().groupAlertBehavior)
         replyFromCar("Synthetic reply")
         assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
         assertEquals(Notification.GROUP_ALERT_SUMMARY, carCopy().groupAlertBehavior)
         assertEquals(0, carCopy().defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
         assertNull(carCopy().sound)
         assertNull(carCopy().vibrate)
+    }
+
+    @Test fun anOlderCurrentCopyStillCountsAsOpenedAfterDiagnosticHistoryEviction() {
+        post(SyntheticSlack.dm(app, key = "oldest"))
+        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        repeat(20) { index -> post(SyntheticSlack.dm(app, key = "new-$index")) }
+        val before = BridgeState.acknowledged
+        CarActionReceiver().onReceive(app, shadowOf(read.actionIntent).savedIntent)
+        assertEquals(before + 1, BridgeState.acknowledged)
     }
 
     @Test fun quietPhoneCopiesAreTheDefaultAndTheReportDoesNotClaimCarDisplay() {

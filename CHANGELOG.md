@@ -22,8 +22,9 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
   and receive a new Slack message. Switching clears current copies.
 - The report names each recent copy's channel and whether its car open action
   ran. Android Auto does not report whether a copy was displayed.
-- Alerting mode groups copies and sets them to alert only once; updates and own
-  replies stay quiet. Duplicate phone alerts remain possible in this mode.
+- Alerting mode groups copies and lets new incoming messages alert. Reposts of
+  existing content and own replies stay quiet with only-alert-once. Duplicate
+  phone alerts remain possible in this mode.
   Slack's original notifications are unchanged. Source removal and car
   disconnection remove Flack's copies and expire their reply tokens.
 - Android Auto requires both reply and mark-as-read actions. Read-only copies
