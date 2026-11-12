@@ -160,6 +160,9 @@ class CarPathTest {
 
     private fun slackReplies() = shadowOf(app).broadcastIntents.filter { it.action == "test.slack.REPLY" }
 
+    private fun reasonCount(reason: String) = Regex("  $reason: (\\d+)")
+        .findAll(BridgeState.diagnostics()).sumOf { it.groupValues[1].toInt() }
+
     @Test fun aDirectMessageBecomesACarMessage() {
         post(SyntheticSlack.dm(app))
         val notification = carCopy()
@@ -280,6 +283,7 @@ class CarPathTest {
     }
 
     @Test fun mixedChannelAndThreadActionsKeepReadoutAndInvalidateHeldReplies() {
+        val beforeReasons = reasonCount("MULTIPLE_REPLY_ACTIONS")
         val channel = SyntheticSlack.replyIntent(app, "channel-paper")
         val thread = SyntheticSlack.replyIntent(app, "thread-paper")
         post(SyntheticSlack.dm(app, key = "channel", title = "Paper room", isGroup = true, reply = channel))
@@ -290,7 +294,7 @@ class CarPathTest {
         assertTrue(manager.allNotifications.all { it.actions.orEmpty().none { action -> action.remoteInputs?.isNotEmpty() == true } })
         fire(held, "Do not send this")
         assertTrue(slackReplies().isEmpty())
-        assertTrue(BridgeState.diagnostics().contains("MULTIPLE_REPLY_ACTIONS:"))
+        assertEquals(beforeReasons + 1, reasonCount("MULTIPLE_REPLY_ACTIONS"))
         val before = BridgeState.forwarded
         post(mixed)
         assertEquals(before, BridgeState.forwarded)
@@ -298,6 +302,7 @@ class CarPathTest {
     }
 
     @Test fun losingSafeReplyShapeExpiresTheHeldTokenAndKeepsText() {
+        val beforeReasons = reasonCount("NO_CONTEXT")
         post(SyntheticSlack.dm(app, key = "changing"))
         val held = replyAction()
         post(SyntheticSlack.dm(app, key = "changing", isGroup = true))
@@ -306,7 +311,7 @@ class CarPathTest {
         fire(held, "Late reply")
         assertTrue(slackReplies().isEmpty())
         assertTrue(BridgeState.diagnostics().contains("Slack notifications read-only (reply not offered):"))
-        assertTrue(BridgeState.diagnostics().contains("NO_CONTEXT:"))
+        assertEquals(beforeReasons + 1, reasonCount("NO_CONTEXT"))
     }
 
     @Test fun removingTheSlackNotificationRemovesTheCarCopy() {
