@@ -82,10 +82,15 @@ Instrument the notification-to-reply contract with a purpose-built synthetic sou
 
 Use Android Auto's Desktop Head Unit for early integration checks, then validate on both target phones and the actual car. Test both the product's intended connection and any additional mode before claiming it as supported.
 
+## Emulator check in CI
+
+Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`): a DM becomes a car copy, a reply sent through the car copy's real PendingIntent reaches the source app once, group and two-action messages are refused, and turning Flack off removes its copies. It runs on a real Android system image, unlike the Robolectric tests, but it has no Android Auto and no real Slack.
+
 ## Desktop Head Unit checks
 
 The Desktop Head Unit (DHU) runs Android Auto on a computer, connected to a phone over USB. It is faster than the car for early checks, and does not replace them. [developer.android.com/training/cars/testing/dhu](https://developer.android.com/training/cars/testing/dhu)
 
+- Step-by-step setup with the test-only fake Slack app is in [DHU.md](DHU.md).
 - Turn off "Only while Android Auto is connected" only for checks without the DHU or a car.
 - `mic play <file.wav>` plays a recorded reply as dictation, so a unique phrase can be checked in the Slack DM. `mic begin` uses the computer's microphone.
 - `restrict all` simulates driving restrictions. Check that the readout and reply still work.

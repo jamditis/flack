@@ -33,8 +33,12 @@ sealed interface Capability {
  */
 object CapabilityCheck {
 
-    fun evaluate(facts: SourceFacts): Capability {
-        if (facts.packageName != SLACK_PACKAGE) return reject(RejectReason.NOT_SLACK)
+    /**
+     * [allowedSources] is Slack only in release builds. Debug builds add the
+     * test-only fake Slack app, which has its own package and never ships.
+     */
+    fun evaluate(facts: SourceFacts, allowedSources: Set<String> = setOf(SLACK_PACKAGE)): Capability {
+        if (facts.packageName !in allowedSources) return reject(RejectReason.NOT_SLACK)
         if (facts.isGroupSummary) return reject(RejectReason.GROUP_SUMMARY)
         val conversation = facts.conversation ?: return reject(RejectReason.NO_CONVERSATION)
         if (conversation.messages.isEmpty()) return reject(RejectReason.NO_MESSAGES)
@@ -50,7 +54,7 @@ object CapabilityCheck {
         if (action.freeFormResultKeys.size > 1) return reject(RejectReason.MULTIPLE_RESULT_KEYS)
         if (action.showsUserInterface) return reject(RejectReason.REPLY_OPENS_APP)
         if (action.isImmutable) return reject(RejectReason.REPLY_ACTION_IMMUTABLE)
-        if (action.creatorPackage != SLACK_PACKAGE ||
+        if (action.creatorPackage != facts.packageName ||
             action.creatorUid == null ||
             action.creatorUid != action.sourceUid
         ) {

@@ -49,7 +49,7 @@ jobs:
           FLACK_KEYSTORE_PASSWORD: ${{ secrets.FLACK_KEYSTORE_PASSWORD }}
           FLACK_KEY_ALIAS: ${{ secrets.FLACK_KEY_ALIAS }}
           FLACK_KEY_PASSWORD: ${{ secrets.FLACK_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon -PversionName="${TAG#v}" -PversionCode="$GITHUB_RUN_NUMBER" testDebugUnitTest lintRelease assembleRelease
+        run: ./gradlew --no-daemon -PversionName="${TAG#v}" -PversionCode="$GITHUB_RUN_NUMBER" ":app:testDebugUnitTest" ":app:lintRelease" ":app:assembleRelease"
       - name: Remove the signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/flack-release.jks"

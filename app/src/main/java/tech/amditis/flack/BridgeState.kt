@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.RejectReason
+import tech.amditis.flack.core.SLACK_PACKAGE
 import tech.amditis.flack.core.SessionRegistry
 import java.security.SecureRandom
 import java.util.EnumMap
@@ -29,6 +30,12 @@ object BridgeState {
     private const val KEY_CAR_ONLY = "car_only"
 
     private val random = SecureRandom()
+
+    /** Apps whose notifications Flack reads: Slack, plus the fake Slack in debug builds. */
+    val sourcePackages: Set<String> = buildSet {
+        add(SLACK_PACKAGE)
+        if (BuildConfig.FIXTURE_PACKAGE.isNotEmpty()) add(BuildConfig.FIXTURE_PACKAGE)
+    }
 
     val registry = SessionRegistry<PendingIntent>({
         val bytes = ByteArray(16)

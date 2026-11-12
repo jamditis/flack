@@ -33,9 +33,19 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
+        // Debug builds also accept the test-only fake Slack app (fixture/). Release
+        // builds accept the official Slack app only.
+        debug {
+            buildConfigField("String", "FIXTURE_PACKAGE", "\"tech.amditis.flack.fixture\"")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "FIXTURE_PACKAGE", "\"\"")
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
