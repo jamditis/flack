@@ -51,6 +51,8 @@ object CapabilityCheck {
         val candidates = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
         val selected = if (candidates.size == 1) candidates.single() else {
+            // Group facts do not distinguish channel-level and thread-level routes.
+            if (conversation.isGroup) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
             // With several destinations, require an explicit direct reply label and
             // Android's REPLY semantic. Unknown/localized labels stay read-only until
             // their action shape has been verified. Never route by a result key or name.

@@ -41,6 +41,7 @@ object CarNotificationPublisher {
         context: Context,
         binding: Binding<PendingIntent>,
         conversation: Conversation,
+        alert: Boolean,
         replyEnabled: Boolean = binding.action != null,
         sentText: String? = null,
     ): Boolean {
@@ -94,9 +95,9 @@ object CarNotificationPublisher {
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
-            // Slack already alerts on the phone. Keep the bridge copy quiet; it
-            // still contains the MessagingStyle and actions Android Auto requires.
-            .setSilent(true)
+            // New messages must remain alerting for Android Auto. Updates and own
+            // replies stay quiet; a separate quiet-phone setting is not available here.
+            .setSilent(!alert)
             .setOnlyAlertOnce(true)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)

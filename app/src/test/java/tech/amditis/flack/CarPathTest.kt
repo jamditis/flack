@@ -214,20 +214,30 @@ class CarPathTest {
         assertFalse(read.showsUserInterface)
     }
 
-    @Test fun phoneCopiesAreSilentGroupedAndDoNotAlterTheSource() {
+    @Test fun multiActionChannelThreadsStayReadOnlyEvenWithAnExplicitReplyLabel() {
+        post(SyntheticSlack.dm(app, key = "thread", title = "Paper room thread", isGroup = true,
+            extraReply = SyntheticSlack.replyIntent(app, "thread-reply"),
+            replySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+            extraReplySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY))
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        assertTrue(slackReplies().isEmpty())
+    }
+
+    @Test fun phoneCopiesAlertOnceAndOwnReplyUpdatesAreQuietWithoutAlteringTheSource() {
         val source = SyntheticSlack.dm(app)
         val sourceFlags = source.notification.flags
         post(source)
         val notification = carCopy()
         assertTrue(notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
-        assertEquals(0, notification.defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
-        assertNull(notification.sound)
-        assertNull(notification.vibrate)
+        assertEquals(Notification.GROUP_ALERT_ALL, notification.groupAlertBehavior)
         assertEquals("flack_car_messages", notification.group)
         assertEquals(sourceFlags, source.notification.flags)
-        post(SyntheticSlack.dm(app, text = "Synthetic update"))
+        replyFromCar("Synthetic reply")
         assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals(Notification.GROUP_ALERT_SUMMARY, carCopy().groupAlertBehavior)
+        assertEquals(0, carCopy().defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
         assertNull(carCopy().sound)
+        assertNull(carCopy().vibrate)
     }
 
     @Test fun otherAppsAreIgnored() {

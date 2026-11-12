@@ -30,7 +30,7 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 
 If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
 Android Auto requires both reply and mark-as-read actions, so it may hide these
-read-only copies. With several text actions, Flack accepts only one background
+read-only copies. For a one-to-one DM with several text actions, Flack accepts only one background
 action labeled Reply with the REPLY semantic action. Ambiguous direct choices,
 unknown conversation shape, missing group context, or a shared source action
 disable replying. Flack never chooses a destination from a sender or channel

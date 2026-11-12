@@ -113,6 +113,15 @@ class CapabilityCheckTest {
         }
     }
 
+    @Test fun multiActionGroupsAndThreadsNeverSelectAChannelReplyByLabel() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
+        listOf("Paper room", "Paper room thread").forEach { title ->
+            assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+                CapabilityCheck.evaluate(dm(isGroup = true, title = title, actions = listOf(direct, thread))))
+        }
+    }
+
     @Test fun selectionStillValidatesCreatorMutabilityAndResultKeys() {
         val other = replyAction().copy(title = "Reply in thread", semanticAction = 1)
         val direct = replyAction().copy(title = "Reply", semanticAction = 1)

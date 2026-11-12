@@ -105,7 +105,7 @@ class SlackListenerService : NotificationListenerService() {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)
-                val posted = CarNotificationPublisher.post(this, result.binding, conversation)
+                val posted = CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
                 if (posted && result.alert) BridgeState.countForwarded()
             }
             is Observation.Unchanged, is Observation.Baseline -> Unit
@@ -116,7 +116,7 @@ class SlackListenerService : NotificationListenerService() {
         bindings.forEach { binding ->
             if (BridgeState.registry.isCurrent(binding)) {
                 BridgeState.conversation(binding.carNotificationId)?.let {
-                    CarNotificationPublisher.post(this, binding, it)
+                    CarNotificationPublisher.post(this, binding, it, alert = false)
                 }
                 BridgeState.countAmbiguous()
             } else {

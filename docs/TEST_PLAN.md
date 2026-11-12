@@ -15,9 +15,10 @@ Android Auto's [notification messaging contract](https://developer.android.com/t
 requires both reply and mark-as-read actions. A read-only phone copy has no
 reply action and can be absent from the car list. Do not treat the phone's copy
 count as proof that Android Auto displayed it. Verify the eligible multi-action
-case on the car, including correct destination, confirmation, cancel and one
-dispatch. Verify that the grouped Flack phone copies make no extra sound or
-vibration. Android Auto controls its launcher notice; Flack does not post it.
+one-to-one DM case on the car, including correct destination, confirmation, cancel and one
+dispatch. Verify that updates and own replies make no extra sound or vibration.
+New message alerts remain enabled for Android Auto, so a duplicate phone alert
+is a known issue. Android Auto controls its launcher notice; Flack does not post it.
 
 ## G0: Test the native route
 
