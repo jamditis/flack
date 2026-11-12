@@ -31,7 +31,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       # Also validates the Gradle wrapper jar against Gradle's published checksums.
-      - uses: gradle/actions/setup-gradle@7296c772c13d12d9871528814b51fb2143c138ef # v6.4.1
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Unit tests, lint and debug APK
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
       - name: APK asks only for allowed permissions
@@ -58,7 +58,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@7296c772c13d12d9871528814b51fb2143c138ef # v6.4.1
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Build Flack and the fake Slack
         run: ./gradlew --no-daemon ":app:assembleDebug" ":fixture:assembleDebug"
       - name: Allow the emulator to use KVM
