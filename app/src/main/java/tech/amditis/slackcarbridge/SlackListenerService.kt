@@ -1,0 +1,78 @@
+package tech.amditis.slackcarbridge
+
+import android.os.Process
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationManagerCompat
+import tech.amditis.slackcarbridge.core.Capability
+import tech.amditis.slackcarbridge.core.CapabilityCheck
+import tech.amditis.slackcarbridge.core.Observation
+import tech.amditis.slackcarbridge.core.SLACK_PACKAGE
+
+/**
+ * Watches Slack notifications and keeps the car copies in step with them.
+ *
+ * Other apps' notifications are dropped before anything is read. This app's own
+ * notifications come from another package, so they can never loop back.
+ */
+class SlackListenerService : NotificationListenerService() {
+
+    override fun onListenerConnected() {
+        BridgeState.listenerConnected = true
+        // After a restart the registry is empty, so any car copy still showing holds a
+        // dead token. Remove them rather than leave replies that can only be refused.
+        if (BridgeState.registry.bindingCount() == 0) NotificationManagerCompat.from(this).cancelAll()
+        if (!BridgeState.isEnabled(this)) return
+        // Messages already in the shade are a baseline, not new arrivals.
+        activeNotifications.orEmpty().filter(::isOwnProfileSlack).forEach { sbn ->
+            val parsed = SlackNotificationParser.parse(sbn)
+            if (CapabilityCheck.evaluate(parsed.facts) is Capability.Eligible) {
+                BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint)
+            }
+        }
+    }
+
+    override fun onListenerDisconnected() {
+        BridgeState.listenerConnected = false
+        CarNotificationPublisher.cancel(this, BridgeState.registry.clear())
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (!isOwnProfileSlack(sbn) || !BridgeState.isEnabled(this)) return
+        val parsed = SlackNotificationParser.parse(sbn)
+        when (val capability = CapabilityCheck.evaluate(parsed.facts)) {
+            is Capability.Rejected -> {
+                BridgeState.countRejection(capability.reason)
+                // A conversation that lost its reply capability loses its car copy too.
+                BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
+            }
+            is Capability.Eligible -> forward(sbn, parsed, capability)
+        }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        if (!isOwnProfileSlack(sbn)) return
+        BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
+    }
+
+    private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible) {
+        val action = parsed.actionIntents[capability.actionIndex] ?: return
+        val conversation = parsed.facts.conversation ?: return
+        val newestFromSelf = conversation.messages.last().fromSelf
+        when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability.resultKey, newestFromSelf)) {
+            is Observation.Publish -> {
+                CarNotificationPublisher.cancel(this, result.evicted)
+                CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
+                if (result.alert) BridgeState.countForwarded()
+            }
+            is Observation.Ambiguous -> {
+                CarNotificationPublisher.cancel(this, result.withdrawn)
+                BridgeState.countAmbiguous()
+            }
+            is Observation.Unchanged, is Observation.Baseline -> Unit
+        }
+    }
+
+    private fun isOwnProfileSlack(sbn: StatusBarNotification) =
+        sbn.packageName == SLACK_PACKAGE && sbn.user == Process.myUserHandle()
+}

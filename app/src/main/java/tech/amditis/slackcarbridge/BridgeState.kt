@@ -1,0 +1,88 @@
+package tech.amditis.slackcarbridge
+
+import android.app.PendingIntent
+import android.content.Context
+import androidx.core.content.edit
+import tech.amditis.slackcarbridge.core.ConsumeRejection
+import tech.amditis.slackcarbridge.core.RejectReason
+import tech.amditis.slackcarbridge.core.SessionRegistry
+import java.security.SecureRandom
+import java.util.EnumMap
+
+/** Result of the last reply, in the words of SPEC.md section 8. Never "delivered". */
+enum class HandoffStatus(val label: String) {
+    NONE("No reply yet"),
+    HANDED_TO_SLACK("Handed to Slack (delivery not confirmed)"),
+    HANDOFF_FAILED("Handoff failed: Slack's reply action was cancelled"),
+    REJECTED("Reply refused by the bridge"),
+}
+
+/**
+ * Process-wide state. Everything here is in memory and content-free, except the
+ * registry's action handles. Only the on/off switch is saved.
+ */
+object BridgeState {
+    private const val PREFS = "bridge"
+    private const val KEY_ENABLED = "enabled"
+
+    private val random = SecureRandom()
+
+    val registry = SessionRegistry<PendingIntent>({
+        val bytes = ByteArray(16)
+        random.nextBytes(bytes)
+        bytes.joinToString("") { "%02x".format(it) }
+    })
+
+    private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
+    private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
+
+    @Volatile var listenerConnected = false
+    @Volatile var lastHandoff = HandoffStatus.NONE
+        private set
+    @Volatile var forwarded = 0
+        private set
+    @Volatile var ambiguous = 0
+        private set
+    @Volatile var acknowledged = 0
+        private set
+
+    fun isEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
+
+    fun setEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
+        if (!enabled) CarNotificationPublisher.cancel(context, registry.clear())
+    }
+
+    @Synchronized fun countRejection(reason: RejectReason) {
+        rejections[reason] = (rejections[reason] ?: 0) + 1
+    }
+
+    @Synchronized fun countReplyRejection(reason: ConsumeRejection) {
+        replyRejections[reason] = (replyRejections[reason] ?: 0) + 1
+        lastHandoff = HandoffStatus.REJECTED
+    }
+
+    @Synchronized fun countForwarded() { forwarded++ }
+    @Synchronized fun countAmbiguous() { ambiguous++ }
+    @Synchronized fun countAcknowledged() { acknowledged++ }
+    @Synchronized fun recordHandoff(status: HandoffStatus) { lastHandoff = status }
+
+    /** Text for the status screen. Counts and labels only, never message content. */
+    @Synchronized fun diagnostics(): String = buildString {
+        appendLine("Forwarded to the car: $forwarded")
+        appendLine("Withdrawn as ambiguous: $ambiguous")
+        appendLine("Opened in the car: $acknowledged")
+        appendLine("Last reply: ${lastHandoff.label}")
+        if (rejections.isNotEmpty()) {
+            appendLine()
+            appendLine("Slack notifications not forwarded:")
+            rejections.forEach { (reason, count) -> appendLine("  ${reason.name}: $count") }
+        }
+        if (replyRejections.isNotEmpty()) {
+            appendLine()
+            appendLine("Replies refused:")
+            replyRejections.forEach { (reason, count) -> appendLine("  ${reason.name}: $count") }
+        }
+    }
+}

@@ -1,0 +1,11 @@
+[versions]
+agp = "9.5.1"
+core = "1.19.1"
+junit = "4.13.2"
+
+[libraries]
+androidx-core = { module = "androidx.core:core-ktx", version.ref = "core" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }

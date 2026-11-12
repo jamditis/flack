@@ -4,7 +4,7 @@ A proposed Android companion for listening to incoming Slack messages and replyi
 
 The first targets are two phones connected to a car's Android Auto display: a Samsung Galaxy S24 Ultra (primary) and a Samsung Galaxy S21 (second tester). The two phones can run different Android and One UI versions, so each one needs its own test record. The companion would turn eligible Slack notifications into Android Auto message notifications, then return a confirmed voice reply through Slack's existing notification action.
 
-**Status: specification and feasibility plan. There is no application or validated compatibility claim yet.** The native Gemini route remains a device test, and the custom route depends on proving that Slack's reply actions can be forwarded reliably.
+**Status: first experiment build for one Slack DM. It is not device tested, and there is no validated compatibility claim yet.** The native Gemini route was reported to read Slack messages in the car without offering a voice reply, so the custom route is being tested. It depends on proving that Slack's reply actions can be forwarded reliably.
 
 ## Start here
 
@@ -12,6 +12,8 @@ The first targets are two phones connected to a car's Android Auto display: a Sa
 - [Feasibility tests and acceptance criteria](docs/TEST_PLAN.md)
 - [Implementation milestones and issue briefs](docs/ROADMAP.md)
 - [Device test record](docs/DEVICE_TEST_RECORD.md)
+- [Install and test the experiment build](docs/INSTALL.md)
+- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 - [Evidence and source limits](docs/SOURCES.md)
 - [Repository setup and coding-agent handoff](docs/HANDOFF.md)
 

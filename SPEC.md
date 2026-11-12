@@ -23,7 +23,7 @@ The user should not need to unlock or touch the phone during this flow. Setup, t
 | Assistant | Record Google/Gemini and Android Auto versions; do not assume phone and car capabilities are identical |
 | Repository | Proposed public repository jamditis/slack-car-bridge |
 | Implementation | Kotlin, AndroidX notification support, small phone setup interface |
-| Minimum SDK | Provisional API 30; confirm against the test phone and chosen dependencies |
+| Minimum SDK | API 31, the first with `PendingIntent.isActivity` and `isImmutable`, which the reply checks need. Both target phones run newer versions |
 | Build versions | Pin supported stable versions when implementation starts; verify current SDK and distribution requirements then |
 
 ## 2. Native route and evidence
