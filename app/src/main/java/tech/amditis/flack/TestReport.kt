@@ -38,6 +38,11 @@ object TestReport {
             appendLine()
             append(BridgeState.diagnostics().trim())
             appendLine()
+            val actions = BridgeState.replyActionDiagnostics.report()
+            if (actions.isNotEmpty()) {
+                appendLine()
+                append(actions)
+            }
         }
     }
 

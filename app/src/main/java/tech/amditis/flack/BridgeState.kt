@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.RejectReason
+import tech.amditis.flack.core.ReplyActionDiagnostics
 import tech.amditis.flack.core.SLACK_PACKAGE
 import tech.amditis.flack.core.SessionRegistry
 import java.security.SecureRandom
@@ -49,6 +50,7 @@ object BridgeState {
     private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
+    val replyActionDiagnostics = ReplyActionDiagnostics()
 
     @Volatile var listenerConnected = false
 

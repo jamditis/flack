@@ -90,6 +90,18 @@ class CarPathTest {
         assertTrue(report.contains("Notification access: "))
     }
 
+    @Test fun theTestReportIncludesAmbiguousActionShapesWithoutConversationContent() {
+        post(SyntheticSlack.dm(app, sender = "Secret Example", text = "Private meeting at six",
+            extraReply = SyntheticSlack.replyIntent(app, "secret-thread")))
+        val report = TestReport.build(app)
+        assertTrue(report.contains("Multiple reply action diagnostics"))
+        assertTrue(report.contains("title=Reply in thread"))
+        assertTrue(report.contains("resultKeys=[thread_text]"))
+        listOf("Secret Example", "Private meeting", "secret-thread", "com.Slack|42").forEach {
+            assertFalse(report.contains(it))
+        }
+    }
+
     @Test fun nothingIsForwardedOutsideTheCar() {
         listener.onCarConnectionChanged(false)
         post(SyntheticSlack.dm(app))

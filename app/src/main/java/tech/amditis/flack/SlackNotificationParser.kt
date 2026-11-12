@@ -113,6 +113,9 @@ object SlackNotificationParser {
             freeFormResultKeys = freeFormKeys,
             showsUserInterface = intent == null || intent.isActivity || explicitUi,
             isImmutable = intent == null || intent.isImmutable,
+            title = action.title?.toString(),
+            semanticAction = action.semanticAction,
+            allowGeneratedReplies = action.allowGeneratedReplies,
         )
     }
 }

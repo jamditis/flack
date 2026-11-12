@@ -4,6 +4,13 @@ These tests determine whether to build the companion and what it may claim to su
 
 Record results in DEVICE_TEST_RECORD.md. Use invented test content and a consenting test participant. Do not publish actual work conversations or diagnostic dumps.
 
+For a `MULTIPLE_REPLY_ACTIONS` result, copy the test report from the phone. It
+includes the last 20 ambiguous action cases: static action labels, semantic
+actions, known result keys, UI behavior and generated-reply flags. Unknown
+labels and result keys are omitted because apps can put private content in
+these fields. Message bodies, sender names, source keys and action handles are
+never included. The report does not establish which destination an action uses.
+
 ## G0: Test the native route
 
 1. For each target phone, record the model, Android/One UI, Slack, Google/Gemini, Android Auto, car/head unit, and wired/wireless connection.

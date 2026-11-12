@@ -9,6 +9,7 @@ import tech.amditis.flack.core.Capability
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Observation
+import tech.amditis.flack.core.RejectReason
 
 /**
  * Watches Slack notifications and keeps the car copies in step with them.
@@ -72,6 +73,9 @@ class SlackListenerService : NotificationListenerService() {
             }
             is Capability.ReadOnly -> {
                 BridgeState.countReadOnly(capability.reason)
+                if (capability.reason == RejectReason.MULTIPLE_REPLY_ACTIONS) {
+                    BridgeState.replyActionDiagnostics.record(parsed.facts.replyActions)
+                }
                 forward(sbn, parsed, null)
             }
             is Capability.Eligible -> forward(sbn, parsed, capability)
