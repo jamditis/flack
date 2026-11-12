@@ -1,0 +1,15 @@
+.gradle/
+.idea/
+**/build/
+local.properties
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!*.example
+private-fixtures/
+device-captures/
+notification-dumps/
+*.hprof
+*.log
