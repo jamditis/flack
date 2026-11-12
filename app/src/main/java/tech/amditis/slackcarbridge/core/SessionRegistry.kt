@@ -113,8 +113,12 @@ class SessionRegistry<A : Any>(
         newestFromSelf: Boolean,
     ): Observation<A> {
         val existing = entries[notificationKey]
-        // Same content and the same action: a repeated callback.
-        if (existing != null && existing.fingerprint == fingerprint && existing.binding.action == action) {
+        // Same content and the same reply capability: a repeated callback.
+        if (existing != null &&
+            existing.fingerprint == fingerprint &&
+            existing.binding.action == action &&
+            existing.binding.resultKey == resultKey
+        ) {
             return Observation.Unchanged()
         }
         if (existing == null) {
@@ -174,6 +178,9 @@ class SessionRegistry<A : Any>(
     @Synchronized
     fun withdrawAll(): List<Binding<A>> {
         val all = entries.values.map { it.binding }
+        // What was already forwarded becomes the baseline, so it is not replayed
+        // as new when the switch comes back on.
+        entries.forEach { (key, entry) -> baseline[key] = entry.fingerprint }
         entries.clear()
         return all
     }

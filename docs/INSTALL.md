@@ -4,8 +4,9 @@ This build is for the G2 test in [TEST_PLAN.md](TEST_PLAN.md). It is not device 
 
 ## Get the APK
 
-1. Open the repository's Releases page and download `slack-car-bridge-<version>-debug.apk`. Each pull request's CI run also has the APK under "Artifacts".
-2. Optional: check the file against the `.sha256` file on the same release.
+1. On the phone, open this link. It always downloads the newest release:
+   https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk
+2. Optional: check the file against `slack-car-bridge.apk.sha256` on the same release.
 
 Debug builds are signed with a different key each time. Uninstall the old version before you install a new one.
 

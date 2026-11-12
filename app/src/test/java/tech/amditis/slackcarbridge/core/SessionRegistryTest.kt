@@ -131,6 +131,29 @@ class SessionRegistryTest {
         assertEquals(0, reg.bindingCount())
     }
 
+    @Test fun aThirdConversationWithAConflictedActionIsAlsoWithheld() {
+        val reg = registry()
+        reg.publish("dm-a", "f1", target = "shared-op")
+        reg.observe("dm-b", "g1", FakeAction("shared-op"), "reply_text", false)
+        assertTrue(reg.observe("dm-c", "h1", FakeAction("shared-op"), "reply_text", false) is Observation.Ambiguous)
+    }
+
+    @Test fun aChangedResultKeyIsANewGeneration() {
+        val reg = registry()
+        val first = reg.publish("dm-riley", "f1").binding
+        val result = reg.observe("dm-riley", "f1", FakeAction("dm-riley"), "other_key", false) as Observation.Publish
+        assertNotEquals(first.token, result.binding.token)
+        assertEquals("other_key", result.binding.resultKey)
+    }
+
+    @Test fun reEnablingDoesNotReplayAConversationThatWasAlreadyForwarded() {
+        val reg = registry()
+        reg.publish("dm-riley", "f1")
+        reg.withdrawAll()
+        assertTrue(reg.observe("dm-riley", "f1", FakeAction("dm-riley"), "reply_text", false) is Observation.Baseline)
+        assertTrue(reg.observe("dm-riley", "f2", FakeAction("dm-riley"), "reply_text", false) is Observation.Publish)
+    }
+
     @Test fun onlyTheNewestGenerationIsCurrent() {
         val reg = registry()
         val first = reg.publish("dm-riley", "f1").binding

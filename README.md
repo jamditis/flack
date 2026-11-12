@@ -6,6 +6,10 @@ The first targets are two phones connected to a car's Android Auto display: a Sa
 
 **Status: first experiment build for one Slack DM. It is not device tested, and there is no validated compatibility claim yet.** The native Gemini route was reported to read Slack messages in the car without offering a voice reply, so the custom route is being tested. It depends on proving that Slack's reply actions can be forwarded reliably.
 
+## Download
+
+Newest build, for phones: [slack-car-bridge.apk](https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk). Then follow [the install steps](docs/INSTALL.md). It is an experiment and has not been tested in a car yet.
+
 ## Start here
 
 - [Product and technical specification](SPEC.md)

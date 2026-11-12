@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -109,8 +110,14 @@ object CarNotificationPublisher {
         }
     }
 
+    // The token is part of the data URI, so each generation gets its own PendingIntent.
+    // Extras alone would let FLAG_UPDATE_CURRENT rewrite a reply action Android Auto
+    // still holds, and an old interaction would then spend the new generation's token.
     private fun actionIntent(context: Context, action: String, token: String) =
-        Intent(context, CarActionReceiver::class.java).setAction(action).putExtra(EXTRA_TOKEN, token)
+        Intent(context, CarActionReceiver::class.java)
+            .setAction(action)
+            .setData(Uri.Builder().scheme("slackcarbridge").authority("token").appendPath(token).build())
+            .putExtra(EXTRA_TOKEN, token)
 
     /** Provisional product limit from SPEC.md section 7. */
     private const val MAX_MESSAGES = 10

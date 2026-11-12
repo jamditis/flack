@@ -1,6 +1,8 @@
 name: Release
 
-# Push a tag such as v0.1.0 on main to attach a debug APK to a GitHub release.
+# Push a tag such as v0.1.0 on main. The release gets the APK under one fixed
+# name, so this link always downloads the newest build:
+# https://github.com/jamditis/slack-car-bridge/releases/latest/download/slack-car-bridge.apk
 on:
   push:
     tags: ["v*"]
@@ -29,16 +31,23 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@7296c772c13d12d9871528814b51fb2143c138ef # v6.4.1
-      - run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - name: Build with the tag as the version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: ./gradlew --no-daemon -PversionName="${TAG#v}" -PversionCode="$GITHUB_RUN_NUMBER" testDebugUnitTest lintDebug assembleDebug
       - run: bash scripts/check-apk-permissions.sh app/build/outputs/apk/debug/app-debug.apk
-      - name: Publish a prerelease with the APK and its checksum
+      - name: Publish the release with the APK and its checksum
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          apk="slack-car-bridge-${TAG}-debug.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
-          sha256sum "$apk" > "$apk.sha256"
-          gh release create "$TAG" "$apk" "$apk.sha256" \
-            --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes \
-            --title "$TAG (debug build)"
+          cp app/build/outputs/apk/debug/app-debug.apk slack-car-bridge.apk
+          sha256sum slack-car-bridge.apk > slack-car-bridge.apk.sha256
+          link="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/slack-car-bridge.apk"
+          notes=$(printf '%s\n\n%s\n\n%s\n' \
+            "**Download on your phone:** [slack-car-bridge.apk]($link)" \
+            "Experiment build, not yet tested in a car. Debug-signed: uninstall the old version before installing this one." \
+            "Install and test steps: https://github.com/$GITHUB_REPOSITORY/blob/main/docs/INSTALL.md")
+          gh release create "$TAG" slack-car-bridge.apk slack-car-bridge.apk.sha256 \
+            --repo "$GITHUB_REPOSITORY" --latest --notes "$notes" --generate-notes \
+            --title "$TAG"

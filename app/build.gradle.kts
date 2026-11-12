@@ -13,8 +13,9 @@ android {
         minSdk = 31
         // Raise only after reading that version's behavior changes and retesting on both phones.
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-experiment"
+        // The release workflow passes these from the tag and run number.
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: "0.0.0-dev"
     }
 
     buildTypes {

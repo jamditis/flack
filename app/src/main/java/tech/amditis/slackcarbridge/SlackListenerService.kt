@@ -25,14 +25,17 @@ class SlackListenerService : NotificationListenerService() {
         // Messages already in the shade are a baseline, not new arrivals. Every Slack
         // notification's actions are recorded so no forwarded DM can share them.
         activeNotifications.orEmpty().filter(::isOwnProfileSlack).forEach { sbn ->
-            val parsed = SlackNotificationParser.parse(sbn)
-            val capability = CapabilityCheck.evaluate(parsed.facts)
-            val action = (capability as? Capability.Eligible)?.let { parsed.actionIntents[it.actionIndex] }
-            if (action != null) {
-                BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action)
-            } else {
-                BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
-            }
+            recordWithoutForwarding(sbn, SlackNotificationParser.parse(sbn))
+        }
+    }
+
+    private fun recordWithoutForwarding(sbn: StatusBarNotification, parsed: ParsedNotification) {
+        val capability = CapabilityCheck.evaluate(parsed.facts)
+        val action = (capability as? Capability.Eligible)?.let { parsed.actionIntents[it.actionIndex] }
+        if (action != null) {
+            BridgeState.registry.recordBaseline(sbn.key, parsed.fingerprint, action)
+        } else {
+            BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
         }
     }
 
@@ -45,9 +48,9 @@ class SlackListenerService : NotificationListenerService() {
         if (!isOwnProfileSlack(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
         if (!BridgeState.isEnabled(this)) {
-            // Forward nothing, but keep every action on record so turning the
-            // switch on cannot hide a shared action.
-            BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull())
+            // Forward nothing, but keep the baseline and every action on record, so
+            // turning the switch on neither replays old messages nor hides a shared action.
+            recordWithoutForwarding(sbn, parsed)
             return
         }
         when (val capability = CapabilityCheck.evaluate(parsed.facts)) {
