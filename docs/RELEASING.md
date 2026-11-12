@@ -63,7 +63,7 @@ Do this on your own computer, not in a cloud session, so the key never passes th
    git push origin v0.1.0
    ```
 
-   You can also create the tag from the GitHub Releases page with "Choose a tag" and target `main`.
+   Push the tag from git as shown. If you create a release on the GitHub Releases page instead, the workflow adds the APK and checksum to that release rather than making a new one.
 
 3. The Release workflow then:
    - refuses a tag that is not on `main`

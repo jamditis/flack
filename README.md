@@ -39,7 +39,7 @@ If Flack cannot tell where a reply would go, it does not offer one. Group DMs, c
 
 ## Supported phones
 
-Tested targets are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21 on current software. Flack needs Android 12 or later.
+The intended test phones are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21. Neither has been tested yet; results and exact versions go in the [device test record](docs/DEVICE_TEST_RECORD.md). Flack needs Android 12 or later.
 
 ## Documentation
 

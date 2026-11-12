@@ -80,6 +80,13 @@ jobs:
           To check the file, compare its SHA-256 with flack.apk.sha256 below.
           NOTES
           )
-          gh release create "$TAG" flack.apk flack.apk.sha256 \
-            --repo "$GITHUB_REPOSITORY" --latest --title "Flack $TAG" \
-            --notes "$notes" --generate-notes
+          # A release made on the Releases page already exists for this tag: add the
+          # files to it instead of failing on a second create.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" flack.apk flack.apk.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest
+          else
+            gh release create "$TAG" flack.apk flack.apk.sha256 \
+              --repo "$GITHUB_REPOSITORY" --latest --title "Flack $TAG" \
+              --notes "$notes" --generate-notes
+          fi
