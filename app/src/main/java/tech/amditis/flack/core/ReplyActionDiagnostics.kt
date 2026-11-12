@@ -10,7 +10,7 @@ class ReplyActionDiagnostics {
         // values so the diagnostic report cannot become a message content dump.
         val description = actions.take(10).mapIndexed { index, action ->
             val title = action.title?.takeIf { it in SAFE_TITLES } ?: "[label omitted]"
-            val keys = action.freeFormResultKeys.take(10).map {
+            val keys = action.resultKeys.take(10).map {
                 it.takeIf { key -> key in SAFE_KEYS } ?: "[key omitted]"
             }
             "  Action ${index + 1}: title=$title; semanticAction=${action.semanticAction}; " +

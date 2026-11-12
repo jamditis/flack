@@ -116,6 +116,7 @@ object SlackNotificationParser {
             title = action.title?.toString(),
             semanticAction = action.semanticAction,
             allowGeneratedReplies = action.allowGeneratedReplies,
+            resultKeys = action.remoteInputs.orEmpty().map { it.resultKey },
         )
     }
 }

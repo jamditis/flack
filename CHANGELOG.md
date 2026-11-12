@@ -4,7 +4,24 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
-First experiment build for one-to-one Slack direct messages. Not yet tested in a car.
+## 0.2.1
+
+- The test report includes content-free facts for the last 20 multi-action
+  notifications, including cases where a reply can be selected. Unknown labels
+  and result keys are omitted to protect private content.
+- When Slack provides several text actions, Flack uses the sole background
+  action labeled Reply with the REPLY semantic action. Thread, smart-reply and
+  unknown labels do not qualify. Duplicate direct choices stay read-only.
+- Flack's phone copies are silent, grouped and set to alert only once. Slack's
+  original notifications are unchanged.
+- Android Auto requires both reply and mark-as-read actions. Read-only copies
+  may appear only on the phone. A phone copy count does not prove a car display.
+- Android Auto owns the app list and the Flack available notice. This release
+  does not change that notice. A physical car test is still required.
+
+## Earlier experiment
+
+First experiment build for one-to-one Slack direct messages.
 
 ### What Flack does
 

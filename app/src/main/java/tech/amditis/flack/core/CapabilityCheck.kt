@@ -50,10 +50,16 @@ object CapabilityCheck {
 
         val candidates = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
-        // Two text actions (for example "reply" and "reply in thread") are ambiguous.
-        if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
-
-        val (index, action) = candidates.single()
+        val selected = if (candidates.size == 1) candidates.single() else {
+            // With several destinations, require an explicit direct reply label and
+            // Android's REPLY semantic. Unknown/localized labels stay read-only until
+            // their action shape has been verified. Never route by a result key or name.
+            candidates.singleOrNull {
+                it.value.semanticAction == SEMANTIC_ACTION_REPLY &&
+                    it.value.title == "Reply" && !it.value.showsUserInterface
+            } ?: return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
+        }
+        val (index, action) = selected
         if (action.freeFormResultKeys.size > 1) return readOnly(RejectReason.MULTIPLE_RESULT_KEYS)
         if (action.showsUserInterface) return readOnly(RejectReason.REPLY_OPENS_APP)
         if (action.isImmutable) return readOnly(RejectReason.REPLY_ACTION_IMMUTABLE)
@@ -76,4 +82,7 @@ object CapabilityCheck {
 
     private fun reject(reason: RejectReason) = Capability.Rejected(reason)
     private fun readOnly(reason: RejectReason) = Capability.ReadOnly(reason)
+
+    // Android's Notification.Action.SEMANTIC_ACTION_REPLY. Core has no Android dependency.
+    private const val SEMANTIC_ACTION_REPLY = 1
 }

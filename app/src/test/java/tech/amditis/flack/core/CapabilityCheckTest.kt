@@ -92,6 +92,39 @@ class CapabilityCheckTest {
         assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = listOf(replyAction(), thread))))
     }
 
+    @Test fun anExplicitDirectReplyWinsOverAThreadOrSmartReply() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        listOf("Reply in thread", "Smart reply").forEach { title ->
+            val other = replyAction(keys = listOf("thread_text")).copy(title = title, semanticAction = 1)
+            assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(other, direct))))
+            assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(direct, other))))
+        }
+    }
+
+    @Test fun ambiguousUnknownAndForegroundChoicesStayReadOnly() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        listOf(
+            listOf(direct, direct),
+            listOf(direct.copy(semanticAction = 0), replyAction()),
+            listOf(direct.copy(title = "Unknown label"), replyAction()),
+            listOf(direct.copy(showsUserInterface = true), replyAction()),
+        ).forEach { actions ->
+            assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS), CapabilityCheck.evaluate(dm(actions = actions)))
+        }
+    }
+
+    @Test fun selectionStillValidatesCreatorMutabilityAndResultKeys() {
+        val other = replyAction().copy(title = "Reply in thread", semanticAction = 1)
+        val direct = replyAction().copy(title = "Reply", semanticAction = 1)
+        listOf(
+            direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,
+            direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
+            direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
+        ).forEach { (action, reason) ->
+            assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(other, action))))
+        }
+    }
+
     @Test fun oneActionWithTwoTextKeysIsAmbiguous() {
         val action = replyAction(keys = listOf("a", "b"))
         assertEquals(readOnly(RejectReason.MULTIPLE_RESULT_KEYS), CapabilityCheck.evaluate(dm(actions = listOf(action))))

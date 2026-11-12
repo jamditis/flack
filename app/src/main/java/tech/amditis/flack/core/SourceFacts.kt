@@ -46,4 +46,6 @@ data class ReplyActionFacts(
     val title: String? = null,
     val semanticAction: Int = 0,
     val allowGeneratedReplies: Boolean = false,
+    /** All input names, including choice-only inputs. Kept out of reports unless known static values. */
+    val resultKeys: List<String> = freeFormResultKeys,
 )

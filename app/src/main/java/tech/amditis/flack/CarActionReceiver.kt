@@ -41,7 +41,7 @@ class CarActionReceiver : BroadcastReceiver() {
                     val conversation = BridgeState.conversation(binding.carNotificationId)
                     if (conversation != null && BridgeState.registry.isCurrent(binding)) {
                         val stillUsable = result.reason == ConsumeRejection.EMPTY || result.reason == ConsumeRejection.TOO_LONG
-                        CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = stillUsable)
+                        CarNotificationPublisher.post(context, binding, conversation, replyEnabled = stillUsable)
                     }
                 }
             }
@@ -69,7 +69,7 @@ class CarActionReceiver : BroadcastReceiver() {
                 // Skip if Slack already replaced this generation with a newer one.
                 if (conversation != null && BridgeState.registry.isCurrent(result.binding)) {
                     val sent = if (status == HandoffStatus.HANDED_TO_SLACK) result.text else null
-                    CarNotificationPublisher.post(context, result.binding, conversation, alert = false, replyEnabled = false, sentText = sent)
+                    CarNotificationPublisher.post(context, result.binding, conversation, replyEnabled = false, sentText = sent)
                 }
             }
         }

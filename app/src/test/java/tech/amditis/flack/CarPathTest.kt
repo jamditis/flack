@@ -2,6 +2,7 @@ package tech.amditis.flack
 
 import android.Manifest
 import android.app.Application
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.RemoteInput
 import android.content.Intent
@@ -186,6 +187,47 @@ class CarPathTest {
         assertFalse(reply.showsUserInterface)
         assertFalse(replyAction().actionIntent.isImmutable)
         assertTrue(NotificationCompat.getInvisibleActions(notification).any { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ })
+    }
+
+    @Test fun aDirectSemanticReplyAlongsideAThreadActionMeetsTheCarContract() {
+        post(SyntheticSlack.dm(app, key = "direct", extraReply = SyntheticSlack.replyIntent(app, "thread"),
+            replySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+            extraReplySemanticAction = NotificationCompat.Action.SEMANTIC_ACTION_REPLY))
+        val notification = carCopy()
+        val reply = NotificationCompat.getAction(notification, notification.actions.indexOf(replyAction()))!!
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_REPLY, reply.semanticAction)
+        assertFalse(reply.showsUserInterface)
+        assertEquals(1, reply.remoteInputs!!.size)
+        val read = NotificationCompat.getInvisibleActions(notification).single()
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, read.semanticAction)
+        assertFalse(read.showsUserInterface)
+        assertTrue(TestReport.build(app).contains("title=Reply in thread"))
+        replyFromCar("Synthetic reply")
+        assertEquals("direct", slackReplies().single().getStringExtra("conversation"))
+    }
+
+    @Test fun readOnlyCopiesKeepMarkAsReadWithoutInventingAReply() {
+        post(SyntheticSlack.dm(app, extraReply = SyntheticSlack.replyIntent(app, "ambiguous")))
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, read.semanticAction)
+        assertFalse(read.showsUserInterface)
+    }
+
+    @Test fun phoneCopiesAreSilentGroupedAndDoNotAlterTheSource() {
+        val source = SyntheticSlack.dm(app)
+        val sourceFlags = source.notification.flags
+        post(source)
+        val notification = carCopy()
+        assertTrue(notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals(0, notification.defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
+        assertNull(notification.sound)
+        assertNull(notification.vibrate)
+        assertEquals("flack_car_messages", notification.group)
+        assertEquals(sourceFlags, source.notification.flags)
+        post(SyntheticSlack.dm(app, text = "Synthetic update"))
+        assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertNull(carCopy().sound)
     }
 
     @Test fun otherAppsAreIgnored() {

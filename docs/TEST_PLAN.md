@@ -5,11 +5,19 @@ These tests determine whether to build the companion and what it may claim to su
 Record results in DEVICE_TEST_RECORD.md. Use invented test content and a consenting test participant. Do not publish actual work conversations or diagnostic dumps.
 
 For a `MULTIPLE_REPLY_ACTIONS` result, copy the test report from the phone. It
-includes the last 20 ambiguous action cases: static action labels, semantic
+includes the last 20 multi-action cases: static action labels, semantic
 actions, known result keys, UI behavior and generated-reply flags. Unknown
 labels and result keys are omitted because apps can put private content in
 these fields. Message bodies, sender names, source keys and action handles are
 never included. The report does not establish which destination an action uses.
+
+Android Auto's [notification messaging contract](https://developer.android.com/training/cars/communication/notification-messaging)
+requires both reply and mark-as-read actions. A read-only phone copy has no
+reply action and can be absent from the car list. Do not treat the phone's copy
+count as proof that Android Auto displayed it. Verify the eligible multi-action
+case on the car, including correct destination, confirmation, cancel and one
+dispatch. Verify that the grouped Flack phone copies make no extra sound or
+vibration. Android Auto controls its launcher notice; Flack does not post it.
 
 ## G0: Test the native route
 

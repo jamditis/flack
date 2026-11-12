@@ -58,6 +58,7 @@ class SlackNotificationParserTest {
     @Test fun choiceOnlyRepliesAreNotFreeForm() {
         val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context, freeForm = false))
         assertTrue(parsed.facts.replyActions.single().freeFormResultKeys.isEmpty())
+        assertEquals(listOf(SyntheticSlack.REPLY_KEY), parsed.facts.replyActions.single().resultKeys)
     }
 
     @Test fun readsActionMetadataWithoutRemoteInputChoices() {

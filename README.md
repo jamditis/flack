@@ -28,7 +28,14 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 2. While Android Auto is connected, it posts a readable copy of each eligible text notification. Group summaries are suppressed to avoid duplicate announcements.
 3. When you confirm a reply in the car, Flack checks a one-time token and passes your text to Slack's reply action. Slack sends the message.
 
-If Flack cannot tell where a reply would go, it keeps the text available without a reply action. Two text reply actions, unknown conversation shape, missing group context, or a shared source action disable replying. Flack never guesses a destination from a sender or channel name. The [capability table](docs/ROADMAP.md#notification-capabilities) records the rules and evidence limits.
+If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
+Android Auto requires both reply and mark-as-read actions, so it may hide these
+read-only copies. With several text actions, Flack accepts only one background
+action labeled Reply with the REPLY semantic action. Ambiguous direct choices,
+unknown conversation shape, missing group context, or a shared source action
+disable replying. Flack never chooses a destination from a sender or channel
+name. The [capability table](docs/ROADMAP.md#notification-capabilities) records
+the rules and evidence limits.
 
 ## Privacy
 

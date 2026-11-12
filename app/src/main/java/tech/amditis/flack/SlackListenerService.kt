@@ -9,7 +9,6 @@ import tech.amditis.flack.core.Capability
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Observation
-import tech.amditis.flack.core.RejectReason
 
 /**
  * Watches Slack notifications and keeps the car copies in step with them.
@@ -59,6 +58,11 @@ class SlackListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!isOwnProfileSource(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
+        // Capture multi-action facts even when the selector can safely choose one,
+        // so the driveway test still reveals Slack's actual action shape.
+        if (parsed.facts.replyActions.count { it.freeFormResultKeys.isNotEmpty() } > 1) {
+            BridgeState.replyActionDiagnostics.record(parsed.facts.replyActions)
+        }
         if (!BridgeState.shouldForward(this)) {
             // Forward nothing, but keep the baseline and every action on record, so turning
             // the switch on or reaching the car neither replays old messages nor hides a
@@ -73,9 +77,6 @@ class SlackListenerService : NotificationListenerService() {
             }
             is Capability.ReadOnly -> {
                 BridgeState.countReadOnly(capability.reason)
-                if (capability.reason == RejectReason.MULTIPLE_REPLY_ACTIONS) {
-                    BridgeState.replyActionDiagnostics.record(parsed.facts.replyActions)
-                }
                 forward(sbn, parsed, null)
             }
             is Capability.Eligible -> forward(sbn, parsed, capability)
@@ -104,7 +105,7 @@ class SlackListenerService : NotificationListenerService() {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)
-                val posted = CarNotificationPublisher.post(this, result.binding, conversation, result.alert)
+                val posted = CarNotificationPublisher.post(this, result.binding, conversation)
                 if (posted && result.alert) BridgeState.countForwarded()
             }
             is Observation.Unchanged, is Observation.Baseline -> Unit
@@ -115,7 +116,7 @@ class SlackListenerService : NotificationListenerService() {
         bindings.forEach { binding ->
             if (BridgeState.registry.isCurrent(binding)) {
                 BridgeState.conversation(binding.carNotificationId)?.let {
-                    CarNotificationPublisher.post(this, binding, it, alert = false)
+                    CarNotificationPublisher.post(this, binding, it)
                 }
                 BridgeState.countAmbiguous()
             } else {
