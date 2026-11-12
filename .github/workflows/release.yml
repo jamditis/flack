@@ -93,7 +93,18 @@ jobs:
 
           On your Android phone, open **[flack.apk]($link)**. That link always gets the newest release.
 
-          Then follow the [install steps](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/INSTALL.md). Flack needs Android 12 or later, and Android Auto's Unknown sources developer setting.
+          Flack needs Android 12 or later. If you installed an earlier Flack test build, uninstall it once first.
+
+          ## Let Android Auto show Flack
+
+          Android Auto hides apps that did not come from Google Play until you turn on its Unknown sources setting. This is Android Auto's own developer mode, separate from the phone's developer options.
+
+          1. Open Settings, then Connected devices, then Android Auto. If an App info page opens instead (Samsung phones), tap **Configure in Android Auto**.
+          2. Scroll to the bottom and tap the **Version** row 10 times, until it asks to allow development settings. Tap **OK**.
+          3. Tap the three-dot menu, then **Developer settings**, and turn on **Unknown sources**.
+          4. Check that Flack appears in Android Auto under **Customize launcher**.
+
+          Then open Flack and finish its setup steps. Full guide: [install steps](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/INSTALL.md).
 
           This is an experiment build. It has not been tested in a car yet.
 
