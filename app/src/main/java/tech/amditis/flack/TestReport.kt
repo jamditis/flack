@@ -45,6 +45,11 @@ object TestReport {
                 appendLine()
                 append(actions)
             }
+            val routes = BridgeState.routeFieldProbe.report()
+            if (routes.isNotEmpty()) {
+                appendLine()
+                append(routes)
+            }
         }
     }
 

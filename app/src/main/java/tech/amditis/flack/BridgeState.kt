@@ -7,6 +7,7 @@ import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.RejectReason
 import tech.amditis.flack.core.ReplyActionDiagnostics
+import tech.amditis.flack.core.RouteFieldProbe
 import tech.amditis.flack.core.SLACK_PACKAGE
 import tech.amditis.flack.core.SessionRegistry
 import java.security.SecureRandom
@@ -52,6 +53,7 @@ object BridgeState {
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
     val replyActionDiagnostics = ReplyActionDiagnostics()
+    val routeFieldProbe = RouteFieldProbe()
     private data class CopyRecord(val id: Int, val channel: String, var opened: Boolean = false)
     private val copyRecords = LinkedHashMap<String, CopyRecord>()
     private var nextCopyRecord = 1

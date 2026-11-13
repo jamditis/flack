@@ -9,6 +9,7 @@ import tech.amditis.flack.core.Capability
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Observation
+import tech.amditis.flack.core.ProbeContext
 
 /**
  * Watches Slack notifications and keeps the car copies in step with them.
@@ -67,10 +68,13 @@ class SlackListenerService : NotificationListenerService() {
             // Forward nothing, but keep the baseline and every action on record, so turning
             // the switch on or reaching the car neither replays old messages nor hides a
             // shared action.
+            recordRouteFields(parsed, CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages))
             recordWithoutForwarding(sbn, parsed)
             return
         }
-        when (val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)) {
+        val capability = CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages)
+        recordRouteFields(parsed, capability)
+        when (capability) {
             is Capability.Rejected -> {
                 BridgeState.countRejection(capability.reason)
                 refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
@@ -128,6 +132,23 @@ class SlackListenerService : NotificationListenerService() {
                 CarNotificationPublisher.cancel(this, listOf(binding))
             }
         }
+    }
+
+    /** Shapes only, for the sign-in route's field mapping (docs/SLACK_SIGN_IN.md). */
+    private fun recordRouteFields(parsed: ParsedNotification, capability: Capability) {
+        val route = when (capability) {
+            is Capability.Eligible -> "ELIGIBLE"
+            is Capability.ReadOnly -> "READ_ONLY(${capability.reason.name})"
+            is Capability.Rejected -> return
+        }
+        val conversation = parsed.facts.conversation
+        val newest = conversation?.messages?.lastOrNull { !it.fromSelf }
+        BridgeState.routeFieldProbe.record(
+            route,
+            conversation?.isGroup,
+            parsed.routeFields,
+            ProbeContext(conversation?.title, newest?.senderName, newest?.timestampMillis),
+        )
     }
 
     private fun isOwnProfileSource(sbn: StatusBarNotification) =
