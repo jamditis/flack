@@ -1,10 +1,10 @@
 # Slack sign-in reply route
 
-Design, November 12, 2026. Status: approved for build by the maintainer; not yet built or device tested.
+Design, November 12, 2026. Status: approved by the maintainer; not yet built or device tested. Two questions are open (see [Open questions](#open-questions)).
 
 ## Goal
 
-A person signs in to Slack once on the phone. After that, every Slack notification that person's account gets can be read and answered in the car: DMs, group DMs, public and private channels, threads and mentions. Read-only should be rare, and the test report counts each case.
+A person signs in to Slack once on the phone. After that, Slack notifications that person's account gets can be read and answered in the car: DMs, group DMs, public and private channels, threads and mentions. Read-only should be rare, and the test report counts each case.
 
 The v0.2.1 car test showed why this is needed. Two channel messages arrived without an inline reply action in Slack's notification (`NO_REPLY_ACTION`), so Flack had nothing to send the reply through, and Android Auto did not show the copies (#23). SPEC.md section 3 requires its own authentication, permission, distribution and delivery design for a Slack API client. This document is that design.
 
@@ -12,9 +12,19 @@ The v0.2.1 car test showed why this is needed. Two channel messages arrived with
 
 - Slack's own notifications decide which messages reach the car. Each person's Slack notification settings still apply. Flack polls nothing and does not read conversations it was not notified about.
 - When the phone notification has a usable reply action, Flack uses it, as before.
-- A reply goes only to a destination identified with certainty. If that is not possible, the copy stays read-only.
+- A reply goes only to a destination identified with certainty. If that is not possible, the copy stays read-only. A post to the wrong workspace, conversation or thread is the worst failure this route can cause.
 - The token rules in SPEC.md sections 6 to 8 still apply: one token per generation, consumed once, revalidated before dispatch, never retried.
 - The car reply uses Android Auto's standard messaging reply only (see [Car reply flow](#car-reply-flow)). There is no custom car interface.
+
+## What the evidence must show first
+
+Slack's notification is the only source that says which message the person is answering. A Slack search can find a message with the same sender, text and time, but it cannot prove that it is the same message: search merges nearby matches, follows each person's search filters ([search.messages](https://docs.slack.dev/reference/methods/search.messages)), and display names are not unique ([Slack, 2017](https://docs.slack.dev/changelog/2017-09-the-one-about-usernames/)). So every API reply needs structured evidence in the notification for:
+
+- the **workspace**,
+- the **conversation** for DMs and group DMs (a channel can also be confirmed by its name, which is unique in a workspace), and
+- the **place**: the channel itself, or which thread.
+
+Slack does not document what its Android notifications contain. The route field probe (build step 1) finds out on the first test drive. Where the evidence is missing, that message type stays read-only, and the test report counts it.
 
 ## Slack app
 
@@ -25,49 +35,44 @@ Flack asks for user token scopes only, and has no bot user.
 | Scope | Why |
 | --- | --- |
 | `chat:write` | Post the reply as the signed-in person with `chat.postMessage` |
-| `search:read` | Find the exact message a notification announced, with `search.messages`, when the notification has no identifiers. This is the only way to find it at a usable rate (see below) |
+| `search:read` | Find the message a notification announced, with `search.messages`, when the notification gives its place but not its channel ID |
 | `users:read` | Turn the user ID in a search result, and user mentions in its text, into the names the notification shows, with `users.info`, so the sender and text can be compared |
-| `mpim:read` | List the members of a group DM found by search, with `conversations.members`, to confirm it is the group DM the notification shows |
 
-`search:read` lets Flack search every message the person can see. Flack uses it only for one query per unanswered notification, built from that notification's text, and keeps the results in memory only until the match is decided. The other ways to find a message are ruled out:
+`search:read` lets Flack search every message the person can see. Flack uses it only for the queries described under [Message match](#message-match), built from one notification's text, and keeps results in memory only until the match is decided. The other ways to find a message are ruled out:
 
-- `conversations.history` and `conversations.replies` are limited to one request per minute and 15 messages per request for distributed apps that are not in the Marketplace ([changelog, May 29, 2025](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps)). Finding a message across a person's channels that way is not practical. `search.messages` is not affected and allows about 20 requests per minute ([search.messages](https://docs.slack.dev/reference/methods/search.messages)).
+- `conversations.history` and `conversations.replies` are limited to one request per minute and 15 messages per request for distributed apps that are not in the Marketplace ([changelog, May 29, 2025](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps)). `search.messages` is not affected and allows about 20 requests per minute.
 - Slack's newer real-time search API (`assistant.search.context`) has narrower scopes, but it is intended for AI apps that a person uses inside the Slack client. This design does not use it.
 
 ## Sign-in
 
 ### PKCE, without a client secret
 
-Slack supports PKCE (RFC 7636) for public clients such as mobile apps. It became generally available on March 30, 2026. With PKCE, the code exchange sends a `code_verifier` instead of a `client_secret`, so Flack ships no secret and needs no server. Sources, read November 12, 2026:
+Slack supports PKCE (RFC 7636) for public clients such as desktop and mobile apps. It became generally available on March 30, 2026. With PKCE, the code exchange sends a `code_verifier` instead of a `client_secret`. Slack documents a secretless refresh for desktop redirects, which are custom URI schemes and, for PKCE apps, localhost. So Flack ships no secret and needs no server. Sources, read November 12, 2026:
 
 - [Using PKCE](https://docs.slack.dev/authentication/using-pkce)
 - [PKCE general availability, March 30, 2026](https://docs.slack.dev/changelog/2026/03/30/pkce)
 - [Using token rotation](https://docs.slack.dev/authentication/using-token-rotation)
 - [App distribution](https://docs.slack.dev/app-management/distribution/)
 
-### Redirect page
+### Redirect
 
-Slack requires HTTPS for every OAuth redirect URL of a distributed app ([App distribution](https://docs.slack.dev/app-management/distribution/)). A custom scheme such as `tech.amditis.flack://` is not HTTPS, so the redirect URL is a static page on the existing GitHub Pages site:
+The redirect URL is the custom scheme `tech.amditis.flack://oauth`. Slack treats it as a desktop redirect: PKCE is required, bot scopes are refused, tokens always rotate, and refresh needs no secret. An HTTPS redirect would be a server redirect, whose refresh Slack documents with a client secret, so this design does not use one.
 
-`https://jamditis.github.io/flack/oauth/`
+Slack's distribution page says a distributed app must support SSL for its OAuth redirect URLs. Whether that rule applies to a custom scheme is an [open question](#open-questions). The maintainer finds out when turning on distribution.
 
-The page has no server code. It makes no network requests and loads no scripts or fonts from other sites. Its only job is to pass `code`, `state` and `error` back to the app with an Android intent link restricted to the package `tech.amditis.flack`, so no other app can receive them. If the browser does not open the app, the page shows a **Return to Flack** button that uses the same link.
-
-The authorization code passes through the browser and GitHub's web servers in the page URL. That is acceptable: the code works only once, expires in minutes, and is useless without the verifier, which stays in Flack's memory. The page source is in `site/oauth/` and can be reviewed.
+Another app can register the same scheme and receive the redirect. PKCE covers this: the code is useless without the verifier, which never leaves Flack's memory.
 
 ### Flow
 
 1. The person taps **Add a Slack workspace** on the phone.
 2. Flack makes a random 32-byte `code_verifier` and a random `state`, in memory only. The `code_challenge` is the URL-safe Base64 SHA-256 of the verifier, method `S256`, the only method Slack supports.
-3. Flack opens `https://slack.com/oauth/v2/authorize` in the default browser with `client_id`, an empty `scope`, `user_scope=chat:write,search:read,users:read,mpim:read`, `redirect_uri`, `state`, `code_challenge` and `code_challenge_method=S256`. The browser is used, never a WebView, so Flack never sees the Slack password (RFC 8252). The person picks the workspace on Slack's page.
-4. Slack redirects to the redirect page, which opens Flack.
-5. Flack accepts the result only when `state` matches the one pending attempt, and uses that attempt once. An `error`, a missing code or a second result ends the attempt.
+3. Flack opens `https://slack.com/oauth/v2/authorize` in the default browser with `client_id`, an empty `scope`, `user_scope=chat:write,search:read,users:read`, `redirect_uri`, `state`, `code_challenge` and `code_challenge_method=S256`. The browser is used, never a WebView, so Flack never sees the Slack password (RFC 8252). The person picks the workspace on Slack's page.
+4. Slack redirects to `tech.amditis.flack://oauth`, which opens Flack.
+5. Flack accepts the result only when `state` matches the one pending attempt, and uses that attempt once. A result with the wrong state is refused and leaves the real attempt pending. An `error`, a missing code or a second result ends the attempt.
 6. Flack posts `client_id`, `code`, `code_verifier` and `redirect_uri` to `oauth.v2.access` over HTTPS and keeps the user token from `authed_user` for the workspace in `team`.
-7. Flack calls `auth.test` and lists the workspace on the phone: "NJ PBS: signed in as Alex Rivera". Names are shown on the phone only, never in the test report.
+7. Flack calls `auth.test` and lists the workspace on the phone: "NJ PBS: signed in as alex". Names are shown on the phone only, never in the test report.
 
 If Android stops Flack while the browser is open, the verifier is gone and the person starts again. Flack does not save the verifier.
-
-Another site or app cannot complete a sign-in for the person: a result Flack did not start fails the `state` check, and a code from another sign-in fails the verifier check at Slack.
 
 ### Several workspaces
 
@@ -81,7 +86,7 @@ Some workspaces let only admins approve apps, and some let people request an app
 
 Access tokens expire after 12 hours. Each refresh returns a new refresh token, and the old one stops working after a short grace period. Refresh tokens for PKCE apps expire after 30 days. Refresh sends `client_id`, `grant_type=refresh_token` and `refresh_token`, with no secret.
 
-Flack refreshes a workspace's token only when it needs it: before a lookup or a reply, and at sign-out. It does no background refreshing. One refresh runs at a time per workspace, because Slack revokes tokens beyond two active ones. If the refresh token has expired, that workspace shows "Sign in again" on the phone, and its messages fall back to the original action or read-only. A person who does not use Flack for 30 days signs in again.
+Flack refreshes a workspace's token only when it needs it: before a lookup or a reply, and at sign-out. It does no background refreshing. One refresh runs at a time, because Slack revokes tokens beyond two active ones. If Slack refuses the refresh token, that workspace shows "sign in again" on the phone, and its messages fall back to the original action or read-only. A person who does not use Flack for 30 days signs in again.
 
 ### Costs and risks
 
@@ -95,74 +100,64 @@ Flack refreshes a workspace's token only when it needs it: before a lookup or a 
 - Each workspace's record (access token, refresh token, expiry, Slack user ID, workspace ID, workspace and person names for the phone screen) is encrypted with AES-256-GCM. The key is created in Android Keystore and cannot be exported. Each write uses a random IV. The ciphertext is one file in the app's no-backup directory. Backups are already off.
 - The key does not require an unlocked screen, because car replies happen with the phone locked. Keystore keeps the tokens unreadable to other apps and to someone who copies the app's storage. It does not protect a rooted phone.
 - Tokens never appear in logs, exceptions, intents, notifications or the test report. Errors are reduced to fixed categories before they are recorded.
-- **Sign out** refreshes the workspace's token if needed, calls `auth.revoke`, then deletes the record. When the last workspace signs out, Flack deletes the file and the key. If Slack cannot be reached, Flack deletes them anyway and says that Slack may keep the sign-in until it expires or the person removes Flack from the workspace's apps.
+- **Sign out** revokes both tokens. With token rotation, `auth.revoke` revokes only the token it is given ([Using token rotation](https://docs.slack.dev/authentication/using-token-rotation)), so Flack calls it with the access token and again with the refresh token, then tries one refresh to confirm it fails. Then it deletes the record. When the last workspace signs out, Flack deletes the file and the key. If Slack cannot be reached or does not confirm, Flack deletes them anyway and says that Slack may keep the sign-in until it expires or the person removes Flack from the workspace's apps.
 - Uninstalling Flack deletes the file and the key.
 
 ## Routing
-
-A post to the wrong channel, thread or workspace is the worst failure this route can cause. Every step below either finds one destination or leaves the copy read-only.
 
 ### Order
 
 For each Slack notification Flack forwards:
 
 1. **Original action.** The existing check (SPEC.md section 6) finds one usable reply action. Flack uses it and makes no API call for this message.
-2. **Notification identifiers.** Structured fields in the notification give the workspace, the conversation and, for a thread reply, the thread.
-3. **Message match.** A search in the person's signed-in workspaces finds exactly one message that matches the notification.
+2. **Notification identifiers.** Structured fields give the workspace, the conversation and the place.
+3. **Message match.** Structured fields give the workspace and the place, and a search confirms the channel.
 4. **Read-only.** Otherwise.
 
-Steps 2 and 3 apply to every notification that the existing check makes read-only. Notifications it rejects (group summaries, empty or context-free notifications, non-message notifications) are still not forwarded.
+Steps 2 and 3 apply to every notification that the existing check makes read-only, except an unknown conversation type. Notifications it rejects (group summaries, empty or context-free notifications, non-message notifications) are still not forwarded.
+
+### Workspace
+
+Flack uses a workspace only when one of these holds:
+
+- a workspace ID in a structured notification field, that the probe evidence shows names the notification's workspace, matches a signed-in workspace; or
+- the person turned on **Slack on this phone uses only my signed-in workspaces**, and either exactly one workspace is signed in, or the notification's subtext equals the name of exactly one of them.
+
+A subtext name alone never selects a workspace, because a workspace Flack cannot see may have the same name. The setting is off by default. Its text says: "Turn this on only if every workspace in the Slack app on this phone is signed in here. If you add a workspace to Slack later, sign in to it here too." Otherwise the message stays read-only (`WORKSPACE_UNKNOWN`).
 
 ### Notification identifiers
 
-Flack uses only structured fields: the notification's shortcut ID, its `LocusId`, its tag, and string values in its extras. It never uses the conversation title, message text, sender names or action labels to choose a destination.
+Flack uses only structured fields: the notification's shortcut ID, its `LocusId`, its tag, string values in its extras, and the newest sender's Person key and URI. It never uses the conversation title, message text, sender names or action labels to choose a destination.
 
-Slack does not document which fields carry which IDs, so the mapping comes from device evidence:
+Shape counts alone cannot show what a field means: a message timestamp and its thread parent's timestamp look the same. The probe therefore reports relations, compared in memory and exported as yes or no:
 
-1. The route field probe (build step 2) adds, for each forwarded Slack notification, a line to the test report: which of those fields are present, and how many values in each have the shape of a channel ID (`C`, `G` or `D` and 8 or more uppercase letters or digits), a workspace ID (`T` or `E`), a user ID (`U` or `W`) and a message timestamp (digits, a dot, six digits). Extras keys are listed only when they look like code constants. No values, titles or text are recorded.
-2. The maintainer collects reports for each message type in NJ PBS and adds them to the device test record.
-3. A field is used only if the evidence shows it gives exactly one workspace ID and one conversation ID for that message type, and a thread parent timestamp that can be told apart from the message's own timestamp for thread replies. Otherwise this step is skipped for that message type, and step 3 covers it.
+- whether a field's channel ID agrees across notifications of the same conversation and differs between conversations;
+- whether a field's user ID agrees across messages from the same sender;
+- whether a field's workspace ID is the same in every notification;
+- whether a field's timestamp equals this message's time, or the time of an earlier notified message (a thread parent).
 
-When this step names a conversation, Flack uses the token for that workspace. A workspace the person has not signed in to falls through to read-only.
+After sign-in, a second probe stage compares field values with IDs from Slack itself. For a channel notification, a search in the test channel by the tester's exact test phrase gives the channel ID (channel names are unique in a workspace) and the message and thread timestamps. The stage exports only per-field results such as "tag equals the channel ID: yes". Several cases that agree establish a mapping; this stage never routes a reply.
+
+A field mapping is used only when the evidence shows it for that message type, and it is written into this document with the evidence. Otherwise this step is skipped for that type.
 
 ### Message match
 
-When step 2 does not apply, Flack looks for the message itself. A search result alone does not prove a destination: Slack's search can merge nearby matches into one result and follows the person's search filters ([search.messages](https://docs.slack.dev/reference/methods/search.messages)). So the match must establish three things separately: the workspace, the conversation, and the place in the conversation.
-
-**Workspace.** The search runs in one workspace only, chosen by one of:
-
-- a workspace ID in a structured notification field (step 2's evidence), or
-- the notification's workspace label (Android's subtext, if Slack sets it) equal to the name of exactly one signed-in workspace, or
-- the setting **Slack on this phone uses only my signed-in workspaces**, which the person turns on, when exactly one workspace is signed in.
-
-The setting is off by default. Its text says: "Turn this on only if every workspace in the Slack app on this phone is signed in here. If you add a workspace to Slack later, sign in to it here too." It stops a reply from going to a signed-in workspace when the notification came from a workspace Flack cannot see. Without one of these, the message stays read-only (`WORKSPACE_UNKNOWN`). The probe records whether Slack sets a subtext, so the first test shows which of these applies.
-
-**Conversation.** In that workspace:
+Message match fills in a channel when the notification gives the workspace and the place (channel or thread parent timestamp) but not the channel ID. DMs and group DMs are never matched this way: they need a structured conversation or sender ID (step 2).
 
 1. Flack takes the newest incoming message in the notification: its sender name, text and timestamp.
-2. It runs `search.messages` with up to eight plain words of the text, quoted, sorted by timestamp, newest first, 20 results.
-3. It keeps a result only when its timestamp is within 10 seconds of the notification message's, its author's display name or real name (`users.info`) equals the notification's sender name, and its text equals the notification text after both are normalized (mentions replaced by names, links by their labels, HTML entities decoded, whitespace collapsed).
-4. The kept result's conversation must match the notification by its identity, not by the search:
-   - channel: the result's channel name equals the notification's title without a leading `#`. Channel names are unique in a workspace;
-   - DM: the result is in a direct message whose other person is the result's author;
-   - group DM: the members of the result's group DM (`conversations.members`), other than the person, have names exactly equal to the names in the notification's title.
-   A notification whose conversation type is unknown, or a result that fails its check, stays read-only.
+2. It runs `search.messages` in the pinned workspace with up to eight plain words of the text, quoted, sorted by timestamp, newest first, 20 results.
+3. It keeps a result only when its timestamp is within 10 seconds of the notification message's, its author's display name or real name (`users.info`) equals the notification's sender name, its text equals the notification text after both are normalized (mentions replaced by names, links by their labels, HTML entities decoded, whitespace collapsed), it is in a channel whose name equals the notification's title without a leading `#`, and it is not a thread reply also sent to the channel (`thread_broadcast`).
+4. Exactly one result must remain. Its channel ID is the destination. The place still comes from the notification: the channel itself, or the thread parent timestamp from the structured field. If the result's own place disagrees with the notification's (for example, a thread reply when the notification shows a channel message), the message stays read-only.
 
-**Place in the conversation.** If the result's permalink has a `thread_ts` parameter, the reply goes to that thread; otherwise to the conversation itself. A result that is a thread reply also sent to the channel (`thread_broadcast`) stays read-only. Flack then runs a second search limited to that author and conversation (`from:` and `in:` with the result's IDs) with the same words. If it returns more than one message within the 10-second window, the message stays read-only.
-
-Slack may need a few seconds to index a new message, so Flack searches at most three times per notification: at once, after 2 seconds and after 6 seconds. It stops at the first match that passes, or at the first ambiguous result. This is a lookup; a reply is never retried.
-
-What remains: Slack could merge two identical messages from one author, in one conversation, within 10 seconds, into one search result, and a reply could go to the other one's thread. The device test sends exactly that case. If it misroutes, thread replies found by search stay read-only.
-
-Search results, user names and the match are kept in memory only. User lookups are cached for the session.
+Slack may need a few seconds to index a new message, so Flack searches at most three times per notification: at once, after 2 seconds and after 6 seconds. It stops at the first unique match or the first ambiguous result. This is a lookup; a reply is never retried. Search results and user names are kept in memory only. User lookups are cached in memory and cleared when the session ends.
 
 ### Before the car copy
 
-Flack resolves the route before it posts the car copy, so Android Auto offers a reply only for a certain route. A copy that needs a lookup can appear up to about seven seconds after the Slack notification. A message that stays read-only is posted read-only after the last attempt, and Android Auto may not show it, as today.
+Flack resolves the route when the notification arrives, before it posts the car copy, so Android Auto offers a reply only for a certain route and the driver never waits on a search. A copy that needs a lookup can appear up to about seven seconds after the Slack notification. A message that stays read-only is posted read-only after the last attempt, and Android Auto may not show it, as today.
 
 ### Counting read-only cases
 
-The test report counts how each forwarded message was routed: original action, identifiers, message match, or read-only. Read-only cases are counted by reason: workspace unknown, not signed in to that workspace, no match, more than one match, conversation check failed, thread unclear, lookup failed, sign-in expired. The target is close to zero read-only cases for signed-in workspaces. A rise in one reason shows what to fix.
+The test report counts how each forwarded message was routed: original action, identifiers, message match, or read-only. Read-only cases are counted by reason: workspace unknown, not signed in to that workspace, no structured conversation ID, no structured place, no match, more than one match, place disagrees, lookup failed, sign-in expired. A rise in one reason shows what to fix.
 
 ## Dispatch
 
@@ -197,19 +192,23 @@ The sign-in build updates every public "no internet permission" and "no Slack lo
 
 Small stacked pull requests, each with focused unit tests:
 
-1. This design and the SPEC.md changes.
-2. Route field probe in the content-free test report, shipped in the next test build.
-3. Sign-in: redirect page, PKCE, Keystore token storage for several workspaces, sign-out with `auth.revoke`, the `INTERNET` permission, the phone screen and the public text changes.
-4. Message match and API reply: matching and certainty rules, dispatch, the route order and the test report counts.
-5. Notification identifiers: the field mapping, once the probe evidence shows one.
+1. Route field probe (v0.2.2): shapes and yes/no relations in the content-free test report. No sign-in and no network. It ships first, because every API reply depends on its evidence.
+2. Sign-in: PKCE with the custom-scheme redirect, Keystore token storage for several workspaces, sign-out that revokes both tokens, the `INTERNET` permission, the phone screen and the public text changes.
+3. Probe stage two: per-field comparison with known IDs after sign-in.
+4. API reply: the field mappings the evidence supports, the workspace rule, message match where it applies, dispatch, the route order and the test report counts.
+
+## Open questions
+
+1. Does Slack accept the custom-scheme redirect `tech.amditis.flack://oauth` for an app with public distribution turned on, given its "SSL for OAuth redirect URLs" rule? If not, the serverless design needs a different redirect, and the secretless refresh must be checked again. (#28)
+2. Do Slack's Android notifications carry a workspace ID, a conversation or sender ID, and a thread or channel signal in structured fields? The route field probe answers this. (#29)
 
 ## What the maintainer does
 
 1. Open https://api.slack.com/apps, choose **Create New App**, then **From a manifest**, and pick the NJ PBS workspace as the development workspace.
-2. Paste [slack-app-manifest.json](slack-app-manifest.json) and create the app. Under **OAuth & Permissions**, check that PKCE is on and the redirect URL is `https://jamditis.github.io/flack/oauth/`.
-3. Under **Manage Distribution**, complete Slack's checklist and turn on public distribution. Slack requires HTTPS redirect URLs and no hard-coded workspace information; Flack meets both. Do not submit it to the Marketplace. Unlisted distribution needs no Slack review.
+2. Paste [slack-app-manifest.json](slack-app-manifest.json) and create the app. Under **OAuth & Permissions**, check that PKCE is on and the redirect URL is `tech.amditis.flack://oauth`.
+3. Under **Manage Distribution**, complete Slack's checklist and turn on public distribution. Do not submit it to the Marketplace; unlisted distribution needs no Slack review. If Slack refuses the custom-scheme redirect, stop and report it on #28.
 4. Optional: under **Basic Information**, add an icon, and add the privacy page `https://jamditis.github.io/flack/privacy.html` if Slack asks for one.
 5. If a workspace requires admin approval for apps, an admin of that workspace approves Flack. For NJ PBS, check this before the first test.
 6. Copy the **Client ID** from **Basic Information** and set it as the repository variable `FLACK_SLACK_CLIENT_ID` (Settings, Secrets and variables, Actions, Variables). It is a variable, not a secret. Agents do not set it.
-7. After build step 2 ships, run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) on the S24 Ultra and paste the report.
-8. After build step 3 ships, each tester signs in from Flack's phone screen while parked.
+7. Run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) with v0.2.2 and paste the report on #29.
+8. After the sign-in build ships, each tester signs in from Flack's phone screen while parked.

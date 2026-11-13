@@ -140,14 +140,24 @@ These come from Android documentation and AOSP behavior that could not be verifi
 
 These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels and invented message text.
 
-- **Route field probe:** on the S24 Ultra in the NJ PBS workspace, with Flack forwarding, have a test account send a DM, a group DM, three channel messages, a mention and three thread replies. Copy the test report. For each message it lists which notification fields are present and how many values in each have an ID or timestamp shape, with no values. Paste it into DEVICE_TEST_RECORD.md.
-- **Sign-in:** sign in while parked, close Flack during the browser step and sign in again. Add a second workspace, then sign out of one. Confirm the phone screen lists each workspace and the test report shows no name, token or workspace value. In a workspace that needs admin approval, record what Slack shows.
+- **Route field probe (v0.2.2, #29):** on the S24 Ultra in the NJ PBS workspace, with Flack forwarding, a second test account sends these in order, with invented text, a few seconds apart:
+  1. a DM;
+  2. a DM from a second test account;
+  3. two messages in test channel A;
+  4. one message in test channel B;
+  5. a message in channel A, then two replies in its thread;
+  6. one reply in a different thread of channel A;
+  7. a group DM message;
+  8. a mention in channel B.
+  Then tap **Copy test report** and paste it on #29. For each notification, the report lists which fields are present, how many values in each have an ID or timestamp shape, and yes/no relations: whether a field's channel ID agrees within one conversation and differs between conversations, whether a user ID agrees for one sender, whether a workspace ID stays the same, and whether a timestamp equals this message's time or an earlier message's time (a thread parent). It records no values, names or text. Note which case numbers belong to which step, because Slack may update one notification several times.
+- **Sign-in:** sign in while parked, close Flack during the browser step and sign in again. Add a second workspace, then sign out of one, and confirm that Slack no longer lists the sign-in under the workspace's apps. Confirm the phone screen lists each workspace and the test report shows no name, token or workspace value. In a workspace that needs admin approval, record what Slack shows.
 - **Coverage:** with the person signed in, every message type above should reach the car with a reply action. Record the test report's route counts and each read-only reason.
 - **Wrong channel:** two test channels with similar names, and the same text sent in both within a minute. Each reply must appear in its own channel or stay read-only. Any reply in the other channel blocks the pilot.
 - **Wrong workspace:** with two workspaces signed in, a channel with the same name in both. Each reply must land in its own workspace or stay read-only.
 - **Thread or channel:** reply to a thread reply and to a channel message. Each reply must land where the message it answers is.
 - **Same text, two threads:** one test account posts the same text in two threads of one channel within 10 seconds. Each reply must land in its own thread or stay read-only.
 - **Unsigned workspace:** with Slack on the phone signed in to a workspace that Flack is not, the same text from the same test name in both workspaces. A reply must never land in the signed-in workspace.
+- **Same workspace name:** an unsigned workspace with the same name as a signed-in one, with the single-workspace setting off. Its messages must stay read-only.
 - **No network:** a reply with mobile data and Wi-Fi off shows "Not sent". A reply cut off after sending shows "Outcome unknown" and is not retried.
 - **Expired sign-in:** after removing Flack from the workspace's apps in Slack, a reply is not sent and the phone screen asks to sign in again.
 - **Read-back:** on each phone, confirm Android Auto reads the reply back and offers send and cancel. Record whether Android Auto or Gemini has a setting that sends replies without read-back, and its name.

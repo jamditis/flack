@@ -5,14 +5,13 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://jamditis.github.io/flack/oauth/"
+      "tech.amditis.flack://oauth"
     ],
     "scopes": {
       "user": [
         "chat:write",
         "search:read",
-        "users:read",
-        "mpim:read"
+        "users:read"
       ]
     },
     "pkce_enabled": true
