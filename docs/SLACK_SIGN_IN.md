@@ -27,6 +27,7 @@ Flack asks for user token scopes only, and has no bot user.
 | `chat:write` | Post the reply as the signed-in person with `chat.postMessage` |
 | `search:read` | Find the exact message a notification announced, with `search.messages`, when the notification has no identifiers. This is the only way to find it at a usable rate (see below) |
 | `users:read` | Turn the user ID in a search result, and user mentions in its text, into the names the notification shows, with `users.info`, so the sender and text can be compared |
+| `mpim:read` | List the members of a group DM found by search, with `conversations.members`, to confirm it is the group DM the notification shows |
 
 `search:read` lets Flack search every message the person can see. Flack uses it only for one query per unanswered notification, built from that notification's text, and keeps the results in memory only until the match is decided. The other ways to find a message are ruled out:
 
@@ -58,7 +59,7 @@ The authorization code passes through the browser and GitHub's web servers in th
 
 1. The person taps **Add a Slack workspace** on the phone.
 2. Flack makes a random 32-byte `code_verifier` and a random `state`, in memory only. The `code_challenge` is the URL-safe Base64 SHA-256 of the verifier, method `S256`, the only method Slack supports.
-3. Flack opens `https://slack.com/oauth/v2/authorize` in the default browser with `client_id`, an empty `scope`, `user_scope=chat:write,search:read,users:read`, `redirect_uri`, `state`, `code_challenge` and `code_challenge_method=S256`. The browser is used, never a WebView, so Flack never sees the Slack password (RFC 8252). The person picks the workspace on Slack's page.
+3. Flack opens `https://slack.com/oauth/v2/authorize` in the default browser with `client_id`, an empty `scope`, `user_scope=chat:write,search:read,users:read,mpim:read`, `redirect_uri`, `state`, `code_challenge` and `code_challenge_method=S256`. The browser is used, never a WebView, so Flack never sees the Slack password (RFC 8252). The person picks the workspace on Slack's page.
 4. Slack redirects to the redirect page, which opens Flack.
 5. Flack accepts the result only when `state` matches the one pending attempt, and uses that attempt once. An `error`, a missing code or a second result ends the attempt.
 6. Flack posts `client_id`, `code`, `code_verifier` and `redirect_uri` to `oauth.v2.access` over HTTPS and keeps the user token from `authed_user` for the workspace in `team`.
@@ -126,20 +127,32 @@ When this step names a conversation, Flack uses the token for that workspace. A 
 
 ### Message match
 
-When step 2 does not apply, Flack looks for the message in each signed-in workspace:
+When step 2 does not apply, Flack looks for the message itself. A search result alone does not prove a destination: Slack's search can merge nearby matches into one result and follows the person's search filters ([search.messages](https://docs.slack.dev/reference/methods/search.messages)). So the match must establish three things separately: the workspace, the conversation, and the place in the conversation.
 
-1. It takes the newest incoming message in the notification: its sender name, text and timestamp.
-2. It builds a `search.messages` query from up to eight plain words of the text, quoted, sorted by timestamp, newest first, 20 results.
-3. It keeps a result only when all of these hold:
-   - its timestamp is within 10 seconds of the notification message's timestamp;
-   - its author, looked up with `users.info`, has a display name or real name equal to the notification's sender name;
-   - its text equals the notification text after both are normalized: user and channel mentions replaced by names, links replaced by their labels, HTML entities decoded and whitespace collapsed;
-   - for a channel notification with a title, the result's channel name equals the title without a leading `#`;
-   - if the notification has a channel ID or workspace ID in a structured field, the result has the same one.
-4. Exactly one result must remain across all signed-in workspaces. None, or more than one, means read-only.
-5. The destination is the result's workspace and channel. If the result's permalink has a `thread_ts` parameter, the reply goes to that thread; otherwise to the channel. A thread or channel classification that cannot be read from the result means read-only.
+**Workspace.** The search runs in one workspace only, chosen by one of:
 
-Slack may need a few seconds to index a new message, so Flack searches at most three times per notification: at once, after 2 seconds and after 6 seconds. It stops at the first unique match, or at the first result that is not unique. This is a lookup; a reply is never retried. Slack's documentation says search can merge several matches that are close together into one result, so the timestamp, sender, text, channel and identifier checks all apply to that one result.
+- a workspace ID in a structured notification field (step 2's evidence), or
+- the notification's workspace label (Android's subtext, if Slack sets it) equal to the name of exactly one signed-in workspace, or
+- the setting **Slack on this phone uses only my signed-in workspaces**, which the person turns on, when exactly one workspace is signed in.
+
+The setting is off by default. Its text says: "Turn this on only if every workspace in the Slack app on this phone is signed in here. If you add a workspace to Slack later, sign in to it here too." It stops a reply from going to a signed-in workspace when the notification came from a workspace Flack cannot see. Without one of these, the message stays read-only (`WORKSPACE_UNKNOWN`). The probe records whether Slack sets a subtext, so the first test shows which of these applies.
+
+**Conversation.** In that workspace:
+
+1. Flack takes the newest incoming message in the notification: its sender name, text and timestamp.
+2. It runs `search.messages` with up to eight plain words of the text, quoted, sorted by timestamp, newest first, 20 results.
+3. It keeps a result only when its timestamp is within 10 seconds of the notification message's, its author's display name or real name (`users.info`) equals the notification's sender name, and its text equals the notification text after both are normalized (mentions replaced by names, links by their labels, HTML entities decoded, whitespace collapsed).
+4. The kept result's conversation must match the notification by its identity, not by the search:
+   - channel: the result's channel name equals the notification's title without a leading `#`. Channel names are unique in a workspace;
+   - DM: the result is in a direct message whose other person is the result's author;
+   - group DM: the members of the result's group DM (`conversations.members`), other than the person, have names exactly equal to the names in the notification's title.
+   A notification whose conversation type is unknown, or a result that fails its check, stays read-only.
+
+**Place in the conversation.** If the result's permalink has a `thread_ts` parameter, the reply goes to that thread; otherwise to the conversation itself. A result that is a thread reply also sent to the channel (`thread_broadcast`) stays read-only. Flack then runs a second search limited to that author and conversation (`from:` and `in:` with the result's IDs) with the same words. If it returns more than one message within the 10-second window, the message stays read-only.
+
+Slack may need a few seconds to index a new message, so Flack searches at most three times per notification: at once, after 2 seconds and after 6 seconds. It stops at the first match that passes, or at the first ambiguous result. This is a lookup; a reply is never retried.
+
+What remains: Slack could merge two identical messages from one author, in one conversation, within 10 seconds, into one search result, and a reply could go to the other one's thread. The device test sends exactly that case. If it misroutes, thread replies found by search stay read-only.
 
 Search results, user names and the match are kept in memory only. User lookups are cached for the session.
 
@@ -149,7 +162,7 @@ Flack resolves the route before it posts the car copy, so Android Auto offers a 
 
 ### Counting read-only cases
 
-The test report counts how each forwarded message was routed: original action, identifiers, message match, or read-only. Read-only cases are counted by reason: not signed in to that workspace, no match, more than one match, sender or text mismatch, lookup failed, sign-in expired. The target is close to zero read-only cases for signed-in workspaces. A rise in one reason shows what to fix.
+The test report counts how each forwarded message was routed: original action, identifiers, message match, or read-only. Read-only cases are counted by reason: workspace unknown, not signed in to that workspace, no match, more than one match, conversation check failed, thread unclear, lookup failed, sign-in expired. The target is close to zero read-only cases for signed-in workspaces. A rise in one reason shows what to fix.
 
 ## Dispatch
 
@@ -161,7 +174,9 @@ The test report counts how each forwarded message was routed: original action, i
 | Result | Status shown |
 | --- | --- |
 | `ok: true` and the response `channel` equals the requested one | Posted to Slack (Slack confirmed) |
-| `ok: false`, or the refresh or connection failed before the request was sent | Not sent, with a fixed error category |
+| The refresh or the connection failed before the request was sent | Not sent |
+| `ok: false` with an error that Slack documents as a refusal, such as `channel_not_found`, `not_in_channel`, `is_archived`, `msg_too_long`, `restricted_action`, `invalid_auth`, `token_expired` or `ratelimited` | Not sent, with that error |
+| Any other `ok: false`, including `internal_error` and `fatal_error`, which Slack says can follow a partial success ([chat.postMessage](https://docs.slack.dev/reference/methods/chat.postMessage)) | Outcome unknown |
 | Timeout or connection lost after the request was sent | Outcome unknown |
 
 Flack never retries, including after an unknown outcome. The reply text is held in memory for the request only. Slack's `ok: true` is a server confirmation, unlike "Handed to Slack" on the original-action route.

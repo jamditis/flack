@@ -146,6 +146,8 @@ These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels
 - **Wrong channel:** two test channels with similar names, and the same text sent in both within a minute. Each reply must appear in its own channel or stay read-only. Any reply in the other channel blocks the pilot.
 - **Wrong workspace:** with two workspaces signed in, a channel with the same name in both. Each reply must land in its own workspace or stay read-only.
 - **Thread or channel:** reply to a thread reply and to a channel message. Each reply must land where the message it answers is.
+- **Same text, two threads:** one test account posts the same text in two threads of one channel within 10 seconds. Each reply must land in its own thread or stay read-only.
+- **Unsigned workspace:** with Slack on the phone signed in to a workspace that Flack is not, the same text from the same test name in both workspaces. A reply must never land in the signed-in workspace.
 - **No network:** a reply with mobile data and Wi-Fi off shows "Not sent". A reply cut off after sending shows "Outcome unknown" and is not retried.
 - **Expired sign-in:** after removing Flack from the workspace's apps in Slack, a reply is not sent and the phone screen asks to sign in again.
 - **Read-back:** on each phone, confirm Android Auto reads the reply back and offers send and cancel. Record whether Android Auto or Gemini has a setting that sends replies without read-back, and its name.
