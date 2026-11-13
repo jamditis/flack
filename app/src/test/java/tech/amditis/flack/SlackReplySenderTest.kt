@@ -82,9 +82,12 @@ class SlackReplySenderTest {
 
     @Test fun aDocumentedRefusalIsNotSentWithSlacksCode() {
         signedIn()
-        respond = { throw SlackCallException(SlackError.REFUSED, "not_in_channel") }
-        assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT, "not_in_channel"), sender.send(channel, "On my way"))
-        assertEquals(1, posts().size)
+        listOf("not_in_channel", "ratelimited", "rate_limited", "restricted_action_thread_locked").forEach { code ->
+            calls.clear()
+            respond = { throw SlackCallException(SlackError.REFUSED, code) }
+            assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT, code), sender.send(channel, "On my way"))
+            assertEquals(1, posts().size)
+        }
     }
 
     @Test fun aFailureThatMayFollowAPartialPostIsUnknownAndNeverRetried() {

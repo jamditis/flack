@@ -59,7 +59,7 @@ class SlackReplySender(private val accounts: SlackAccounts, private val transpor
         val REFUSALS = setOf(
             "channel_not_found", "not_in_channel", "is_archived", "msg_too_long", "restricted_action",
             "invalid_auth", "not_authed", "token_expired", "token_revoked", "account_inactive", "missing_scope",
-            "ratelimited",
+            "ratelimited", "rate_limited", "restricted_action_thread_locked",
         )
 
         /** Slack reads &, < and > as markup in message text. */
