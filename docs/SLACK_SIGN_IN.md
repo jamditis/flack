@@ -28,7 +28,7 @@ Slack does not document what its Android notifications contain. The route field 
 
 ## Slack app
 
-One Slack app, owned by the maintainer, with public distribution turned on and not listed in the Slack Marketplace. Any person in any workspace can sign in with it. The manifest is in [slack-app-manifest.json](slack-app-manifest.json).
+One Slack app, owned by the maintainer, with public distribution turned on and not listed in the Slack Marketplace. Any person in any workspace can sign in with it. The manifest and setup steps are in [SLACK_APP_SETUP.md](SLACK_APP_SETUP.md).
 
 Flack asks for user token scopes only, and has no bot user.
 
@@ -100,7 +100,7 @@ Flack refreshes a workspace's token only when it needs it: before a lookup or a 
 - Each workspace's record (access token, refresh token, expiry, Slack user ID, workspace ID, workspace and person names for the phone screen) is encrypted with AES-256-GCM. The key is created in Android Keystore and cannot be exported. Each write uses a random IV. The ciphertext is one file in the app's no-backup directory. Backups are already off.
 - The key does not require an unlocked screen, because car replies happen with the phone locked. Keystore keeps the tokens unreadable to other apps and to someone who copies the app's storage. It does not protect a rooted phone.
 - Tokens never appear in logs, exceptions, intents, notifications or the test report. Errors are reduced to fixed categories before they are recorded.
-- **Sign out** revokes both tokens. With token rotation, `auth.revoke` revokes only the token it is given ([Using token rotation](https://docs.slack.dev/authentication/using-token-rotation)), so Flack calls it with the access token and again with the refresh token, then tries one refresh to confirm it fails. Then it deletes the record. When the last workspace signs out, Flack deletes the file and the key. If Slack cannot be reached or does not confirm, Flack deletes them anyway and says that Slack may keep the sign-in until it expires or the person removes Flack from the workspace's apps.
+- **Sign out** revokes both tokens. With token rotation, `auth.revoke` revokes only the token it is given ([Using token rotation](https://docs.slack.dev/authentication/using-token-rotation)), so Flack calls it with the access token, the refresh token, and any earlier access token that a refresh replaced and Slack did not confirm revoking. It reports the sign-out as confirmed only when Slack confirms all of them. Then it deletes the record. When the last workspace signs out, Flack deletes the file and the key. If Slack cannot be reached or does not confirm, Flack deletes them anyway and says that Slack may keep the sign-in until it expires or the person removes Flack from the workspace's apps.
 - Uninstalling Flack deletes the file and the key.
 
 ## Routing
@@ -204,11 +204,5 @@ Small stacked pull requests, each with focused unit tests:
 
 ## What the maintainer does
 
-1. Open https://api.slack.com/apps, choose **Create New App**, then **From a manifest**, and pick the first test workspace as the development workspace.
-2. Paste [slack-app-manifest.json](slack-app-manifest.json) and create the app. Under **OAuth & Permissions**, check that PKCE is on and the redirect URL is `tech.amditis.flack://oauth`.
-3. Under **Manage Distribution**, complete Slack's checklist and turn on public distribution. Do not submit it to the Marketplace; unlisted distribution needs no Slack review. If Slack refuses the custom-scheme redirect, stop and report it on #28.
-4. Optional: under **Basic Information**, add an icon, and add the privacy page `https://jamditis.github.io/flack/privacy.html` if Slack asks for one.
-5. If a workspace requires admin approval for apps, an admin of that workspace approves Flack. Check this for the first test workspace before the first test.
-6. Copy the **Client ID** from **Basic Information** and set it as the repository variable `FLACK_SLACK_CLIENT_ID` (Settings, Secrets and variables, Actions, Variables). It is a variable, not a secret. Agents do not set it.
-7. Run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) with v0.2.2 and paste the report on #29.
-8. After the sign-in build ships, each tester signs in from Flack's phone screen while parked.
+1. Create the Slack app and install it, following [SLACK_APP_SETUP.md](SLACK_APP_SETUP.md). Report on #28 if Slack refuses the custom-scheme redirect.
+2. Run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) with v0.2.2 and paste the report on #29.

@@ -60,10 +60,11 @@
       <p>Message text and names stay in the phone's memory while a notification is showing. Flack never saves them to storage, never includes them in backups and never writes them to logs. Its status screen and test report show counts and settings only.</p>
 
       <h2>What Flack sends</h2>
-      <p>Nothing. Flack has no internet permission, so it cannot send data anywhere. When you confirm a reply, Flack passes your words to the Slack app on your phone, and Slack sends it the same way it sends any reply.</p>
+      <p>Without Slack sign-in, nothing. Flack makes no network requests. When you confirm a reply, Flack passes your words to the Slack app on your phone, and Slack sends it the same way it sends any reply.</p>
+      <p>Slack sign-in is optional. If you sign in, Flack connects only to Slack, over HTTPS. It asks Slack for permission to post messages as you, to search your messages so it can find the one a notification is about, and to read names to check it found the right one. It does not read anything else, and it does not keep search results.</p>
 
       <h2>Accounts, tracking and ads</h2>
-      <p>Flack has no Slack login or token, no account of its own, no analytics, no crash reporting and no ads.</p>
+      <p>Flack has no account of its own, no analytics, no crash reporting and no ads. If you sign in to Slack, Flack keeps one Slack token per workspace, with the workspace name and your Slack name, encrypted with an Android Keystore key. It is never logged, backed up or shown. Sign out deletes it and asks Slack to end the sign-in.</p>
 
       <h2>Voice</h2>
       <p>Android Auto and your phone's assistant handle listening and dictation. Flack does not use the microphone. Google's and Samsung's own privacy terms apply to that part.</p>

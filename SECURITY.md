@@ -21,4 +21,4 @@ Only the newest release gets fixes. This project is an experiment and has no sta
 
 ## What the app does not have
 
-The app has no network permission, no Slack login or token, and no analytics. CI fails a build that asks for a permission outside the allowlist in `scripts/check-apk-permissions.sh`.
+The app has no analytics. Its only network use is optional Slack sign-in, over HTTPS to slack.com ([docs/SLACK_SIGN_IN.md](docs/SLACK_SIGN_IN.md)); the Slack token is encrypted with an Android Keystore key and never logged. CI fails a build that asks for a permission outside the allowlist in `scripts/check-apk-permissions.sh`.

@@ -22,7 +22,7 @@
     <string name="step_post_body">Android Auto reads Flack\'s copy of each message, so Flack needs to post it.</string>
     <string name="step_post_action">Allow</string>
     <string name="step_access_title">Turn on notification access</string>
-    <string name="step_access_body">This lets Flack see Slack messages. Flack has no internet permission, so it cannot send them anywhere.</string>
+    <string name="step_access_body">This lets Flack see Slack messages. Flack sends nothing over the internet unless you sign in to Slack, and then it talks only to Slack.</string>
     <string name="step_access_action">Open settings</string>
     <string name="step_access_help">Switch greyed out?</string>
     <string name="step_access_help_title">Allow restricted settings</string>
@@ -35,7 +35,7 @@
     <string name="step_auto_body">Flack is not from Google Play, so Android Auto hides it until you turn on \"Unknown sources\".</string>
     <string name="step_auto_action">Show me how</string>
     <string name="step_auto_dialog_title">Turn on Unknown sources</string>
-    <string name="step_auto_dialog_body">This is Android Auto\'s own developer mode, separate from your phone\'s developer options.\n\n1. Open Settings, then Connected devices, then Android Auto. On Samsung, if App info opens, tap Configure in Android Auto.\n2. Scroll down and tap the Version row 10 times, until it asks to allow development settings. Accept the prompt.\n3. Open the menu (three dots), then Developer settings.\n4. Turn on Unknown sources.</string>
+    <string name="step_auto_dialog_body">This is Android Auto\'s own developer mode, separate from your phone\'s developer options.\n\n1. Open Settings, then Connected devices, then Android Auto. On Samsung, if App info opens, tap Configure in Android Auto.\n2. Scroll down and tap the Version row 10 times, until it asks to allow development settings. Accept the prompt.\n3. Open the menu (three dots), then Developer settings.\n4. Turn on Unknown sources.\n\nIf Android Auto or Gemini offers a setting to send replies automatically, turn it off, so you hear every reply before it is sent.</string>
     <string name="step_auto_open">Open Android Auto</string>
     <string name="step_auto_confirm">I\'ve done this</string>
     <string name="step_auto_unavailable">Android Auto is not installed on this phone.</string>
@@ -51,6 +51,28 @@
     <string name="test_report_copied">Copied. Paste it into a device test result on GitHub. It contains no message text.</string>
 
     <!-- Status -->
+    <string name="signin_title">Slack sign-in</string>
+    <string name="signin_body">Optional. Sign in so Flack can post your car replies as you when a Slack notification has no reply button. Flack asks Slack to let it post messages as you, search your messages to find the one a notification is about, and read names to check it found the right one. It reads nothing else. This version signs in only; replies through sign-in come in a later version.</string>
+    <string name="signin_not_configured">Slack sign-in is not set up in this build.</string>
+    <string name="signin_add">Add a Slack workspace</string>
+    <string name="signin_workspace">%1$s: signed in as %2$s</string>
+    <string name="signin_workspace_expired">%1$s: sign in again</string>
+    <string name="signin_sign_out">Sign out</string>
+    <string name="signin_sign_out_label">Sign out of %1$s</string>
+    <string name="signin_sign_out_confirm">Sign out of %1$s? Flack asks Slack to end this sign-in and deletes it from the phone.</string>
+    <string name="signin_no_browser">No browser could open Slack\'s sign-in page.</string>
+    <string name="signin_done">Signed in to %1$s.</string>
+    <string name="signin_done_previous_unconfirmed">Signed in to %1$s. Slack could not confirm the end of the earlier sign-in for this workspace. Flack tries again when you sign out. To end it now, remove Flack from that workspace\'s apps in Slack.</string>
+    <string name="signin_slack_error">Slack did not finish signing in. If your workspace needs an admin to approve Flack, ask them to approve it, then tap Add a Slack workspace again.</string>
+    <string name="signin_interrupted">Sign-in was interrupted. Tap Add a Slack workspace to try again.</string>
+    <string name="signin_uncertain">Flack could not confirm the sign-in with Slack, and Slack may have finished it without Flack. Check your connection and try again. To end a sign-in that Flack does not list, remove Flack from that workspace\'s apps in Slack.</string>
+    <string name="signin_refused">Slack refused the sign-in. Try again, and allow every permission Flack asks for.</string>
+    <string name="signin_storage">Flack could not save the sign-in on this phone. Try again.</string>
+    <string name="signin_not_revoked">Flack could not finish signing in, and Slack could not confirm that the sign-in was cancelled. To end it now, remove Flack from that workspace\'s apps in Slack. Then try again.</string>
+    <string name="signin_read_error">Flack could not read your Slack sign-in right now. Close Flack and open it again. Your sign-in is kept.</string>
+    <string name="signout_storage">Flack could not update the sign-in for %1$s on this phone. Try again.</string>
+    <string name="signout_done">Signed out of %1$s.</string>
+    <string name="signout_unconfirmed">Removed %1$s from this phone. Slack could not confirm the sign-out, so it may stay active until it expires. To end it now, remove Flack from that workspace\'s apps in Slack.</string>
     <string name="status_title">Status</string>
     <string name="status_summary">Forwarding: %1$s\nAndroid Auto: %2$s\nListener: %3$s\nLast reply: %4$s</string>
     <string name="state_on">on</string>

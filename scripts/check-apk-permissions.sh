@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fails when the built APK asks for any permission outside the allowlist.
-# SPEC.md section 10: no network, microphone, contacts, SMS, location or
-# accessibility. Adding a permission here needs a reviewed design change.
+# SPEC.md section 10: no microphone, contacts, SMS, location or accessibility;
+# network only for Slack sign-in. Adding a permission here needs a reviewed design change.
 set -euo pipefail
 
 apk=${1:?usage: check-apk-permissions.sh path/to/app.apk}
@@ -11,6 +11,8 @@ aapt2=$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name aapt2 | sort -V | 
 
 allowed=(
   "android.permission.POST_NOTIFICATIONS"
+  # Slack sign-in only (docs/SLACK_SIGN_IN.md).
+  "android.permission.INTERNET"
   # Added by AndroidX core to protect the app's own dynamic receivers.
   "tech.amditis.flack.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )

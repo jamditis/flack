@@ -20,9 +20,10 @@ Releases are signed with one key, so a new release installs over the old one. If
 
 1. Open **Flack**.
 2. Tap **Allow this app to post notifications** and allow it.
-3. Tap **Open settings** under notification access, choose **Flack** and turn it on. If the switch is greyed out, Android is protecting it because the app came from outside Google Play: open App info for Flack, tap the menu (three dots), tap **Allow restricted settings**, then try again. The **Switch greyed out?** button in the app walks through this. Android warns that the app can read notifications. That is how it sees Slack messages. The app has no internet permission, so it cannot send them anywhere.
+3. Tap **Open settings** under notification access, choose **Flack** and turn it on. If the switch is greyed out, Android is protecting it because the app came from outside Google Play: open App info for Flack, tap the menu (three dots), tap **Allow restricted settings**, then try again. The **Switch greyed out?** button in the app walks through this. Android warns that the app can read notifications. That is how it sees Slack messages. Flack sends nothing over the internet unless you sign in to Slack, and then it talks only to Slack.
 4. Turn on **Forward Slack messages to Android Auto**.
 5. In Settings → Apps → Flack → Battery, choose **Unrestricted**, so Samsung does not put the app to sleep.
+6. Optional: under **Slack sign-in**, tap **Add a Slack workspace** and sign in on Slack's page. Repeat for each workspace. This version only signs in; replies through sign-in come in a later version. If Slack says an admin must approve Flack, ask a workspace admin, then sign in again.
 
 ## Set up Android Auto
 
@@ -30,6 +31,7 @@ Releases are signed with one key, so a new release installs over the old one. If
 2. Scroll to the bottom and tap the **Version** row 10 times, until it asks to allow development settings. Tap **OK**. This is Android Auto's own developer mode, separate from the phone's developer options.
 3. Open the menu (three dots) → **Developer settings** and turn on **Unknown sources**.
 4. Check that Flack appears under **Android Auto → Customize launcher**.
+5. If Android Auto or Gemini offers a setting to send replies automatically, turn it off, so you hear every reply read back before it is sent.
 
 Without this, Android Auto hides notifications from apps not installed from Google Play.
 
