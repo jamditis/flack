@@ -25,12 +25,22 @@ class SlackReplySender(private val accounts: SlackAccounts, private val transpor
             // The refresh or the stored sign-in failed before chat.postMessage was sent.
             return ApiReplyResult(HandoffStatus.NOT_SENT)
         } ?: return ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN)
+        val confirmed = try {
+            SlackWorkspaceCheck(accounts, transport).confirmWithToken(destination.teamId, token)
+        } catch (e: SlackCallException) {
+            val status = if (e.slackCode in setOf("token_revoked", "token_expired", "account_inactive")) {
+                HandoffStatus.NOT_SENT_SIGN_IN
+            } else HandoffStatus.NOT_SENT
+            return ApiReplyResult(status, e.slackCode)
+        }
+        if (!confirmed) {
+            return ApiReplyResult(HandoffStatus.NOT_SENT)
+        }
         if (!stillCurrent()) return ApiReplyResult(HandoffStatus.NOT_SENT)
 
         val form = buildMap {
             put("channel", destination.channelId)
             put("text", escape(text))
-            destination.threadTs?.let { put("thread_ts", it) }
         }
         val response = try {
             transport.call("chat.postMessage", form, token)
@@ -40,7 +50,7 @@ class SlackReplySender(private val accounts: SlackAccounts, private val transpor
         // Slack's answer must name the same conversation and thread that Flack asked for.
         val channel = response.optString("channel")
         val threadTs = response.optJSONObject("message")?.optString("thread_ts")?.takeIf { it.isNotEmpty() }
-        val samePlace = channel == destination.channelId && threadTs == destination.threadTs
+        val samePlace = channel == destination.channelId && threadTs == null
         return ApiReplyResult(if (samePlace) HandoffStatus.POSTED else HandoffStatus.POSTED_PLACE_UNCONFIRMED)
     }
 

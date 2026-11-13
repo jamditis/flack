@@ -60,6 +60,7 @@ object SyntheticSlack {
         extraMessages: List<Pair<String?, String>> = emptyList(),
         replySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
         extraReplySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
+        shortcutId: String? = null,
     ): StatusBarNotification {
         val me = Person.Builder().setName("Me").build()
         val style = NotificationCompat.MessagingStyle(me).setConversationTitle(title)
@@ -93,7 +94,7 @@ object SyntheticSlack {
                     .build(),
             )
         }
-        val notification = builder.build()
+        val notification = builder.setShortcutId(shortcutId).build()
         if (isGroup == null) notification.extras.remove(Notification.EXTRA_IS_GROUP_CONVERSATION)
         return statusBar(notification, key, packageName, user)
     }

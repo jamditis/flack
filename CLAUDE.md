@@ -42,7 +42,8 @@ app/src/main/java/tech/amditis/flack/
   core/ReportFit.kt         # Fits the test report in one 20,000-character paste
   SlackAccounts.kt          # Encrypted token file, code exchange, refresh, sign-out
   SlackApi.kt               # HTTPS to slack.com; content-free error categories
-  core/ApiRoute.kt          # API reply route: field mappings (empty until #29), certainty rules
+  core/ApiRoute.kt          # Exact shortcut conversation/workspace IDs, top-level reply rules
+  SlackWorkspaceCheck.kt    # auth.test confirms the signed-in workspace before offer and post
   SlackReplySender.kt       # chat.postMessage once, refresh, status from Slack's answer
   KeystoreSealer.kt         # AES-GCM with an Android Keystore key
   SlackSession.kt           # Sign-in wiring and the redirect callback activity

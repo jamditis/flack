@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import tech.amditis.flack.core.Conversation
+import tech.amditis.flack.core.ApiRouteResolver
 import tech.amditis.flack.core.Message
 import tech.amditis.flack.core.ReplyActionFacts
 import tech.amditis.flack.core.RouteFields
@@ -32,6 +33,9 @@ class ParsedNotification(
         val conversation = facts.conversation
         add(conversation?.title)
         add(conversation?.isGroup)
+        // This field now chooses the API conversation; a change expires the old reply.
+        add(routeFields.shortcutId)
+        add(ApiRouteResolver.workspaceIds(routeFields).sorted())
         conversation?.messages?.forEach {
             add(it.senderName); add(it.fromSelf); add(it.text); add(it.timestampMillis)
         }

@@ -1,6 +1,6 @@
 # Slack sign-in reply route
 
-Design, November 12, 2026. Status: approved by the maintainer; not yet built or device tested. Two questions are open (see [Open questions](#open-questions)).
+Design updated November 13, 2026. Sign-in is merged. The first API reply experiment sends a top-level reply to the notification's conversation. Physical phone/car delivery remains unverified.
 
 ## Goal
 
@@ -12,19 +12,15 @@ The v0.2.1 car test showed why this is needed. Two channel messages arrived with
 
 - Slack's own notifications decide which messages reach the car. Each person's Slack notification settings still apply. Flack polls nothing and does not read conversations it was not notified about.
 - When the phone notification has a usable reply action, Flack uses it, as before.
-- A reply goes only to a destination identified with certainty. If that is not possible, the copy stays read-only. A post to the wrong workspace, conversation or thread is the worst failure this route can cause.
+- A reply goes only to a workspace and conversation identified with certainty. If that is not possible, the copy stays read-only. This API experiment always posts at the top level, including when the incoming notification describes a thread reply.
 - The token rules in SPEC.md sections 6 to 8 still apply: one token per generation, consumed once, revalidated before dispatch, never retried.
 - The car reply uses Android Auto's standard messaging reply only (see [Car reply flow](#car-reply-flow)). There is no custom car interface.
 
-## What the evidence must show first
+## Evidence for the first reply
 
-Slack's notification is the only source that says which message the person is answering. A Slack search can find a message with the same sender, text and time, but it cannot prove that it is the same message: search merges nearby matches, follows each person's search filters ([search.messages](https://docs.slack.dev/reference/methods/search.messages)), and display names are not unique ([Slack, 2017](https://docs.slack.dev/changelog/2017-09-the-one-about-usernames/)). So every API reply needs structured evidence in the notification for:
+The November 13 field report on [#29](https://github.com/jamditis/flack/issues/29#issuecomment-6865459623) shows a conversation ID in `shortcutId`: D for DMs and G for groups, present in all 11 cases, agreeing within a conversation and differing between conversations. Workspace IDs appear as whole string extras values and agree within a conversation. Their key names remain unknown. No observed timestamp identifies this message or its thread parent.
 
-- the **workspace**,
-- the **conversation** for DMs and group DMs (a channel can also be confirmed by its name, which is unique in a workspace), and
-- the **place**: the channel itself, or which thread.
-
-Slack does not document what its Android notifications contain. The route field probe (build step 1) finds out on the first test drive. Where the evidence is missing, that message type stays read-only, and the test report counts it.
+The maintainer approved top-level replies for this experiment on November 13: "We don't necessarily need to be able to reply in a specific thread. I'm more interested in confirming that we can send replies to begin with at all." No observed field reliably distinguishes thread messages. API replies to those notifications also go to the conversation's top level, never into a specific thread. The coordinator approved checking `auth.test` against an exact workspace ID in the notification extras, with no new scopes. A refusal from `chat.postMessage` ends that attempt; Flack never tries another conversation or workspace.
 
 ## Slack app
 
@@ -35,13 +31,13 @@ Flack asks for user token scopes only, and has no bot user.
 | Scope | Why |
 | --- | --- |
 | `chat:write` | Post the reply as the signed-in person with `chat.postMessage` |
-| `search:read` | Find the message a notification announced, with `search.messages`, when the notification gives its place but not its channel ID |
-| `users:read` | Turn the user ID in a search result, and user mentions in its text, into the names the notification shows, with `users.info`, so the sender and text can be compared |
+| `search:read` | Granted by existing sign-ins; unused by the top-level reply route |
+| `users:read` | Granted by existing sign-ins; unused by the top-level reply route |
 
-`search:read` lets Flack search every message the person can see. Flack uses it only for the queries described under [Message match](#message-match), built from one notification's text, and keeps results in memory only until the match is decided. The other ways to find a message are ruled out:
-
-- `conversations.history` and `conversations.replies` are limited to one request per minute and 15 messages per request for distributed apps that are not in the Marketplace ([changelog, May 29, 2025](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps)). `search.messages` is not affected and allows about 20 requests per minute.
-- Slack's newer real-time search API (`assistant.search.context`) has narrower scopes, but it is intended for AI apps that a person uses inside the Slack client. This design does not use it.
+The first-reply experiment keeps these scopes so existing sign-ins remain usable.
+It makes no search, history, thread-history or user-name lookup. Its destination
+comes from notification identifiers; `auth.test` confirms the workspace without
+additional scopes ([Slack reference](https://docs.slack.dev/reference/methods/auth.test/)).
 
 ## Sign-in
 
@@ -105,76 +101,30 @@ Flack refreshes a workspace's token only when it needs it: before a lookup or a 
 
 ## Routing
 
-### Order
+For each forwarded notification:
 
-For each Slack notification Flack forwards:
+1. Use Slack's original reply action when the existing capability check accepts it. No API lookup runs.
+2. Otherwise, use `shortcutId` only when its entire value is a valid conversation ID: D for a one-to-one notification, C or G for a group notification. The field report supports D/G; the coordinator also permits C-shaped group destinations. Unknown types, malformed IDs and untitled groups remain read-only.
+3. Match whole extras values of the form `T[A-Z0-9]{8,}` to saved workspace IDs. Extra order, key numbers, titles, subtext, sender IDs and timestamps never select a destination. A workspace ID embedded in another string is insufficient.
+4. The notification must carry exactly one distinct workspace ID, and exactly one saved workspace must match. Conflicting extra values, no matches or expired sign-in mean read-only.
+5. Fetch that workspace's current token, refreshing if needed, and call `auth.test`. Its `team_id` must equal the workspace ID from the notification. Failure or mismatch means read-only.
+6. Offer the API reply on the car copy, bound to that workspace and the exact shortcut conversation ID.
 
-1. **Original action.** The existing check (SPEC.md section 6) finds one usable reply action. Flack uses it and makes no API call for this message.
-2. **Notification identifiers.** Structured fields give the workspace, the conversation and the place.
-3. **Message match.** Structured fields give the workspace and the place, and a search confirms the channel.
-4. **Read-only.** Otherwise.
+Flack publishes a read-only copy immediately, then runs the lookup on a background thread. A successful check adds the reply action quietly; a slow or failed check never delays readout. The lookup reads no history and makes no search. Source removal, pause, disconnect or a changed source generation discards a pending lookup. Shortcut and workspace-ID changes invalidate held replies. Duplicate callbacks keep the same reply token, including after it is consumed.
 
-Steps 2 and 3 apply to every notification that the existing check makes read-only, except an unknown conversation type. Notifications it rejects (group summaries, empty or context-free notifications, non-message notifications) are still not forwarded.
-
-### Workspace
-
-If a structured field carries a workspace ID that the probe evidence shows names the notification's workspace, that ID decides: when it is not a signed-in workspace, the message stays read-only, whatever the setting below says. Otherwise Flack uses a workspace only when one of these holds:
-
-- a workspace ID in a structured notification field, that the probe evidence shows names the notification's workspace, matches a signed-in workspace; or
-- the person turned on **Slack on this phone uses only my signed-in workspaces**, and either exactly one workspace is signed in, or the notification's subtext equals the name of exactly one of them.
-
-A subtext name alone never selects a workspace, because a workspace Flack cannot see may have the same name. The setting is off by default. Its text says: "Turn this on only if every workspace in the Slack app on this phone is signed in here. If you add a workspace to Slack later, sign in to it here too." Otherwise the message stays read-only (`WORKSPACE_UNKNOWN`).
-
-### Notification identifiers
-
-Flack uses only structured fields: the notification's shortcut ID, its `LocusId`, its tag, string values in its extras, and the newest sender's Person key and URI. It never uses the conversation title, message text, sender names or action labels to choose a destination.
-
-Shape counts alone cannot show what a field means: a message timestamp and its thread parent's timestamp look the same. The probe therefore reports relations, compared in memory and exported as yes or no:
-
-- whether a field's channel ID agrees across notifications of the same conversation and differs between conversations;
-- whether a field's user ID agrees across messages from the same sender;
-- whether a field's workspace ID is the same in every notification;
-- whether a field's timestamp equals this message's time, or the time of an earlier notified message (a thread parent).
-
-After sign-in, a second probe stage compares field values with IDs from Slack itself. For a channel notification, a search in the test channel by the tester's exact test phrase gives the channel ID (channel names are unique in a workspace) and the message and thread timestamps. The stage exports only per-field results such as "tag equals the channel ID: yes". Several cases that agree establish a mapping; this stage never routes a reply.
-
-A field mapping is used only when the evidence shows it for that message type, and it is written into this document with the evidence. Otherwise this step is skipped for that type.
-
-### Message match
-
-Message match fills in a channel when the notification gives the workspace and the place (channel or thread parent timestamp) but not the channel ID. DMs and group DMs are never matched this way: they need a structured conversation or sender ID (step 2).
-
-1. Flack takes the newest incoming message in the notification: its sender name, text and timestamp.
-2. It runs `search.messages` in the pinned workspace with up to eight plain words of the text, quoted, sorted by timestamp, newest first, 20 results.
-3. It keeps a result only when its timestamp is within 10 seconds of the notification message's, its author's display name or real name (`users.info`) equals the notification's sender name, its text equals the notification text after both are normalized (mentions replaced by names, links by their labels, HTML entities decoded, whitespace collapsed), it is in a channel whose name equals the notification's title without a leading `#`, and it is not a thread reply also sent to the channel (`thread_broadcast`).
-4. Exactly one result must remain. Its channel ID is the destination. The place still comes from the notification: the channel itself, or the thread parent timestamp from the structured field. If the result's own place disagrees with the notification's (for example, a thread reply when the notification shows a channel message), the message stays read-only.
-
-Slack may need a few seconds to index a new message, so Flack searches at most three times per notification: at once, after 2 seconds and after 6 seconds. It stops at the first unique match or the first ambiguous result. This is a lookup; a reply is never retried. Search results and user names are kept in memory only. User lookups are cached in memory and cleared when the session ends.
-
-### Before the car copy
-
-Flack resolves the route when the notification arrives, before it posts the car copy, so Android Auto offers a reply only for a certain route and the driver never waits on a search. A copy that needs a lookup can appear up to about seven seconds after the Slack notification. A message that stays read-only is posted read-only after the last attempt, and Android Auto may not show it, as today.
-
-### Counting read-only cases
-
-The test report counts how each forwarded message was routed: original action, identifiers, message match, or read-only. Read-only cases are counted by reason: workspace unknown, not signed in to that workspace, no structured conversation ID, no structured place, no match, more than one match, place disagrees, lookup failed, sign-in expired. A rise in one reason shows what to fix.
+The content-free test report shows **Reply offered through the Slack API** and counts each unavailable reason: no field mapping for an unknown type, no conversation ID, untitled group, workspace unknown, workspace not signed in, expired sign-in, unreadable accounts, workspace unconfirmed or workspace ambiguous. It exports no identifiers or token values.
 
 ## Dispatch
 
-1. The car reply arrives with its token, as now. The registry consumes the token once and checks that the generation is current.
-2. Flack refreshes the workspace's access token if it expires within five minutes.
-3. Flack calls `chat.postMessage` once with `channel`, `text` and, for a thread, `thread_ts`. Connect timeout 5 seconds, read timeout 10 seconds, on a background thread. The broadcast is not held open with `goAsync`, because a refresh and its revokes can take longer than the broadcast deadline; the bound notification listener keeps the process running. The car copy is reposted on the main thread, with the listener's own changes.
-4. Results:
+1. The registry validates and consumes the car reply token once.
+2. Flack obtains the pinned workspace's current token, refreshing when needed.
+3. `auth.test` must still return that workspace's ID under the exact token used to post. Failure or mismatch sends nothing.
+4. Flack checks that the car copy is still current, then calls `chat.postMessage` once with only `channel` and escaped `text`. It never sends `thread_ts`.
+5. A confirmed response names the requested conversation and has no thread timestamp. The status is **Posted to Slack (Slack confirmed)**. An answer naming another place is reported as unconfirmed.
+6. A definite refusal such as `channel_not_found`, `not_in_channel` or `is_archived` is **Not sent**, with Slack's content-free error code in the test report. The copy is reposted without a reply action. No other destination is tried.
+7. An interruption after posting may have begun, an unreadable response, or an error that can follow partial success is **Outcome unknown**. Nothing is retried.
 
-| Result | Status shown |
-| --- | --- |
-| `ok: true` and the response `channel` equals the requested one | Posted to Slack (Slack confirmed) |
-| The refresh or the connection failed before the request was sent | Not sent |
-| `ok: false` with an error that Slack documents as a refusal, such as `channel_not_found`, `not_in_channel`, `is_archived`, `msg_too_long`, `restricted_action`, `invalid_auth`, `token_expired` or `ratelimited` | Not sent, with that error |
-| Any other `ok: false`, including `internal_error` and `fatal_error`, which Slack says can follow a partial success ([chat.postMessage](https://docs.slack.dev/reference/methods/chat.postMessage)) | Outcome unknown |
-| Timeout or connection lost after the request was sent | Outcome unknown |
-
-Flack never retries, including after an unknown outcome. The reply text is held in memory for the request only. Slack's `ok: true` is a server confirmation, unlike "Handed to Slack" on the original-action route.
+Network work runs off the main thread, with a 5-second connect timeout and 10-second read timeout. The broadcast is not held open; the bound notification listener keeps the process running. Reply text lives only in memory. Source removal or replacement while waiting for a token or workspace check prevents the post. Sign-in scopes stay unchanged.
 
 ## Car reply flow
 
@@ -188,88 +138,21 @@ This route adds the `INTERNET` permission, the first beyond notifications. SPEC.
 
 The sign-in build updates every public "no internet permission" and "no Slack login or token" claim in the same pull request: README.md, SECURITY.md, docs/INSTALL.md, site/index.html and site/privacy.html.
 
-## Build plan
+## First car test
 
-Small stacked pull requests, each with focused unit tests:
+Use synthetic conversations and invented text. The coordinator releases the build; this change creates no release tag.
 
-1. Route field probe (v0.2.2): shapes and yes/no relations in the content-free test report. No sign-in and no network. It ships first, because every API reply depends on its evidence.
-2. Sign-in: PKCE with the custom-scheme redirect, Keystore token storage for several workspaces, sign-out that revokes both tokens, the `INTERNET` permission, the phone screen and the public text changes.
-3. Probe stage two: per-field comparison with known IDs after sign-in.
-4. API reply: the field mappings the evidence supports, the workspace rule, message match where it applies, dispatch, the route order and the test report counts.
+1. Park, sign in to the test workspace, enable forwarding and connect Android Auto.
+2. Receive a fresh Slack DM or titled group notification without a usable original reply action.
+3. Copy the test report. **Reply offered through the Slack API** should increase; otherwise record the read-only reason.
+4. Hear the intended conversation, dictate a reply, listen to readback, and confirm once.
+5. Verify exactly one top-level message in the intended Slack conversation. Record the phone, Slack, Android Auto and head-unit versions, exact status and destination result without message content.
+   Include a notification for a thread reply: its API response must also land at the top level of that conversation. Original-action replies still follow the original action's thread destination.
+6. Cancel a second reply and confirm nothing was posted. Remove or update a notification during dictation and confirm the stale reply sends nothing.
 
-## Step 4 before the probe evidence
-
-Built on November 13, 2026, before the #29 report. The route order, certainty rules, dispatch and status text are in place, and the field mapping table (`FieldMappings.ALL` in `core/ApiRoute.kt`) is empty. So every message without a usable original action stays read-only, counted as `NO_FIELD_MAPPING`. A later pull request adds mappings from the evidence.
-
-Rules in this build:
-
-- A mapping covers one kind: one-to-one (`isGroup` false) or group (`isGroup` true). An unknown kind has no mapping. Two mappings for one kind count as none.
-- A mapping names a field and a pattern for each of the workspace ID, the conversation ID and the thread timestamp. Each pattern must match exactly once. A one-to-one message needs a `D` conversation ID, a group needs a `C` or `G` ID.
-- The workspace ID decides. A workspace that is not signed in, or must sign in again, stays read-only, even when another workspace is signed in. The **Slack on this phone uses only my signed-in workspaces** setting and the subtext rule are not built: a mapping without a workspace field is not possible in this build.
-- Only an absent thread field means the conversation itself. A thread field without exactly one timestamp leaves the place unknown (`NO_PLACE`).
-- A group without a title stays read-only (`UNTITLED_GROUP`), so the driver always hears which conversation a reply goes to.
-- Message match (search) is not built.
-- The listener reads the signed-in workspaces from the last copy Flack loaded or saved, without waiting for a sign-in, refresh or sign-out in progress. Dispatch still asks for that workspace's token, so a sign-in that ended meanwhile is "Not sent".
-- Just before `chat.postMessage`, after any refresh, Flack checks again that the car copy is still the current one. A copy withdrawn or replaced meanwhile is "Not sent".
-- `chat.postMessage` escapes `&`, `<` and `>`. Slack's answer must name the requested channel and thread. Otherwise the status is "Posted to Slack, but Slack's answer did not confirm the same conversation and thread".
-- A failure to connect is "Not sent". After the first byte of the request is written, a lost or unreadable answer is "Outcome unknown". An HTTP 429 is read as Slack's `ratelimited` refusal.
-
-## Probe evidence, November 13, 2026
-
-The maintainer's report is on #29: Flack 0.3.0, Slack 26.11.20.0, Samsung S24 Ultra, Android 17. It has seven route field probe cases and twelve multiple reply action cases. The maintainer is signed in to about ten workspaces in Slack on that phone, so a field that differs between messages may still name each message's own workspace.
-
-What the report shows:
-
-- **Conversation.** `shortcutId` and one string extra (extra key 2) each hold one channel-shaped ID. In cases 1 to 4, four one-to-one notifications from one conversation, both agree within the conversation and differ from every other case. Cases 5 to 7 each come from a different conversation, so agreement within a group conversation is not shown. The report does not say whether an ID starts with `C`, `G` or `D`.
-- **Sender.** `senderKey` holds one user-shaped ID that agrees for one sender and differs between senders. A sender ID does not name a conversation (see [Step 4](#step-4-before-the-probe-evidence)), so it is not used.
-- **Workspace.** No named field holds a workspace-shaped ID. Extra keys 3, 4 and 5 each hold one, and their values are not the same in every case. The report gives these keys local numbers, not their names, so a mapping cannot refer to them. It also does not say whether they agree within one conversation, so it does not show which of them, if any, is the message's own workspace.
-- **Place.** Only case 6 has timestamp-shaped values (extra keys 4 and 7). Neither equals case 6's message time or an earlier case's message time. The report does not show a thread parent, and it does not show that a missing timestamp means the message is not in a thread.
-
-So `FieldMappings.ALL` stays empty: no message type has the workspace, conversation and place that a mapping needs.
-
-| Message type | Mapped | Why |
-| --- | --- | --- |
-| DM (one-to-one) | No | The conversation ID agrees within one DM (cases 1 to 4), but the workspace field is unknown, the `D` prefix is not shown, and a thread is not ruled out. |
-| Group DM | No | The report cannot tell a group DM from a channel (both have `isGroup` true, and prefixes are not shown). No group conversation appears twice. The workspace field is unknown. |
-| Channel | No | Same as group DM. |
-| Thread | No | No timestamp is shown to be a thread parent. The one timestamp-bearing case (6) matched no notified message. |
-
-### Why Slack's reply actions are not used
-
-Every multiple reply action case has three actions: one with `semanticAction=2` (mark as read) and no input, then **Reply in thread** and **Reply**, each with one text input. Both reply actions have `semanticAction=0` (none) and `showsUserInterface=true`.
-
-The capability check (SPEC.md section 6) counts an action as a reply action only when it takes free-form text and declares `SEMANTIC_ACTION_REPLY` (1). Slack's two actions declare 0, so the check finds no reply action and reports `NO_REPLY_ACTION`. It stops before the `MULTIPLE_REPLY_ACTIONS` check. If the check ignored the semantic action, it would find two actions and stop at `MULTIPLE_REPLY_ACTIONS`; either action alone would still fail as `REPLY_OPENS_APP`, because it shows an interface. So the routed cases are `NO_REPLY_ACTION` even though Slack offers Reply buttons on the phone.
-
-The two lists are recorded at different points. Flack records the action shapes for every Slack notification with more than one text input, before any check, and the route field probe records only notifications that the check does not reject. The two lists have different case numbers and cannot be matched one to one.
-
-### Next probe
-
-The probe now also shows, for each field:
-
-- the prefix letters of the IDs it holds (`ID prefixes: D T`), so a DM can be told from a channel;
-- for an extras key whose value holds an ID or timestamp, its exact name when it is on a fixed list of common ID key names (such as `team_id`, `channelId` or `thread_ts`, alone or after Slack's package prefix `com.Slack.`); any other key shows "not on the list", so only fixed strings appear in the report. Slack does not document its extras, so the list is a guess. If the keys are not on it, probe stage two (comparison with IDs from Slack after sign-in) is still needed;
-- whether a workspace ID agrees within one conversation.
-
-The maintainer runs the second probe in [TEST_PLAN.md](TEST_PLAN.md). A later pull request adds a mapping for a message type only when that report shows all three of the workspace, the conversation and the place for it.
-
-### Rules from an existing Slack reply bridge
-
-The maintainer runs a separate Slack bridge that posts replies in two workspaces. Its reply rules were compared with Flack's:
-
-| Bridge rule | In Flack | Notes |
-| --- | --- | --- |
-| Check the signed-in user and workspace before any post | Yes, at sign-in and refresh | Flack keeps the user and workspace IDs from Slack's sign-in answer and refuses a refresh that names another workspace. It looks up the token by the destination's workspace ID. It does not call `auth.test` before each post, because each token comes from that workspace's own sign-in. |
-| Check the channel, sender, timestamp and thread against the incoming message | Partly | The bridge reads the message back with `conversations.history` or `conversations.replies`. Flack does not: those methods allow one request per minute for an app that is not in the Marketplace, and Flack does not ask for their scopes. Flack instead needs probe evidence for each field, and checks that Slack's answer to `chat.postMessage` names the requested channel and thread. |
-| Never take the workspace from a display name or message text | Yes | The workspace ID decides. The subtext rule is not built. |
-| Keep state for each workspace | Yes | One token record for each workspace ID, with its own sign-out. Flack keeps no conversation state. |
-| Hold an uncertain delivery and never retry it | Yes | Flack has no queue. An uncertain post shows "Outcome unknown", its reply token is used up, and it is not retried. |
+A wrong destination, duplicate or cancel-that-sends blocks the pilot. A passing hosted suite does not establish car compatibility.
 
 ## Open questions
 
-1. Does Slack accept the custom-scheme redirect `tech.amditis.flack://oauth` for an app with public distribution turned on, given its "SSL for OAuth redirect URLs" rule? If not, the serverless design needs a different redirect, and the secretless refresh must be checked again. (#28)
-2. Do Slack's Android notifications carry a workspace ID, a conversation or sender ID, and a thread or channel signal in structured fields? The first probe report found conversation and sender IDs, unnamed extras with workspace IDs, and no proven thread signal (see [Probe evidence](#probe-evidence-november-13-2026)). The second probe answers the rest. (#29)
-
-## What the maintainer does
-
-1. Create the Slack app and install it, following [SLACK_APP_SETUP.md](SLACK_APP_SETUP.md). Report on #28 if Slack refuses the custom-scheme redirect.
-2. Run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) with v0.2.2 and paste the report on #29.
+- [#28](https://github.com/jamditis/flack/issues/28): Slack accepted public distribution with the custom-scheme redirect on November 13; sign-in from a second workspace remains untested.
+- [#29](https://github.com/jamditis/flack/issues/29): exact workspace extra key names and message/thread timestamps remain unknown. Targeting a specific thread through the API is outside this experiment; thread notifications receive top-level API replies.

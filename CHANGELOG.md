@@ -4,6 +4,14 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- Car replies can use Slack sign-in when the phone's notification has no usable
+  inline reply action. Flack uses the notification's conversation ID and checks
+  that its workspace matches the signed-in token before offering the reply and
+  again before posting. Replies go to the conversation's top level. Missing or
+  conflicting IDs and failed workspace checks stay read-only. A refused post
+  records Slack's reason and is never retried. The test report counts API reply
+  offers and reasons they were unavailable. A physical car test is still needed.
+
 ## 0.3.1
 
 - The test report now fits in one paste of 20,000 characters. The route field

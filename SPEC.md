@@ -44,12 +44,21 @@ The sources and their precise limits are in docs/SOURCES.md. Requirements below 
 
 - New, eligible Slack text notifications received during an active Android Auto session.
 - DMs, group DMs, public channel messages (mentions and other subscribed messages), private channel messages, and thread replies.
-- Readout through Android Auto's native messaging flow; a voice reply only when the original action identifies one destination and thread without ambiguity.
+- Readout through Android Auto's native messaging flow; a voice reply through a safe original action or the confirmed top-level API route described below.
 - Clear sender and destination context when the notification exposes it reliably.
 - A phone-side enable/pause control, setup status, supported-message list, and content-free diagnostics.
 - Session cleanup and an explicit recovery path when notification access, the source action, or the connection is unavailable.
 
 Readable notifications with unsafe or unknown reply routing remain read-only. Device testing records each type separately; synthetic support is not a claim of verified Slack or head-unit compatibility.
+
+For the first sign-in reply experiment approved November 13, API replies go to
+the top level of the notification's conversation. A valid shortcut conversation
+ID and an exact workspace ID in its extras are required; auth.test confirms that
+workspace under the signed-in token before offering and before posting. No
+thread timestamp is used, including for notifications of thread replies: their
+API responses also go to the conversation's top level. The original action
+remains first and keeps its original thread destination. See
+[SLACK_SIGN_IN.md](docs/SLACK_SIGN_IN.md) for the fail-closed rules and car test.
 
 ### Later work requiring a separate design
 
@@ -62,7 +71,7 @@ A Slack API client requires its own authentication, permissions, distribution, a
 | Gate | Evidence required | Consequence if it fails |
 | --- | --- | --- |
 | G0 Native test | Fresh Slack DM read and replied to through the actual car, including a locked-phone test | Continue to G1 after checking setup; record whether phone-only behavior differs |
-| G1 Source capability | Real Slack notification contains usable text; replies also require an unambiguous inline action | Keep readable text read-only when the reply cannot be validated |
+| G1 Source capability | Real Slack notification contains usable text; replies require a safe original action or confirmed top-level API destination | Keep readable text read-only when the reply cannot be validated |
 | G2 One DM round trip | Car readout, dictation, review, confirmation, and one reply in the intended DM | Fix the feasibility experiment before building product UI |
 | G3 Concurrent routing | Correct destination under updates, two conversations, identical names, and thread cases | Any misroute blocks a pilot |
 | G4 Host interaction | Actual car flow provides intelligible context, confirmation/cancel, and acceptable failure behavior | Redesign or stop; do not manufacture a reassuring status |
@@ -106,7 +115,7 @@ Process only the verified official Slack package in the permitted Android profil
 
 Each reply binding includes the source package, Android user/profile, notification key, observed generation, original reply action, exact RemoteInput result key, and a unique random bridge token. Store any trustworthy conversation metadata supplied by Slack, but do not invent Slack IDs or derive recipients from display names.
 
-The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. A one-to-one MessagingStyle conversation can use its incoming sender as context. A group DM, channel, or thread requires a nonblank conversation title. Unknown conversation flags and plain text notifications are read-only. Use the notification's single free-form action with the REPLY semantic action, after checking background execution, creator and mutability. Zero or multiple semantic reply actions stay read-only. Multiple input keys, unsafe creators, immutable actions, and actions opening UI never offer a reply. If context cannot identify the destination, retain readable content without a reply action. No label is parsed into a Slack identifier or used to choose a route. On the sign-in route, a sender name and message text can confirm a search result, together with its timestamp; the destination is always the IDs Slack returns for one unique result (docs/SLACK_SIGN_IN.md). A selected action labeled as a thread reply adds thread context to the car copy's conversation title. Joe accepted the phone notification's inline-reply route for all conversation types on November 12, 2026 (#23). A car reply goes where that phone notification's reply would go; no channel or thread route is substituted.
+The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. A one-to-one MessagingStyle conversation can use its incoming sender as context. A group DM, channel, or thread requires a nonblank conversation title. Unknown conversation flags and plain text notifications are read-only. Use the notification's single free-form action with the REPLY semantic action, after checking background execution, creator and mutability. Zero or multiple semantic reply actions stay read-only. Multiple input keys, unsafe creators, immutable actions, and actions opening UI never offer a reply. If context cannot identify the destination, retain readable content without a reply action. No label is parsed into a Slack identifier or used to choose a route. The API route instead uses the exact shortcut conversation ID and workspace ID from the notification, confirmed with auth.test (docs/SLACK_SIGN_IN.md). It posts at the top level even for a thread notification. A selected action labeled as a thread reply adds thread context to the car copy's conversation title. Joe accepted the phone notification's inline-reply route for all conversation types on November 12, 2026 (#23). An original-action car reply goes where that phone notification's reply would go; no channel or thread action is substituted.
 
 Do not assume a PendingIntent is a frozen snapshot. Its creator may update its underlying operation. Equality checks are useful consistency checks, not proof of an immutable destination. [S6] Detect a reply capability observed across conflicting conversation bindings and reject it until its safety is established. Revalidate the latest observed source generation and action immediately before dispatch. The bridge cannot inspect or atomically freeze Slack's underlying operation; real-device race tests remain essential. An update during dictation must never retarget the dictated text to the most recent conversation.
 

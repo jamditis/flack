@@ -113,6 +113,8 @@ class SessionRegistry<A : Any>(
         newestFromSelf: Boolean,
         actions: Collection<A> = listOfNotNull(action),
         apiRoute: ApiDestination? = null,
+        // A duplicate source callback must not reset a confirmed route or its consumed token.
+        apiLookupPending: Boolean = false,
     ): Observation<A> {
         // The original action comes first; the API route is only for messages without one.
         require(action == null || apiRoute == null) { "one reply route per binding" }
@@ -130,7 +132,7 @@ class SessionRegistry<A : Any>(
             existing.fingerprint == fingerprint &&
             existing.binding.action == safeAction &&
             existing.binding.resultKey == safeKey &&
-            existing.binding.apiRoute == apiRoute &&
+            (existing.binding.apiRoute == apiRoute || apiLookupPending) &&
             previousActions == actions.toSet()
         ) {
             return Observation.Unchanged()

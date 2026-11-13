@@ -52,7 +52,7 @@
 
     <!-- Status -->
     <string name="signin_title">Slack sign-in</string>
-    <string name="signin_body">Optional. Sign in so Flack can post your car replies as you when a Slack notification has no reply button. Flack asks Slack to let it post messages as you, search your messages to find the one a notification is about, and read names to check it found the right one. It reads nothing else. This version signs in only; replies through sign-in come in a later version.</string>
+    <string name="signin_body">Optional. Sign in so Flack can post top-level car replies as you when a Slack notification has no usable reply button. Flack checks the conversation and workspace identifiers before offering a reply. Slack also grants permission to search messages and read names; this reply route uses neither. If the destination is uncertain, the message stays read-only.</string>
     <string name="signin_not_configured">Slack sign-in is not set up in this build.</string>
     <string name="signin_add">Add a Slack workspace</string>
     <string name="signin_workspace">%1$s: signed in as %2$s</string>
