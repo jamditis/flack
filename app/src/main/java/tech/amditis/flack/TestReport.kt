@@ -13,6 +13,7 @@ import tech.amditis.flack.core.SLACK_PACKAGE
  */
 object TestReport {
     private const val ANDROID_AUTO_PACKAGE = "com.google.android.projection.gearhead"
+    private const val ACTION_RESERVE = 200
 
     fun build(context: Context): String {
         val pm = context.packageManager
@@ -44,7 +45,9 @@ object TestReport {
         }.let { head ->
             // The route field probe comes first, with its field summary, and the action
             // shapes take what is left, so the report fits in one paste (REPORT_LIMIT).
-            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 1)
+            // Room for at least the action section's title and its "not shown" line.
+            val actionReserve = if (BridgeState.replyActionDiagnostics.isEmpty()) 0 else ACTION_RESERVE
+            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 1 - actionReserve)
             val actions = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT - head.length - routes.length - 2)
             listOf(head, routes, actions).filter { it.isNotEmpty() }.joinToString("\n")
         }

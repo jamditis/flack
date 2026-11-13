@@ -21,6 +21,9 @@ class ReplyActionDiagnostics {
         cases.addLast("Actions: ${actions.size}\n$description")
     }
 
+    @Synchronized
+    fun isEmpty(): Boolean = cases.isEmpty()
+
     /**
      * The report, at most [maxChars] long. When every case does not fit, cases
      * with the same action shapes become one entry that lists their numbers, and

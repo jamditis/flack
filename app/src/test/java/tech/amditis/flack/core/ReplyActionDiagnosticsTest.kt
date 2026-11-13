@@ -40,6 +40,10 @@ class ReplyActionDiagnosticsTest {
         assertTrue(report.contains("Cases ${(1..20).joinToString(", ")} (20 cases):"))
         assertEquals(1, Regex("Action 2: title=Reply in thread").findAll(report).count())
         assertTrue(report.length < full.length)
+        // TestReport keeps 200 characters for this section, enough to say what was left out.
+        val reserved = diagnostics.report(200)
+        assertTrue(reserved, reserved.startsWith("Multiple reply action diagnostics (last 20 cases):\n"))
+        assertTrue(reserved, reserved.endsWith("Truncated: 20 action cases not shown (report limit 200 characters).\n"))
     }
 
     @Test fun retainsOnlyTheLastTwentyCases() {
