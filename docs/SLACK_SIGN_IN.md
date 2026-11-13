@@ -238,7 +238,7 @@ So `FieldMappings.ALL` stays empty: no message type has the workspace, conversat
 
 Every multiple reply action case has three actions: one with `semanticAction=2` (mark as read) and no input, then **Reply in thread** and **Reply**, each with one text input. Both reply actions have `semanticAction=0` (none) and `showsUserInterface=true`.
 
-The capability check (SPEC.md section 6) counts an action as a reply action only when it takes free-form text and declares `SEMANTIC_ACTION_REPLY` (1). Slack's two actions declare 0, so the check finds no reply action and reports `NO_REPLY_ACTION`. It stops before the `MULTIPLE_REPLY_ACTIONS` check. If the check ignored the semantic action, both would still fail as `REPLY_OPENS_APP`, because they show an interface. So the routed cases are `NO_REPLY_ACTION` even though Slack offers Reply buttons on the phone.
+The capability check (SPEC.md section 6) counts an action as a reply action only when it takes free-form text and declares `SEMANTIC_ACTION_REPLY` (1). Slack's two actions declare 0, so the check finds no reply action and reports `NO_REPLY_ACTION`. It stops before the `MULTIPLE_REPLY_ACTIONS` check. If the check ignored the semantic action, it would find two actions and stop at `MULTIPLE_REPLY_ACTIONS`; either action alone would still fail as `REPLY_OPENS_APP`, because it shows an interface. So the routed cases are `NO_REPLY_ACTION` even though Slack offers Reply buttons on the phone.
 
 The two lists are recorded at different points. Flack records the action shapes for every Slack notification with more than one text input, before any check, and the route field probe records only notifications that the check does not reject. The two lists have different case numbers and cannot be matched one to one.
 
