@@ -6,7 +6,7 @@ car-app = "1.7.0"
 junit = "4.13.2"
 robolectric = "4.17"
 roborazzi = "1.79.0"
-cyclonedx = "3.6.0"
+cyclonedx = "3.6.1"
 androidx-test-core = "1.7.0"
 
 [libraries]
