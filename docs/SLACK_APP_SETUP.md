@@ -33,7 +33,7 @@ settings:
 ```
 
 - `tech.amditis.flack://oauth` is the only redirect. It opens Flack on the phone after you sign in.
-- User scopes only, no bot user. Sign-in asks for all three now, so nobody has to sign in again when replies through sign-in arrive. Until then, Flack uses the token only to check the sign-in and to sign out.
+- User scopes only, no bot user. Sign-in keeps all three scopes so existing sign-ins work with API replies. Flack uses the token to confirm the workspace with `auth.test`, post a confirmed top-level reply with `chat.postMessage`, and sign out. This reply route does not search messages or read names.
 - Token rotation is on: access tokens last 12 hours and Flack refreshes them when needed.
 
 ## Create the app

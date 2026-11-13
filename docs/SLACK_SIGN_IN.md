@@ -31,13 +31,13 @@ Flack asks for user token scopes only, and has no bot user.
 | Scope | Why |
 | --- | --- |
 | `chat:write` | Post the reply as the signed-in person with `chat.postMessage` |
-| `search:read` | Find the message a notification announced, with `search.messages`, when the notification gives its place but not its channel ID |
-| `users:read` | Turn the user ID in a search result, and user mentions in its text, into the names the notification shows, with `users.info`, so the sender and text can be compared |
+| `search:read` | Granted by existing sign-ins; unused by the top-level reply route |
+| `users:read` | Granted by existing sign-ins; unused by the top-level reply route |
 
-`search:read` lets Flack search every message the person can see. Flack uses it only for the queries described under [Message match](#message-match), built from one notification's text, and keeps results in memory only until the match is decided. The other ways to find a message are ruled out:
-
-- `conversations.history` and `conversations.replies` are limited to one request per minute and 15 messages per request for distributed apps that are not in the Marketplace ([changelog, May 29, 2025](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps)). `search.messages` is not affected and allows about 20 requests per minute.
-- Slack's newer real-time search API (`assistant.search.context`) has narrower scopes, but it is intended for AI apps that a person uses inside the Slack client. This design does not use it.
+The first-reply experiment keeps these scopes so existing sign-ins remain usable.
+It makes no search, history, thread-history or user-name lookup. Its destination
+comes from notification identifiers; `auth.test` confirms the workspace without
+additional scopes ([Slack reference](https://docs.slack.dev/reference/methods/auth.test/)).
 
 ## Sign-in
 
