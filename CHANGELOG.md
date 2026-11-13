@@ -4,6 +4,14 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- Optional Slack sign-in on the phone, for one or more workspaces. Flack keeps
+  each Slack token encrypted with an Android Keystore key, and Sign out asks
+  Slack to end the sign-in. This version only signs in; replies through
+  sign-in come in a later version. Flack now has the internet permission for
+  this, and makes no network requests unless you sign in.
+- The Android Auto setup steps say to turn off any setting that sends replies
+  without reading them back.
+
 ## 0.2.2
 
 - The test report has a route field probe for the last 20 Slack notifications.

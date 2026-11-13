@@ -18,6 +18,12 @@ android {
         // The release workflow passes these from the tag and run number.
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = (findProperty("versionName") as String?) ?: "0.0.0-dev"
+        // Slack sign-in client ID: public by design, but kept out of this repository.
+        // The release workflow passes it from the FLACK_SLACK_CLIENT_ID repository
+        // variable. Without it, the app hides sign-in (docs/SLACK_SIGN_IN.md).
+        val slackClientId = (findProperty("slackClientId") as String?).orEmpty()
+        require(slackClientId.all { it.isDigit() || it == '.' }) { "slackClientId must be digits and dots" }
+        buildConfigField("String", "SLACK_CLIENT_ID", "\"$slackClientId\"")
     }
 
     // Release signing comes from the environment only, set by the release workflow

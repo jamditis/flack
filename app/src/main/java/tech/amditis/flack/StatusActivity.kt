@@ -94,6 +94,9 @@ class StatusActivity : Activity() {
             }
         }
 
+        findViewById<MaterialButton>(R.id.signin_add).setOnClickListener {
+            if (!SlackSession.startSignIn(this)) Toast.makeText(this, R.string.signin_no_browser, Toast.LENGTH_LONG).show()
+        }
         findViewById<MaterialButton>(R.id.copy_report).setOnClickListener { copyTestReport() }
         forwarding = findViewById(R.id.forwarding)
         carOnly = findViewById(R.id.car_only)
@@ -104,7 +107,14 @@ class StatusActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        SlackSession.onChange = ::refreshSignIn
         refresh()
+        refreshSignIn()
+    }
+
+    override fun onPause() {
+        SlackSession.onChange = null
+        super.onPause()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -154,6 +164,61 @@ class StatusActivity : Activity() {
             BridgeState.lastHandoff.label,
         )
         findViewById<TextView>(R.id.diagnostics).text = BridgeState.diagnostics().trim()
+    }
+
+    /** Lists signed-in workspaces. Names show on the phone only, never in the test report. */
+    private fun refreshSignIn() {
+        val configured = SlackSession.isConfigured
+        findViewById<TextView>(R.id.signin_body).setText(if (configured) R.string.signin_body else R.string.signin_not_configured)
+        findViewById<View>(R.id.signin_add).visibility = if (configured) View.VISIBLE else View.GONE
+        showSignInMessage()
+        val list = findViewById<LinearLayout>(R.id.workspaces)
+        SlackSession.loadWorkspaces(this) { workspaces ->
+            // The load can set a message, such as a storage error.
+            showSignInMessage()
+            list.removeAllViews()
+            workspaces.sortedBy { it.teamName }.forEach { workspace ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                }
+                row.addView(
+                    TextView(this).apply {
+                        text = if (workspace.needsSignIn) {
+                            getString(R.string.signin_workspace_expired, workspace.teamName)
+                        } else {
+                            getString(R.string.signin_workspace, workspace.teamName, workspace.userName)
+                        }
+                        setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+                    },
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+                )
+                row.addView(
+                    MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                        setText(R.string.signin_sign_out)
+                        contentDescription = getString(R.string.signin_sign_out_label, workspace.teamName)
+                        minHeight = (48 * resources.displayMetrics.density).toInt()
+                        setOnClickListener { confirmSignOut(workspace.teamId, workspace.teamName) }
+                    },
+                )
+                list.addView(row)
+            }
+        }
+    }
+
+    private fun showSignInMessage() {
+        findViewById<TextView>(R.id.signin_message).apply {
+            text = SlackSession.lastMessage
+            visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
+        }
+    }
+
+    private fun confirmSignOut(teamId: String, teamName: String) {
+        MaterialAlertDialogBuilder(this)
+            .setMessage(getString(R.string.signin_sign_out_confirm, teamName))
+            .setPositiveButton(R.string.signin_sign_out) { _, _ -> SlackSession.signOut(this, teamId, teamName) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     // Android 12 grants notification posting by default; 13 and later ask.

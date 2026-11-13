@@ -16,6 +16,8 @@ Needs JDK 21, the Android SDK (`ANDROID_HOME`), and Bash 4 or newer for the perm
 
 ```
 SPEC.md, AGENTS.md          # Design and project rules
+docs/SLACK_SIGN_IN.md       # Slack sign-in reply route design
+docs/SLACK_APP_SETUP.md     # Slack app manifest and maintainer setup steps
 docs/TEST_PLAN.md           # Feasibility gates G0-G5 and test matrix
 docs/DEVICE_TEST_RECORD.md  # Real phone/car results, one column per phone
 docs/INSTALL.md             # Sideload and test steps for testers
@@ -35,6 +37,12 @@ app/src/main/java/tech/amditis/flack/
   StatusActivity.kt         # Phone setup and status screen
   SetupChecks.kt            # Live setup state shared by the screen and the report
   TestReport.kt             # Content-free test report for device test issues
+  core/SlackSignIn.kt       # PKCE, the single pending sign-in, token record (no Android imports)
+  core/RouteFieldProbe.kt   # Shapes of identifier-bearing notification fields, no values
+  SlackAccounts.kt          # Encrypted token file, code exchange, refresh, sign-out
+  SlackApi.kt               # HTTPS to slack.com; content-free error categories
+  KeystoreSealer.kt         # AES-GCM with an Android Keystore key
+  SlackSession.kt           # Sign-in wiring and the redirect callback activity
 app/src/test/.../core/      # JVM unit tests for the core rules
 app/src/test/.../flack/     # Robolectric tests: parser, car path end to end (SyntheticSlack
                             # builds invented Slack-shaped notifications), screenshots

@@ -51,10 +51,10 @@ alerting mode can produce a duplicate phone alert.
 
 ## Privacy
 
-- No internet permission. Flack cannot send anything anywhere.
-- No Slack login or token. The Slack app does the sending.
+- Slack sign-in is optional. Without it, Flack makes no network requests, and the Slack app does the sending.
+- If you sign in, Flack talks only to Slack, over HTTPS. Its Slack token is encrypted with an Android Keystore key and is never logged or shown. Sign out deletes it and asks Slack to end the sign-in. See [Slack sign-in](docs/SLACK_SIGN_IN.md).
 - Message text stays in memory and is never saved, backed up or logged.
-- The only permission is posting notifications. CI fails any build that asks for more.
+- Flack asks for two permissions: posting notifications, and internet for Slack sign-in. CI fails any build that asks for more.
 
 The full [privacy page](https://jamditis.github.io/flack/privacy.html) covers what Flack reads, keeps and sends.
 

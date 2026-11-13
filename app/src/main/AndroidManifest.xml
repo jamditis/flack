@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- The only permission. No network, microphone, contacts, SMS, location or accessibility. -->
+    <!-- No microphone, contacts, SMS, location or accessibility. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Slack sign-in only: HTTPS to slack.com, and nothing until the person signs in
+         (docs/SLACK_SIGN_IN.md). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Lets the setup guide open Android Auto. Package visibility only, not a permission. -->
     <queries>
@@ -15,6 +18,7 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Flack"
@@ -49,6 +53,22 @@
                 android:name="android.service.notification.default_filter_types"
                 android:value="conversations|alerting|silent|ongoing" />
         </service>
+
+        <!-- Receives Slack's sign-in redirect. Exported so the browser can open it;
+             the app checks the state, and PKCE protects the code. -->
+        <activity
+            android:name=".OAuthCallbackActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tech.amditis.flack" android:host="oauth" />
+            </intent-filter>
+        </activity>
 
         <receiver
             android:name=".CarActionReceiver"
