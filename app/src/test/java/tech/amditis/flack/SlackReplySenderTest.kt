@@ -29,13 +29,25 @@ class SlackReplySenderTest {
 
     private val calls = mutableListOf<Call>()
     private var respond: (Call) -> JSONObject = { error("unexpected ${it.method}") }
-    private val transport = SlackTransport { method, form, bearer -> Call(method, form, bearer).also(calls::add).let(respond) }
+    private var authTeam = "T0PAPER001"
+    private var checkFailure: SlackCallException? = null
+    private var afterCheck: () -> Unit = {}
+    private val transport = SlackTransport { method, form, bearer ->
+        val call = Call(method, form, bearer).also(calls::add)
+        when (method) {
+            "auth.test" -> {
+                checkFailure?.let { throw it }
+                afterCheck()
+                JSONObject().put("ok", true).put("team_id", authTeam)
+            }
+            else -> respond(call)
+        }
+    }
     private var now = 1_000_000L
     private val store by lazy { AccountStore(folder.root.resolve("slack-accounts.bin"), PlainSealer) }
     private val sender by lazy { SlackReplySender(SlackAccounts(store, transport, "111.222") { now }, transport) }
 
-    private val channel = ApiDestination("T0PAPER001", "C0KITES001", null)
-    private val thread = ApiDestination("T0PAPER001", "C0KITES001", "1700000000.000100")
+    private val channel = ApiDestination("T0PAPER001", "D0KITES001")
 
     private fun signedIn(expiresAt: Long = now + 12 * 3_600_000L) = store.save(
         listOf(
@@ -46,7 +58,7 @@ class SlackReplySenderTest {
         ),
     )
 
-    private fun posted(channel: String = "C0KITES001", threadTs: String? = null): JSONObject {
+    private fun posted(channel: String = "D0KITES001", threadTs: String? = null): JSONObject {
         val message = JSONObject().put("text", "invented")
         threadTs?.let { message.put("thread_ts", it) }
         return JSONObject().put("ok", true).put("channel", channel).put("ts", "1700000100.000200").put("message", message)
@@ -59,30 +71,31 @@ class SlackReplySenderTest {
         respond = { posted() }
         assertEquals(ApiReplyResult(HandoffStatus.POSTED), sender.send(channel, "Kites & string <soon>"))
         val post = posts().single()
-        assertEquals(mapOf("channel" to "C0KITES001", "text" to "Kites &amp; string &lt;soon&gt;"), post.form)
+        assertEquals(mapOf("channel" to "D0KITES001", "text" to "Kites &amp; string &lt;soon&gt;"), post.form)
         assertEquals("xoxe.xoxp-access-1", post.bearer)
+        assertEquals(listOf("auth.test", "chat.postMessage"), calls.map { it.method })
+        assertEquals(emptyMap<String, String>(), calls[0].form)
+        assertTrue(calls.all { it.bearer == post.bearer })
     }
 
-    @Test fun aThreadReplyNamesItsThreadAndSlackMustConfirmIt() {
+    @Test fun aGroupReplyAlsoPostsOnlyAtTheTopLevel() {
         signedIn()
-        respond = { posted(threadTs = "1700000000.000100") }
-        assertEquals(ApiReplyResult(HandoffStatus.POSTED), sender.send(thread, "On my way"))
-        assertEquals("1700000000.000100", posts().single().form["thread_ts"])
+        respond = { posted(channel = "G0KITES001") }
+        assertEquals(ApiReplyResult(HandoffStatus.POSTED), sender.send(ApiDestination("T0PAPER001", "G0KITES001"), "On my way"))
+        assertEquals(mapOf("channel" to "G0KITES001", "text" to "On my way"), posts().single().form)
     }
 
     @Test fun anAnswerForAnotherPlaceIsNotReportedAsConfirmed() {
         signedIn()
         respond = { posted(channel = "C0OTHER0001") }
         assertEquals(HandoffStatus.POSTED_PLACE_UNCONFIRMED, sender.send(channel, "On my way").status)
-        respond = { posted() }
-        assertEquals(HandoffStatus.POSTED_PLACE_UNCONFIRMED, sender.send(thread, "On my way").status)
         respond = { posted(threadTs = "1700000000.000100") }
         assertEquals(HandoffStatus.POSTED_PLACE_UNCONFIRMED, sender.send(channel, "On my way").status)
     }
 
     @Test fun aDocumentedRefusalIsNotSentWithSlacksCode() {
         signedIn()
-        listOf("not_in_channel", "ratelimited", "rate_limited", "restricted_action_thread_locked").forEach { code ->
+        listOf("channel_not_found", "not_in_channel", "is_archived", "ratelimited", "rate_limited", "restricted_action_thread_locked").forEach { code ->
             calls.clear()
             respond = { throw SlackCallException(SlackError.REFUSED, code) }
             assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT, code), sender.send(channel, "On my way"))
@@ -116,7 +129,7 @@ class SlackReplySenderTest {
     @Test fun aWorkspaceThatIsNotSignedInSendsNothing() {
         assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN), sender.send(channel, "On my way"))
         signedIn()
-        assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN), sender.send(ApiDestination("T0OTHER0001", "C0KITES001", null), "On my way"))
+        assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN), sender.send(ApiDestination("T0OTHER0001", "D0KITES001"), "On my way"))
         assertTrue(calls.isEmpty())
     }
 
@@ -143,6 +156,38 @@ class SlackReplySenderTest {
         signedIn()
         respond = { posted() }
         assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT), sender.send(channel, "On my way") { false })
+        assertTrue(posts().isEmpty())
+    }
+
+    @Test fun aMismatchedWorkspaceNeverPosts() {
+        signedIn()
+        respond = { error("must not post") }
+        authTeam = "T0OTHER001"
+        assertEquals(HandoffStatus.NOT_SENT, sender.send(channel, "On my way").status)
+        authTeam = ""
+        assertEquals(HandoffStatus.NOT_SENT, sender.send(channel, "On my way").status)
+        assertTrue(posts().isEmpty())
+    }
+
+    @Test fun anyFailedConfirmationNeverPosts() {
+        signedIn()
+        respond = { error("must not post") }
+        listOf(SlackCallException(SlackError.REFUSED, "invalid_auth"),
+            SlackCallException(SlackError.NETWORK), SlackCallException(SlackError.NO_ANSWER),
+            SlackCallException(SlackError.BAD_RESPONSE)).forEach {
+            checkFailure = it
+            assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT, it.slackCode), sender.send(channel, "On my way"))
+        }
+        checkFailure = SlackCallException(SlackError.REFUSED, "token_revoked")
+        assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN, "token_revoked"), sender.send(channel, "On my way"))
+        assertTrue(posts().isEmpty())
+    }
+
+    @Test fun withdrawalDuringConfirmationPreventsThePost() {
+        signedIn()
+        var current = true
+        afterCheck = { current = false }
+        assertEquals(HandoffStatus.NOT_SENT, sender.send(channel, "On my way") { current }.status)
         assertTrue(posts().isEmpty())
     }
 

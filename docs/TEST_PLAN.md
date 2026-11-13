@@ -140,7 +140,7 @@ These come from Android documentation and AOSP behavior that could not be verifi
 
 These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels and invented message text.
 
-- **Route field probe, second run (#29):** the first run (November 13, 2026) is summarized in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md#probe-evidence-november-13-2026). Use a release with the ID prefixes and key names in the probe. On the S24 Ultra, with Flack forwarding, use three test accounts with distinct invented names (Riley Example and Sam Example in workspace 1, Alex Example in workspace 2), test channels and group DM names used for nothing else, and invented text. Send these in order, a few seconds apart, and write down the step for each message:
+- **Route field probe (#29):** the November 13 field evidence is summarized in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md#evidence-for-the-first-reply). Use a release with the ID prefixes and key names in the probe. On the S24 Ultra, with Flack forwarding, use three test accounts with distinct invented names (Riley Example and Sam Example in workspace 1, Alex Example in workspace 2), test channels and group DM names used for nothing else, and invented text. Send these in order, a few seconds apart, and write down the step for each message:
   1. Workspace 1: Riley sends the phone owner two DMs.
   2. Workspace 1: Riley sends two messages in a group DM with the phone owner and Sam.
   3. Workspace 1: Riley sends two messages in test channel A and mentions the phone owner in each.
@@ -148,13 +148,13 @@ These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels
   5. Workspace 2: Alex sends the phone owner two DMs.
   Send no more than 20 messages in all: the probe keeps the last 20 notifications, and other Slack notifications that arrive during the test count too. Then tap **Copy test report** and paste it on #29, with the step for each case number. Slack may update one notification several times, so one step can fill more than one case.
 - **Sign-in:** sign in while parked, close Flack during the browser step and sign in again. Add a second workspace, then sign out of one. Confirm that the phone says the sign-out was confirmed and no longer lists that workspace. Sign-out revokes tokens; it does not remove Flack from the workspace's apps in Slack, so that list is not part of this check. Confirm the phone screen lists each workspace and the test report shows no name, token or workspace value. In a workspace that needs admin approval, record what Slack shows.
-- **Coverage:** with the person signed in, every message type above should reach the car with a reply action. Record the test report's route counts and each read-only reason.
+- **Coverage:** with the person signed in, a valid shortcut conversation ID and one exact matching workspace ID can offer an API reply after auth.test confirms it. Missing or conflicting IDs stay read-only. Record the test report's route counts and each read-only reason.
 - **Wrong channel:** two test channels with similar names, and the same text sent in both within a minute. Each reply must appear in its own channel or stay read-only. Any reply in the other channel blocks the pilot.
 - **Wrong workspace:** with two workspaces signed in, a channel with the same name in both. Each reply must land in its own workspace or stay read-only.
-- **Thread or channel:** reply to a thread reply and to a channel message. Each reply must land where the message it answers is.
-- **Same text, two threads:** one test account posts the same text in two threads of one channel within 10 seconds. Each reply must land in its own thread or stay read-only.
+- **Thread or channel:** reply to a thread notification and to a channel notification through the API route. Both replies must land at the top level of the correct conversation, never in a thread. This is the maintainer's approved first-reply experiment. Original-action replies still follow the phone action's destination.
+- **Same text, two threads:** one test account posts the same text in two threads of one channel within 10 seconds. API replies go to that channel's top level or stay read-only. Original-action replies must stay in their selected thread.
 - **Unsigned workspace:** with Slack on the phone signed in to a workspace that Flack is not, the same text from the same test name in both workspaces. A reply must never land in the signed-in workspace.
-- **Same workspace name:** an unsigned workspace with the same name as a signed-in one, with the single-workspace setting off. Its messages must stay read-only.
+- **Same workspace name:** an unsigned workspace with the same name as a signed-in one. Its messages must stay read-only; names never select a workspace.
 - **No network:** a reply with mobile data and Wi-Fi off shows "Not sent". A reply cut off after sending shows "Outcome unknown" and is not retried.
 - **Expired sign-in:** after removing Flack from the workspace's apps in Slack, a reply is not sent and the phone screen asks to sign in again.
 - **Read-back:** on each phone, confirm Android Auto reads the reply back and offers send and cancel. Record whether Android Auto or Gemini has a setting that sends replies without read-back, and its name.

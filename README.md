@@ -7,7 +7,7 @@
 [![Latest release](https://img.shields.io/github/v/release/jamditis/flack?label=release)](https://github.com/jamditis/flack/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-Flack copies new Slack messages into the format Android Auto reads aloud: DMs, group DMs, public and private channels, and thread replies. When a notification provides one safe reply action, you can dictate and confirm a reply. Flack hands your words to that original Slack action, once.
+Flack copies new Slack messages into the format Android Auto reads aloud: DMs, group DMs, public and private channels, and thread replies. When a notification provides one safe reply action, you can dictate and confirm a reply. Flack hands your words to that original Slack action, once. With optional Slack sign-in, notifications without a usable reply action can receive a top-level API reply when their conversation and workspace identifiers pass the checks in [the sign-in design](docs/SLACK_SIGN_IN.md).
 
 **Status:** experimental support for these notification types, with synthetic routing tests. Real Slack and car behavior, including readout without a reply action, still need device tests. See the [device test record](docs/DEVICE_TEST_RECORD.md).
 

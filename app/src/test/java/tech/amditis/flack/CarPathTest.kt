@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.RemoteInput
 import android.content.Intent
 import android.os.Bundle
+import android.os.Looper
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
@@ -25,6 +26,11 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import tech.amditis.flack.core.ApiDestination
+import tech.amditis.flack.core.ApiReadOnlyReason
+import tech.amditis.flack.core.ApiRoute
+import tech.amditis.flack.core.ConsumeResult
+import java.util.concurrent.Executor
 
 /**
  * The Android path end to end, with a synthetic Slack: listener -> car copy ->
@@ -435,15 +441,80 @@ class CarPathTest {
         assertEquals(0, manager.size())
     }
 
-    @Test fun aChannelMessageWithoutAReplyActionStaysReadOnlyUntilAFieldMappingExists() {
-        val before = reasonCount("NO_FIELD_MAPPING")
+    @Test fun aChannelMessageWithoutAShortcutStaysReadOnly() {
+        val before = reasonCount("NO_CONVERSATION_ID")
         // ID-shaped values in structured fields are not evidence of what they mean.
         val sbn = SyntheticSlack.dm(app, key = "no-action", title = "#paper-kites", isGroup = true, reply = null)
         sbn.notification.extras.putString("test.route", "T0PAPER001:C0KITES001:1700000000.000100")
         post(sbn)
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
-        assertEquals(before + 1, reasonCount("NO_FIELD_MAPPING"))
-        assertTrue(BridgeState.diagnostics().contains("Reply offered through the Slack API: 0"))
+        assertEquals(before + 1, reasonCount("NO_CONVERSATION_ID"))
+        assertTrue(BridgeState.diagnostics().contains("Reply offered through the Slack API:"))
+    }
+
+    @Test fun apiReplyIsOfferedOnlyAfterConfirmationAndDuplicatesKeepTheConsumedToken() {
+        val queued = mutableListOf<Runnable>()
+        listener.apiWorker = Executor { queued += it }
+        listener.resolveApi = { ApiRoute.Certain(ApiDestination("T0PAPER001", "D0PAPER001")) }
+        val sbn = SyntheticSlack.dm(app, reply = null, shortcutId = "D0PAPER001")
+        val before = BridgeState.apiRouted
+        post(sbn)
+        assertEquals(1, manager.size())
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        queued.removeAt(0).run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNotNull(replyAction())
+        assertTrue(TestReport.build(app).contains("Reply offered through the Slack API: ${before + 1}"))
+        val binding = BridgeState.registry.findBinding { it.notificationKey == sbn.key }!!
+        assertTrue(BridgeState.registry.consume(binding.token, "Invented response") is ConsumeResult.Dispatch)
+        post(sbn)
+        assertTrue(queued.isEmpty())
+        assertEquals(binding, BridgeState.registry.findBinding { it.notificationKey == sbn.key })
+        assertTrue(BridgeState.registry.consume(binding.token, "Invented response") is ConsumeResult.Rejected)
+    }
+
+    @Test fun failedApiConfirmationReportsAReasonAndKeepsTheCopyReadOnly() {
+        listener.apiWorker = Executor { it.run() }
+        listener.resolveApi = { ApiRoute.ReadOnly(ApiReadOnlyReason.WORKSPACE_UNCONFIRMED) }
+        post(SyntheticSlack.dm(app, reply = null, shortcutId = "D0PAPER001"))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        assertTrue(TestReport.build(app).contains("WORKSPACE_UNCONFIRMED:"))
+    }
+
+    @Test fun originalReplyNeedsNoApiLookupEvenWithAShortcut() {
+        listener.resolveApi = { error("original action must be first") }
+        post(SyntheticSlack.dm(app, shortcutId = "D0PAPER001"))
+        replyFromCar("Invented response")
+        assertEquals(1, slackReplies().size)
+    }
+
+    @Test fun removalPauseAndRouteUpdatesDiscardPendingConfirmations() {
+        val queued = mutableListOf<Runnable>()
+        listener.apiWorker = Executor { queued += it }
+        listener.resolveApi = { ApiRoute.Certain(ApiDestination("T0PAPER001", it.routeFields.shortcutId!!)) }
+        val first = SyntheticSlack.dm(app, reply = null, shortcutId = "D0PAPER001")
+        post(first)
+        listener.onNotificationRemoved(first)
+        queued.removeAt(0).run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, manager.size())
+        assertNull(BridgeState.registry.findBinding { it.notificationKey == first.key })
+        post(first)
+        val second = SyntheticSlack.dm(app, reply = null, shortcutId = "D0OTHER001")
+        post(second)
+        queued.removeAt(0).run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, manager.size())
+        assertNull(BridgeState.registry.findBinding { it.notificationKey == first.key }!!.apiRoute)
+        queued.removeAt(0).run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("D0OTHER001", BridgeState.registry.findBinding { it.notificationKey == first.key }!!.apiRoute!!.channelId)
+        post(SyntheticSlack.dm(app, text = "New invented message", reply = null, shortcutId = "D0OTHER001"))
+        BridgeState.setEnabled(app, false)
+        queued.removeAt(0).run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, manager.size())
     }
 
     @Test fun mixedChannelAndThreadActionsKeepReadoutAndInvalidateHeldReplies() {

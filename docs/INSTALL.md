@@ -23,7 +23,7 @@ Releases are signed with one key, so a new release installs over the old one. If
 3. Tap **Open settings** under notification access, choose **Flack** and turn it on. If the switch is greyed out, Android is protecting it because the app came from outside Google Play: open App info for Flack, tap the menu (three dots), tap **Allow restricted settings**, then try again. The **Switch greyed out?** button in the app walks through this. Android warns that the app can read notifications. That is how it sees Slack messages. Flack sends nothing over the internet unless you sign in to Slack, and then it talks only to Slack.
 4. Turn on **Forward Slack messages to Android Auto**.
 5. In Settings → Apps → Flack → Battery, choose **Unrestricted**, so Samsung does not put the app to sleep.
-6. Optional: under **Slack sign-in**, tap **Add a Slack workspace** and sign in on Slack's page. Repeat for each workspace. This version only signs in; replies through sign-in come in a later version. If Slack says an admin must approve Flack, ask a workspace admin, then sign in again.
+6. Optional: under **Slack sign-in**, tap **Add a Slack workspace** and sign in on Slack's page. Repeat for each workspace. When Slack's notification has no usable inline reply, Flack can post a top-level reply after checking its conversation and workspace identifiers. Missing or conflicting identifiers stay read-only. If Slack says an admin must approve Flack, ask a workspace admin, then sign in again.
 
 ## Set up Android Auto
 

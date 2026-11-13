@@ -277,7 +277,7 @@ class SessionRegistryTest {
         assertEquals(listOf(b), reg.publish("c", "1").evicted)
     }
 
-    private val kites = ApiDestination("T0PAPER001", "C0KITES001", null)
+    private val kites = ApiDestination("T0PAPER001", "D0KITES001")
 
     @Test fun anApiRouteDispatchesOnceWithoutAnOriginalAction() {
         val reg = registry()
