@@ -232,9 +232,10 @@ class SlackAccounts(
             throw e
         }
         val grant = parseGrant(response, previous = token)
-        // Refresh leaves earlier access tokens valid until they expire. Revoke them, and
-        // keep the ones Slack did not confirm, so sign-out can try again.
-        val stale = (token.staleTokens + token.accessToken).filterNot(::revoke)
+        // Refresh leaves the earlier access token valid until it expires, and the redeemed
+        // refresh token valid for a short grace period. Revoke them, and keep the ones Slack
+        // did not confirm, so sign-out can try again.
+        val stale = (token.staleTokens + token.accessToken + refreshToken).filterNot(::revoke)
         val fresh = grant.copy(staleTokens = stale, unconfirmedRefresh = token.unconfirmedRefresh)
         try {
             replace(fresh)

@@ -114,7 +114,7 @@ class SlackAccountsTest {
         assertEquals("xoxe.xoxp-access-2", accounts.accessToken("T0INVENTED1"))
         assertEquals(mapOf("client_id" to "111.222", "grant_type" to "refresh_token", "refresh_token" to "xoxe-1-refresh-1"), calls.last { it.method == "oauth.v2.access" }.form)
         assertEquals("xoxe-1-refresh-2", accounts.workspaces().single().refreshToken)
-        assertEquals("xoxe.xoxp-access-1", calls.last { it.method == "auth.revoke" }.bearer)
+        assertEquals(listOf("xoxe.xoxp-access-1", "xoxe-1-refresh-1"), calls.filter { it.method == "auth.revoke" }.map { it.bearer })
         assertEquals("riley", accounts.workspaces().single().userName)
     }
 
@@ -327,7 +327,7 @@ class SlackAccountsTest {
             assertEquals(SlackError.STORAGE, e.error)
         }
         assertEquals(
-            listOf("xoxe.xoxp-access-1", "xoxe.xoxp-access-2", "xoxe-1-refresh-2"),
+            listOf("xoxe.xoxp-access-1", "xoxe-1-refresh-1", "xoxe.xoxp-access-2", "xoxe-1-refresh-2"),
             calls.filter { it.method == "auth.revoke" }.map { it.bearer },
         )
     }
@@ -346,7 +346,7 @@ class SlackAccountsTest {
         respond = { JSONObject("""{"ok":true,"revoked":true}""") }
         assertTrue(accounts.signOut("T0INVENTED1"))
         assertEquals(
-            setOf("xoxe.xoxp-access-1", "xoxe.xoxp-access-2", "xoxe-1-refresh-2"),
+            setOf("xoxe.xoxp-access-1", "xoxe-1-refresh-1", "xoxe.xoxp-access-2", "xoxe-1-refresh-2"),
             calls.drop(before).filter { it.method == "auth.revoke" }.map { it.bearer }.toSet(),
         )
     }
