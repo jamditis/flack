@@ -4,6 +4,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+## 0.3.2
+
 - Car replies can use Slack sign-in when the phone's notification has no usable
   inline reply action. Flack uses the notification's conversation ID and checks
   that its workspace matches the signed-in token before offering the reply and
