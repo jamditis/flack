@@ -21,14 +21,21 @@ class ReplyActionDiagnostics {
         cases.addLast("Actions: ${actions.size}\n$description")
     }
 
+    /**
+     * The report, at most [maxChars] long. When every case does not fit, cases
+     * with the same action shapes become one entry that lists their numbers, and
+     * entries that still do not fit are left out with a count.
+     */
     @Synchronized
-    fun report(): String = if (cases.isEmpty()) "" else buildString {
-        appendLine("Multiple reply action diagnostics (last 20 cases):")
-        cases.forEachIndexed { index, value ->
-            appendLine("Case ${index + 1}:")
-            appendLine(value)
-        }
-        appendLine("Unknown labels and result keys are omitted to protect message content.")
+    fun report(maxChars: Int = Int.MAX_VALUE): String {
+        if (cases.isEmpty()) return ""
+        val head = "Multiple reply action diagnostics (last 20 cases):\n" +
+            "Unknown labels and result keys are omitted to protect message content.\n"
+        val full = cases.mapIndexed { index, value -> ReportEntry("Case ${index + 1}:\n$value\n", 1) }
+        if (head.length + full.sumOf { it.text.length } <= maxChars) return head + full.joinToString("") { it.text }
+        val same = cases.withIndex().groupBy({ it.value }, { it.index + 1 })
+        val entries = same.map { (value, numbers) -> ReportEntry("Cases ${numbers.joinToString(", ")} (${numbers.size} cases):\n$value\n", numbers.size) }
+        return fitEntries(head, entries, maxChars, "action cases")
     }
 
     companion object {

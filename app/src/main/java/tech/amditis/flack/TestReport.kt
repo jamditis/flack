@@ -3,6 +3,7 @@ package tech.amditis.flack
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import tech.amditis.flack.core.REPORT_LIMIT
 import tech.amditis.flack.core.SLACK_PACKAGE
 
 /**
@@ -40,16 +41,12 @@ object TestReport {
             append(BridgeState.diagnostics().trim())
             appendLine()
             append(BridgeState.copyDiagnostics())
-            val actions = BridgeState.replyActionDiagnostics.report()
-            if (actions.isNotEmpty()) {
-                appendLine()
-                append(actions)
-            }
-            val routes = BridgeState.routeFieldProbe.report()
-            if (routes.isNotEmpty()) {
-                appendLine()
-                append(routes)
-            }
+        }.let { head ->
+            // The route field probe comes first, with its field summary, and the action
+            // shapes take what is left, so the report fits in one paste (REPORT_LIMIT).
+            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 1)
+            val actions = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT - head.length - routes.length - 2)
+            listOf(head, routes, actions).filter { it.isNotEmpty() }.joinToString("\n")
         }
     }
 

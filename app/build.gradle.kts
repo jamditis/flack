@@ -69,6 +69,9 @@ android {
         abortOnError = true
         // targetSdk is raised deliberately, after device testing (see defaultConfig).
         disable += "OldTargetApi"
+        // Reads Maven Central on every run, so an outside release fails unrelated PRs
+        // (#26, #34, #35). Dependabot (.github/dependabot.yml) tracks versions weekly.
+        disable += "NewerVersionAvailable"
     }
 }
 

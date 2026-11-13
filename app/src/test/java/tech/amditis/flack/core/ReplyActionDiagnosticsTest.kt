@@ -32,6 +32,16 @@ class ReplyActionDiagnosticsTest {
         assertTrue(report.contains("resultKeys=[[key omitted]]"))
     }
 
+    @Test fun sameShapesCollapseWhenTheFullReportDoesNotFit() {
+        val diagnostics = ReplyActionDiagnostics()
+        repeat(20) { diagnostics.record(listOf(action("Reply", "text"), action("Reply in thread", "text"))) }
+        val full = diagnostics.report()
+        val report = diagnostics.report(full.length - 1)
+        assertTrue(report.contains("Cases ${(1..20).joinToString(", ")} (20 cases):"))
+        assertEquals(1, Regex("Action 2: title=Reply in thread").findAll(report).count())
+        assertTrue(report.length < full.length)
+    }
+
     @Test fun retainsOnlyTheLastTwentyCases() {
         val diagnostics = ReplyActionDiagnostics()
         diagnostics.record(listOf(action("Mark as read", "reply")))
