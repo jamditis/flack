@@ -4,6 +4,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+## 0.3.0
+
 - Optional Slack sign-in on the phone, for one or more workspaces. Flack keeps
   each Slack token encrypted with an Android Keystore key, and Sign out asks
   Slack to end the sign-in. This version only signs in; replies through
