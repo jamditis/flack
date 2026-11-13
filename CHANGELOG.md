@@ -4,6 +4,13 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- The reply route through Slack sign-in is built, but no message type uses it
+  yet. Until the route field probe results (#29) show which notification fields
+  name the workspace, conversation and thread, every message without Slack's
+  own reply action stays read-only. The test report now counts why the Slack
+  API route was not offered, and the last reply can show "Posted to Slack
+  (Slack confirmed)", "Not sent" or "Outcome unknown".
+
 ## 0.3.0
 
 - Optional Slack sign-in on the phone, for one or more workspaces. Flack keeps

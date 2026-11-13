@@ -3,6 +3,7 @@ package tech.amditis.flack
 import android.app.PendingIntent
 import android.content.Context
 import androidx.core.content.edit
+import tech.amditis.flack.core.ApiReadOnlyReason
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.RejectReason
@@ -19,6 +20,11 @@ enum class HandoffStatus(val label: String) {
     HANDED_TO_SLACK("Handed to Slack (delivery not confirmed)"),
     HANDOFF_FAILED("Handoff failed: Slack's reply action was cancelled"),
     REJECTED("Reply refused by the bridge"),
+    POSTED("Posted to Slack (Slack confirmed)"),
+    POSTED_PLACE_UNCONFIRMED("Posted to Slack, but Slack's answer did not confirm the same conversation and thread"),
+    NOT_SENT("Not sent"),
+    NOT_SENT_SIGN_IN("Not sent: sign in to this Slack workspace again"),
+    OUTCOME_UNKNOWN("Outcome unknown: check Slack before sending it again"),
 }
 
 /**
@@ -52,6 +58,7 @@ object BridgeState {
     private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
+    private val apiReadOnlyReasons = EnumMap<ApiReadOnlyReason, Int>(ApiReadOnlyReason::class.java)
     val replyActionDiagnostics = ReplyActionDiagnostics()
     val routeFieldProbe = RouteFieldProbe()
     private data class CopyRecord(val id: Int, val channel: String, var opened: Boolean = false)
@@ -63,6 +70,11 @@ object BridgeState {
     /** True while Android Auto is projecting from this phone. Set by [CarSession]. */
     @Volatile var carConnected = false
     @Volatile var lastHandoff = HandoffStatus.NONE
+        private set
+    /** Slack's error word for the last reply, if it had one. */
+    @Volatile var lastSlackCode: String? = null
+        private set
+    @Volatile var apiRouted = 0
         private set
     @Volatile var forwarded = 0
         private set
@@ -139,7 +151,13 @@ object BridgeState {
 
     @Synchronized fun countReplyRejection(reason: ConsumeRejection) {
         replyRejections[reason] = (replyRejections[reason] ?: 0) + 1
-        lastHandoff = HandoffStatus.REJECTED
+        recordHandoff(HandoffStatus.REJECTED)
+    }
+
+    @Synchronized fun countApiRouted() { apiRouted++ }
+
+    @Synchronized fun countApiReadOnly(reason: ApiReadOnlyReason) {
+        apiReadOnlyReasons[reason] = (apiReadOnlyReasons[reason] ?: 0) + 1
     }
 
     @Synchronized fun rememberConversation(carId: Int, conversation: Conversation) { conversations[carId] = conversation }
@@ -149,18 +167,27 @@ object BridgeState {
     @Synchronized fun countForwarded() { forwarded++ }
     @Synchronized fun countAmbiguous() { ambiguous++ }
     @Synchronized fun countAcknowledged() { acknowledged++ }
-    @Synchronized fun recordHandoff(status: HandoffStatus) { lastHandoff = status }
+    @Synchronized fun recordHandoff(status: HandoffStatus, slackCode: String? = null) {
+        lastHandoff = status
+        lastSlackCode = slackCode
+    }
 
     /** Text for the status screen. Counts and labels only, never message content. */
     @Synchronized fun diagnostics(): String = buildString {
         appendLine("Forwarded to the car: $forwarded")
         appendLine("Replies disabled as ambiguous: $ambiguous")
         appendLine("Opened in the car: $acknowledged")
-        appendLine("Last reply: ${lastHandoff.label}")
+        appendLine("Last reply: ${lastHandoff.label}${lastSlackCode?.let { " (Slack: $it)" }.orEmpty()}")
+        appendLine("Reply offered through the Slack API: $apiRouted")
         if (readOnlyReasons.isNotEmpty()) {
             appendLine()
             appendLine("Slack notifications read-only (reply not offered):")
             readOnlyReasons.forEach { (reason, count) -> appendLine("  ${reason.name}: $count") }
+        }
+        if (apiReadOnlyReasons.isNotEmpty()) {
+            appendLine()
+            appendLine("Slack API reply not offered:")
+            apiReadOnlyReasons.forEach { (reason, count) -> appendLine("  ${reason.name}: $count") }
         }
         if (rejections.isNotEmpty()) {
             appendLine()

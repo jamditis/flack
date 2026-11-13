@@ -163,7 +163,7 @@ The test report counts how each forwarded message was routed: original action, i
 
 1. The car reply arrives with its token, as now. The registry consumes the token once and checks that the generation is current.
 2. Flack refreshes the workspace's access token if it expires within five minutes.
-3. Flack calls `chat.postMessage` once with `channel`, `text` and, for a thread, `thread_ts`. Connect timeout 5 seconds, read timeout 10 seconds, off the main thread inside the receiver's `goAsync` window.
+3. Flack calls `chat.postMessage` once with `channel`, `text` and, for a thread, `thread_ts`. Connect timeout 5 seconds, read timeout 10 seconds, on a background thread. The broadcast is not held open with `goAsync`, because a refresh and its revokes can take longer than the broadcast deadline; the bound notification listener keeps the process running. The car copy is reposted on the main thread, with the listener's own changes.
 4. Results:
 
 | Result | Status shown |
@@ -196,6 +196,23 @@ Small stacked pull requests, each with focused unit tests:
 2. Sign-in: PKCE with the custom-scheme redirect, Keystore token storage for several workspaces, sign-out that revokes both tokens, the `INTERNET` permission, the phone screen and the public text changes.
 3. Probe stage two: per-field comparison with known IDs after sign-in.
 4. API reply: the field mappings the evidence supports, the workspace rule, message match where it applies, dispatch, the route order and the test report counts.
+
+## Step 4 before the probe evidence
+
+Built on November 13, 2026, before the #29 report. The route order, certainty rules, dispatch and status text are in place, and the field mapping table (`FieldMappings.ALL` in `core/ApiRoute.kt`) is empty. So every message without a usable original action stays read-only, counted as `NO_FIELD_MAPPING`. A later pull request adds mappings from the evidence.
+
+Rules in this build:
+
+- A mapping covers one kind: one-to-one (`isGroup` false) or group (`isGroup` true). An unknown kind has no mapping. Two mappings for one kind count as none.
+- A mapping names a field and a pattern for each of the workspace ID, the conversation ID and the thread timestamp. Each pattern must match exactly once. A one-to-one message needs a `D` conversation ID, a group needs a `C` or `G` ID.
+- The workspace ID decides. A workspace that is not signed in, or must sign in again, stays read-only, even when another workspace is signed in. The **Slack on this phone uses only my signed-in workspaces** setting and the subtext rule are not built: a mapping without a workspace field is not possible in this build.
+- Only an absent thread field means the conversation itself. A thread field without exactly one timestamp leaves the place unknown (`NO_PLACE`).
+- A group without a title stays read-only (`UNTITLED_GROUP`), so the driver always hears which conversation a reply goes to.
+- Message match (search) is not built.
+- The listener reads the signed-in workspaces from the last copy Flack loaded or saved, without waiting for a sign-in, refresh or sign-out in progress. Dispatch still asks for that workspace's token, so a sign-in that ended meanwhile is "Not sent".
+- Just before `chat.postMessage`, after any refresh, Flack checks again that the car copy is still the current one. A copy withdrawn or replaced meanwhile is "Not sent".
+- `chat.postMessage` escapes `&`, `<` and `>`. Slack's answer must name the requested channel and thread. Otherwise the status is "Posted to Slack, but Slack's answer did not confirm the same conversation and thread".
+- A failure to connect is "Not sent". After the first byte of the request is written, a lost or unreadable answer is "Outcome unknown". An HTTP 429 is read as Slack's `ratelimited` refusal.
 
 ## Open questions
 

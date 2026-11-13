@@ -41,6 +41,8 @@ app/src/main/java/tech/amditis/flack/
   core/RouteFieldProbe.kt   # Shapes of identifier-bearing notification fields, no values
   SlackAccounts.kt          # Encrypted token file, code exchange, refresh, sign-out
   SlackApi.kt               # HTTPS to slack.com; content-free error categories
+  core/ApiRoute.kt          # API reply route: field mappings (empty until #29), certainty rules
+  SlackReplySender.kt       # chat.postMessage once, refresh, status from Slack's answer
   KeystoreSealer.kt         # AES-GCM with an Android Keystore key
   SlackSession.kt           # Sign-in wiring and the redirect callback activity
 app/src/test/.../core/      # JVM unit tests for the core rules

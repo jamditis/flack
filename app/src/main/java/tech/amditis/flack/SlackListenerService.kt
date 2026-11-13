@@ -5,6 +5,10 @@ import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationManagerCompat
+import tech.amditis.flack.core.ApiDestination
+import tech.amditis.flack.core.ApiReadOnlyReason
+import tech.amditis.flack.core.ApiRoute
+import tech.amditis.flack.core.ApiRouteResolver
 import tech.amditis.flack.core.Capability
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
@@ -79,9 +83,17 @@ class SlackListenerService : NotificationListenerService() {
                 BridgeState.countRejection(capability.reason)
                 refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
             }
-            is Capability.ReadOnly -> {
-                BridgeState.countReadOnly(capability.reason)
-                forward(sbn, parsed, null)
+            // Route order: Slack's original action, then the Slack API, then read-only.
+            is Capability.ReadOnly -> when (val api = apiRoute(parsed)) {
+                is ApiRoute.Certain -> {
+                    BridgeState.countApiRouted()
+                    forward(sbn, parsed, null, api.destination)
+                }
+                is ApiRoute.ReadOnly -> {
+                    BridgeState.countReadOnly(capability.reason)
+                    BridgeState.countApiReadOnly(api.reason)
+                    forward(sbn, parsed, null)
+                }
             }
             is Capability.Eligible -> forward(sbn, parsed, capability)
         }
@@ -101,16 +113,28 @@ class SlackListenerService : NotificationListenerService() {
         BridgeState.registry.remove(sbn.key)?.let { CarNotificationPublisher.cancel(this, listOf(it)) }
     }
 
-    private fun forward(sbn: StatusBarNotification, parsed: ParsedNotification, capability: Capability.Eligible?) {
+    /** The Slack API destination for a message without a usable original action. */
+    private fun apiRoute(parsed: ParsedNotification): ApiRoute {
+        val conversation = parsed.facts.conversation ?: return ApiRoute.ReadOnly(ApiReadOnlyReason.NO_FIELD_MAPPING)
+        // Never waits for a sign-in, refresh or sign-out that holds the accounts lock on the network.
+        return ApiRouteResolver.resolve(conversation, parsed.routeFields, { SlackSession.accounts(this).knownWorkspaces() })
+    }
+
+    private fun forward(
+        sbn: StatusBarNotification,
+        parsed: ParsedNotification,
+        capability: Capability.Eligible?,
+        apiRoute: ApiDestination? = null,
+    ) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
         val original = parsed.facts.conversation ?: return
         val selectedTitle = capability?.let { parsed.facts.replyActions[it.actionIndex].title }
-        val isThreadReply = selectedTitle?.contains("thread", ignoreCase = true) == true
+        val isThreadReply = selectedTitle?.contains("thread", ignoreCase = true) == true || apiRoute?.threadTs != null
         val conversation = if (isThreadReply && original.title?.contains("thread", ignoreCase = true) != true) {
             original.copy(title = "${CapabilityCheck.contextLabel(original)} · thread")
         } else original
         val newestFromSelf = conversation.messages.last().fromSelf
-        when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf, parsed.actionIntents.filterNotNull())) {
+        when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf, parsed.actionIntents.filterNotNull(), apiRoute)) {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)

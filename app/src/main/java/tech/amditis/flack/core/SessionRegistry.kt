@@ -13,10 +13,15 @@ data class Binding<A : Any>(
     val token: String,
     /** Stable per source key, so updates replace the same car notification. */
     val carNotificationId: Int,
-    /** Null for a read-only copy. Its token can never dispatch. */
+    /** Slack's original reply action. Null when the copy uses the API route or is read-only. */
     val action: A?,
     val resultKey: String?,
-)
+    /** The certain API destination, used only when there is no original action. */
+    val apiRoute: ApiDestination? = null,
+) {
+    /** False for a read-only copy, whose token can never dispatch. */
+    val canReply: Boolean get() = (action != null && resultKey != null) || apiRoute != null
+}
 
 sealed interface Observation<A : Any> {
     /** A new generation to publish. [alert] is false when the newest message is the user's own. */
@@ -107,7 +112,10 @@ class SessionRegistry<A : Any>(
         resultKey: String?,
         newestFromSelf: Boolean,
         actions: Collection<A> = listOfNotNull(action),
+        apiRoute: ApiDestination? = null,
     ): Observation<A> {
+        // The original action comes first; the API route is only for messages without one.
+        require(action == null || apiRoute == null) { "one reply route per binding" }
         val previousActions = knownActions[notificationKey]
         knownActions[notificationKey] = actions.toSet()
         val clashes = clashingKeys(notificationKey, listOfNotNull(action))
@@ -122,6 +130,7 @@ class SessionRegistry<A : Any>(
             existing.fingerprint == fingerprint &&
             existing.binding.action == safeAction &&
             existing.binding.resultKey == safeKey &&
+            existing.binding.apiRoute == apiRoute &&
             previousActions == actions.toSet()
         ) {
             return Observation.Unchanged()
@@ -141,6 +150,7 @@ class SessionRegistry<A : Any>(
             carNotificationId = carIds.getOrPut(notificationKey) { nextCarId++ },
             action = safeAction,
             resultKey = safeKey,
+            apiRoute = apiRoute,
         )
         entries.remove(notificationKey)
         entries[notificationKey] = Entry(binding, fingerprint, consumed = false)
@@ -210,7 +220,7 @@ class SessionRegistry<A : Any>(
     fun consume(token: String, text: String?): ConsumeResult<A> {
         val entry = entries.values.firstOrNull { it.binding.token == token }
             ?: return ConsumeResult.Rejected(ConsumeRejection.UNKNOWN_OR_EXPIRED)
-        if (entry.binding.action == null || entry.binding.resultKey == null) {
+        if (!entry.binding.canReply) {
             return ConsumeResult.Rejected(ConsumeRejection.NO_REPLY_ACTION, entry.binding)
         }
         if (entry.consumed) return ConsumeResult.Rejected(ConsumeRejection.ALREADY_CONSUMED, entry.binding)
