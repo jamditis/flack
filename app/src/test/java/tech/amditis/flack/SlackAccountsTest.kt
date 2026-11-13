@@ -418,6 +418,17 @@ class SlackAccountsTest {
         assertTrue(accounts.signOut("T0INVENTED1"))
     }
 
+    @Test fun aMalformedAnswerIsNotARefusal() {
+        for (text in listOf("{}", """{"ok":null}""", """{"ok":false}""")) {
+            try {
+                SlackHttp.parse(text)
+                fail(text)
+            } catch (e: SlackCallException) {
+                assertEquals(text, SlackError.BAD_RESPONSE, e.error)
+            }
+        }
+    }
+
     @Test fun errorsCarryNoResponseText() {
         val error = try {
             SlackHttp.parse("""{"ok":false,"error":"invalid_auth","detail":"xoxe.xoxp-secret"}""")

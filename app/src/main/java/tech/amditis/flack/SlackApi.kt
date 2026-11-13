@@ -51,6 +51,9 @@ object SlackHttp : SlackTransport {
                 connection.instanceFollowRedirects = false
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
                 bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+                // A streamed body cannot be replayed on a reused socket, so a code
+                // exchange whose answer was lost is never sent twice.
+                connection.setFixedLengthStreamingMode(body.size)
                 connection.outputStream.use { it.write(body) }
                 connection.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
             } finally {
@@ -69,8 +72,11 @@ object SlackHttp : SlackTransport {
         } catch (_: JSONException) {
             throw SlackCallException(SlackError.BAD_RESPONSE)
         }
-        if (!json.optBoolean("ok", false)) {
-            throw SlackCallException(SlackError.REFUSED, json.optString("error").takeIf { SLACK_CODE.matches(it) })
+        // Only a well-formed refusal proves that Slack issued nothing.
+        val ok = json.opt("ok") as? Boolean ?: throw SlackCallException(SlackError.BAD_RESPONSE)
+        if (!ok) {
+            val code = json.optString("error").takeIf { SLACK_CODE.matches(it) } ?: throw SlackCallException(SlackError.BAD_RESPONSE)
+            throw SlackCallException(SlackError.REFUSED, code)
         }
         return json
     }
