@@ -4,6 +4,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+## 0.3.1
+
 - The test report now fits in one paste of 20,000 characters. The route field
   probe starts with a summary of each field over all cases. When the full
   report is too long, Slack notifications with the same route are shortened to
