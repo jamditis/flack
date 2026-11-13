@@ -163,7 +163,7 @@ The test report counts how each forwarded message was routed: original action, i
 
 1. The car reply arrives with its token, as now. The registry consumes the token once and checks that the generation is current.
 2. Flack refreshes the workspace's access token if it expires within five minutes.
-3. Flack calls `chat.postMessage` once with `channel`, `text` and, for a thread, `thread_ts`. Connect timeout 5 seconds, read timeout 10 seconds, off the main thread inside the receiver's `goAsync` window.
+3. Flack calls `chat.postMessage` once with `channel`, `text` and, for a thread, `thread_ts`. Connect timeout 5 seconds, read timeout 10 seconds, on a background thread. The broadcast is not held open with `goAsync`, because a refresh and its revokes can take longer than the broadcast deadline; the bound notification listener keeps the process running. The car copy is reposted on the main thread, with the listener's own changes.
 4. Results:
 
 | Result | Status shown |

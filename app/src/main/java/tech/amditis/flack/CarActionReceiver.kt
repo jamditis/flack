@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
@@ -79,23 +81,21 @@ class CarActionReceiver : BroadcastReceiver() {
     }
 
     /**
-     * One chat.postMessage call on a background thread, inside the broadcast's
-     * goAsync window. The token is already consumed, so a second tap cannot send again.
+     * One chat.postMessage call on a background thread. The token is already
+     * consumed, so a second tap cannot send again. The broadcast is not held open
+     * with goAsync: a token refresh and its revokes can outlast the broadcast
+     * deadline, and the bound notification listener keeps the process running.
      */
     private fun postWithApi(context: Context, binding: Binding<PendingIntent>, text: String) {
         val destination = binding.apiRoute ?: return
         val app = context.applicationContext
-        val pending = goAsync()
         API_WORKER.execute {
-            try {
-                val sender = SlackReplySender(SlackSession.accounts(app), SlackHttp)
-                val result = sender.send(destination, text)
-                BridgeState.recordHandoff(result.status, result.slackCode)
-                val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
-                repostSpent(app, binding, if (posted) text else null)
-            } finally {
-                pending.finish()
-            }
+            val result = SlackReplySender(SlackSession.accounts(app), SlackHttp).send(destination, text)
+            BridgeState.recordHandoff(result.status, result.slackCode)
+            val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
+            // The listener changes copies on the main thread. Check and repost there too,
+            // so a copy withdrawn or replaced meanwhile is never posted again.
+            MAIN.post { repostSpent(app, binding, if (posted) text else null) }
         }
     }
 
@@ -115,5 +115,6 @@ class CarActionReceiver : BroadcastReceiver() {
     private companion object {
         /** One API reply at a time. */
         val API_WORKER: ExecutorService = Executors.newSingleThreadExecutor()
+        val MAIN = Handler(Looper.getMainLooper())
     }
 }
