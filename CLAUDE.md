@@ -39,6 +39,7 @@ app/src/main/java/tech/amditis/flack/
   TestReport.kt             # Content-free test report for device test issues
   core/SlackSignIn.kt       # PKCE, the single pending sign-in, token record (no Android imports)
   core/RouteFieldProbe.kt   # Shapes of identifier-bearing notification fields, no values
+  core/ReportFit.kt         # Fits the test report in one 20,000-character paste
   SlackAccounts.kt          # Encrypted token file, code exchange, refresh, sign-out
   SlackApi.kt               # HTTPS to slack.com; content-free error categories
   core/ApiRoute.kt          # API reply route: field mappings (empty until #29), certainty rules

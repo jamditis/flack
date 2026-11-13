@@ -136,6 +136,33 @@ class RouteFieldProbeTest {
         assertFalse(report.contains("channel=1"))
     }
 
+    @Test fun aFullTwentyCaseReportFitsTheLimitWithTheSummaryFirst() {
+        // Every case holds timestamps, so none collapses and the cap has to cut cases.
+        repeat(20) { n ->
+            val extras = (1..30).map { key -> "kite_field_$key" to "C0AAAAAAA$n 1700000000.0001${10 + n}" }
+            record(null, "#paper-kites", "Riley Example", 1_700_000_000_000L + n, extras)
+        }
+        val report = probe.report(REPORT_LIMIT)
+        assertTrue(probe.report().length > REPORT_LIMIT)
+        assertTrue(report.length <= REPORT_LIMIT)
+        assertTrue(report.indexOf("Field summary (20 cases") in 0 until report.indexOf("Case 1:"))
+        assertTrue(report.contains("  extra key 30: present in 20 of 20 cases; ID prefixes: C"))
+        val shown = Regex("Case \\d+:").findAll(report).count()
+        assertTrue(report, report.trimEnd().endsWith("Truncated: ${20 - shown} cases not shown (report limit $REPORT_LIMIT characters)."))
+    }
+
+    @Test fun repeatedRoutesCollapseWhenTheFullReportDoesNotFit() {
+        repeat(20) { n -> record("C0AAAAAAA${n % 4}", "#kite-${n % 4}", "Riley Example", n.toLong()) }
+        val full = probe.report()
+        val report = probe.report(full.length - 1)
+        assertTrue(report.length < full.length)
+        assertTrue(report.contains("Case 1: route=READ_ONLY(NO_REPLY_ACTION)"))
+        assertTrue(report.contains("Cases ${(2..20).joinToString(", ")} (19 cases): route=READ_ONLY(NO_REPLY_ACTION), fields as in the summary"))
+        assertTrue(report.contains("  Case 5: isGroup=true; same conversation label as cases: 1, 9, 13, 17; same sender name as cases: "))
+        assertTrue(report.contains("tag: present in 20 of 20 cases; ID prefixes: C; channel (group: same conversation label) agrees within group: yes 20, no 0"))
+        assertFalse(report.contains("Truncated"))
+    }
+
     @Test fun parsesSlackTimestamps() {
         assertEquals(1_700_000_000_123L, RouteFieldProbe.timestampMillis("1700000000.123456"))
         assertEquals(null, RouteFieldProbe.timestampMillis("not a time"))

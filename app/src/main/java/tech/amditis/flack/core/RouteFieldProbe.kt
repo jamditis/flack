@@ -115,21 +115,90 @@ class RouteFieldProbe {
         )
     }
 
+    /**
+     * The report, at most [maxChars] long. A field summary over all cases comes
+     * first. When every case in full does not fit, a case is shown in full only
+     * when it is the first with its route or holds a timestamp, and the others
+     * become one short line each. Cases that still do not fit are left out, and
+     * the report says how many.
+     */
     @Synchronized
-    fun report(): String = if (cases.isEmpty()) "" else buildString {
-        appendLine("Route field probe (last $MAX_CASES Slack notifications, shapes and yes/no relations only):")
-        cases.forEachIndexed { index, case ->
-            appendLine("Case ${index + 1}: route=${case.route}; isGroup=${case.isGroup ?: "unknown"}; subtext=${if (case.hasSubText) "present" else "absent"}")
-            appendLine("  same conversation label as cases: ${if (case.conversation == null) "unknown" else caseList(index) { it.conversation == case.conversation }}")
-            appendLine("  same sender name as cases: ${if (case.sender == null) "unknown" else caseList(index) { it.sender == case.sender }}")
-            appendLine("  extras: ${case.stringExtras} string, ${case.otherExtras} other")
-            case.fields.forEach { field -> appendLine("  ${field.label}: ${describe(index, case, field)}") }
+    fun report(maxChars: Int = Int.MAX_VALUE): String {
+        if (cases.isEmpty()) return ""
+        val head = buildString {
+            appendLine("Route field probe (last $MAX_CASES Slack notifications, shapes and yes/no relations only):")
+            appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
+            appendLine("An extras key name is shown only when its value has one of these shapes and it is exactly on Flack's list of common ID key names.")
+            appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
+            appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
+            appendLine("Field summary (${cases.size} cases; yes and no count the cases where a relation was checked):")
+            summaryLines().forEach { appendLine("  $it") }
         }
-        appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
-        appendLine("An extras key name is shown only when its value has one of these shapes and it is exactly on Flack's list of common ID key names.")
-        appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
-        appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
+        val full = cases.indices.map { ReportEntry(fullCase(it), 1) }
+        if (head.length + full.sumOf { it.text.length } <= maxChars) return head + full.joinToString("") { it.text }
+        return fitEntries(head, compactEntries(), maxChars, "cases")
     }
+
+    private fun fullCase(index: Int): String = buildString {
+        val case = cases[index]
+        appendLine("Case ${index + 1}: route=${case.route}; isGroup=${case.isGroup ?: "unknown"}; subtext=${if (case.hasSubText) "present" else "absent"}")
+        appendLine("  same conversation label as cases: ${sameConversation(index)}")
+        appendLine("  same sender name as cases: ${sameSender(index)}")
+        appendLine("  extras: ${case.stringExtras} string, ${case.otherExtras} other")
+        case.fields.forEach { field -> appendLine("  ${field.label}: ${describe(index, case, field)}") }
+    }
+
+    /** Full cases where they add evidence, and one entry per route for the rest. */
+    private fun compactEntries(): List<ReportEntry> {
+        val firstOfRoute = cases.indices.distinctBy { cases[it].route }.toSet()
+        val full = cases.indices.filter { it in firstOfRoute || cases[it].fields.any { field -> field.shape?.times?.isNotEmpty() == true } }
+        val short = (cases.indices - full.toSet()).groupBy { cases[it].route }
+        return full.map { ReportEntry(fullCase(it), 1) } + short.map { (route, indices) ->
+            val text = buildString {
+                appendLine("Cases ${indices.joinToString(", ") { "${it + 1}" }} (${indices.size} cases): route=$route, fields as in the summary")
+                indices.forEach { index ->
+                    val case = cases[index]
+                    val prefixes = case.fields.mapNotNull { field -> field.shape?.prefixes?.ifEmpty { null }?.let { "${field.label} $it" } }
+                    appendLine(
+                        "  Case ${index + 1}: isGroup=${case.isGroup ?: "unknown"}; same conversation label as cases: ${sameConversation(index)}; " +
+                            "same sender name as cases: ${sameSender(index)}; ID prefixes: ${prefixes.ifEmpty { null }?.joinToString(", ") ?: "none"}",
+                    )
+                }
+            }
+            ReportEntry(text, indices.size)
+        }
+    }
+
+    /** One line per field: how often it was present, its ID kinds, and each relation's yes and no counts. */
+    private fun summaryLines(): List<String> {
+        val labels = cases.flatMap { case -> case.fields.map { it.matchKey to it.label } }.distinctBy { it.first }
+        return labels.map { (matchKey, label) ->
+            val seen = cases.mapIndexedNotNull { index, case -> case.fields.firstOrNull { it.matchKey == matchKey }?.let { index to it } }
+            val present = seen.filter { (_, field) -> field.shape?.empty == false }
+            if (present.isEmpty()) return@map "$label: present in 0 of ${cases.size} cases"
+            val out = mutableListOf("present in ${present.size} of ${cases.size} cases")
+            val prefixes = present.flatMap { (_, field) -> field.shape!!.prefixes.split(' ').filter(String::isNotEmpty) }.toSortedSet()
+            if (prefixes.isNotEmpty()) out += "ID prefixes: ${prefixes.joinToString(" ")}"
+            present.flatMap { (index, field) -> parts(index, cases[index], field) }
+                .firstOrNull { it.text.startsWith("key name=") }?.let { out += it.text }
+            val relations = LinkedHashMap<String, IntArray>()
+            present.forEach { (index, field) ->
+                parts(index, cases[index], field).forEach { part ->
+                    val relation = part.relation ?: return@forEach
+                    val counts = relations.getOrPut(relation) { IntArray(2) }
+                    counts[if (part.yes == true) 0 else 1]++
+                }
+            }
+            relations.forEach { (relation, counts) -> out += "$relation: yes ${counts[0]}, no ${counts[1]}" }
+            "$label: ${out.joinToString("; ")}"
+        }
+    }
+
+    private fun sameConversation(index: Int): String =
+        if (cases[index].conversation == null) "unknown" else caseList(index) { it.conversation == cases[index].conversation }
+
+    private fun sameSender(index: Int): String =
+        if (cases[index].sender == null) "unknown" else caseList(index) { it.sender == cases[index].sender }
 
     private fun keyLabel(hashedKey: String): String {
         val number = keyLabels[hashedKey] ?: if (keyLabels.size < MAX_KEYS) (keyLabels.size + 1).also { keyLabels[hashedKey] = it } else null
@@ -139,13 +208,23 @@ class RouteFieldProbe {
     private fun caseList(index: Int, matches: (Case) -> Boolean): String =
         cases.withIndex().filter { it.index != index && matches(it.value) }.map { it.index + 1 }.ifEmpty { null }?.joinToString(", ") ?: "none"
 
+    /** One reported fact. [relation] and [yes] are set for a yes/no relation, so the summary can count it. */
+    private class Part(val text: String, val relation: String? = null, val yes: Boolean? = null)
+
     private fun describe(index: Int, case: Case, field: Field): String {
         val shape = field.shape ?: return "absent"
         if (shape.empty) return "empty"
-        val parts = mutableListOf("present, ${shape.counts}")
-        if (shape.prefixes.isNotEmpty()) parts += "ID prefixes: ${shape.prefixes}"
+        return parts(index, case, field).joinToString("; ") { it.text }
+    }
+
+    /** What one present field shows in one case. Empty for an absent or empty field. */
+    private fun parts(index: Int, case: Case, field: Field): List<Part> {
+        val shape = field.shape?.takeIf { !it.empty } ?: return emptyList()
+        val parts = mutableListOf(Part("present, ${shape.counts}"))
+        fun relation(name: String, yes: Boolean, suffix: String = "") { parts += Part("$name=${yesNo(yes)}$suffix", name, yes) }
+        if (shape.prefixes.isNotEmpty()) parts += Part("ID prefixes: ${shape.prefixes}")
         val hasShape = shape.channels.isNotEmpty() || shape.workspaces.isNotEmpty() || shape.users.isNotEmpty() || shape.times.isNotEmpty()
-        if (field.label.startsWith("extra key") && hasShape) parts += "key name=${field.name ?: "not on the list"}"
+        if (field.label.startsWith("extra key") && hasShape) parts += Part("key name=${field.name ?: "not on the list"}")
         // Compares this field's IDs with the same field in other cases. [group] is
         // null when either case's grouping is unknown; those cases are skipped.
         // [outside] is off where different groups can share an ID, as conversations share a workspace.
@@ -159,8 +238,8 @@ class RouteFieldProbe {
             }
             val inside = compared.filter { it.first }.map { it.second }
             val others = compared.filter { !it.first }.map { it.second }
-            if (inside.isNotEmpty()) parts += "$name agrees within group=${yesNo(inside.all { it == mine })}"
-            if (outside && others.isNotEmpty()) parts += "$name differs outside group=${yesNo(others.all { it.intersect(mine).isEmpty() })}"
+            if (inside.isNotEmpty()) relation("$name agrees within group", inside.all { it == mine })
+            if (outside && others.isNotEmpty()) relation("$name differs outside group", others.all { it.intersect(mine).isEmpty() })
         }
         compare(
             { other -> if (case.conversation == null || other.conversation == null) null else other.conversation == case.conversation },
@@ -176,16 +255,19 @@ class RouteFieldProbe {
         )
         if (shape.workspaces.isNotEmpty()) {
             val seen = cases.mapNotNull { other -> other.fields.firstOrNull { it.matchKey == field.matchKey }?.shape?.workspaces?.ifEmpty { null } }
-            parts += "workspace same wherever seen=${yesNo(seen.all { it == shape.workspaces })}, seen in ${seen.size} of ${cases.size} cases"
+            relation("workspace same wherever seen", seen.all { it == shape.workspaces }, ", seen in ${seen.size} of ${cases.size} cases")
         }
         if (shape.times.isNotEmpty()) {
-            case.messageTimeMillis?.let { own -> parts += "timestamp is this message=${yesNo(shape.times.any { near(it, own) })}" }
+            case.messageTimeMillis?.let { own -> relation("timestamp is this message", shape.times.any { near(it, own) }) }
             val earlier = cases.withIndex().filter { (otherIndex, other) ->
                 otherIndex < index && other.messageTimeMillis?.let { time -> shape.times.any { near(it, time) } } == true
             }
-            parts += "timestamp is message of cases: ${earlier.map { it.index + 1 }.ifEmpty { null }?.joinToString(", ") ?: "none"}"
+            parts += Part(
+                "timestamp is message of cases: ${earlier.map { it.index + 1 }.ifEmpty { null }?.joinToString(", ") ?: "none"}",
+                "timestamp is an earlier case's message", earlier.isNotEmpty(),
+            )
         }
-        return parts.joinToString("; ")
+        return parts
     }
 
     companion object {
