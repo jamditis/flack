@@ -28,7 +28,7 @@ Slack does not document what its Android notifications contain. The route field 
 
 ## Slack app
 
-One Slack app, owned by the maintainer, with public distribution turned on and not listed in the Slack Marketplace. Any person in any workspace can sign in with it. NJ PBS is the first workspace to test. The manifest is in [slack-app-manifest.json](slack-app-manifest.json).
+One Slack app, owned by the maintainer, with public distribution turned on and not listed in the Slack Marketplace. Any person in any workspace can sign in with it. The manifest is in [slack-app-manifest.json](slack-app-manifest.json).
 
 Flack asks for user token scopes only, and has no bot user.
 
@@ -70,7 +70,7 @@ Another app can register the same scheme and receive the redirect. PKCE covers t
 4. Slack redirects to `tech.amditis.flack://oauth`, which opens Flack.
 5. Flack accepts the result only when `state` matches the one pending attempt, and uses that attempt once. A result with the wrong state is refused and leaves the real attempt pending. An `error`, a missing code or a second result ends the attempt.
 6. Flack posts `client_id`, `code`, `code_verifier` and `redirect_uri` to `oauth.v2.access` over HTTPS and keeps the user token from `authed_user` for the workspace in `team`.
-7. Flack calls `auth.test` and lists the workspace on the phone: "NJ PBS: signed in as alex". Names are shown on the phone only, never in the test report.
+7. Flack calls `auth.test` and lists the workspace on the phone: "Paper Kites: signed in as alex". Names are shown on the phone only, never in the test report.
 
 If Android stops Flack while the browser is open, the verifier is gone and the person starts again. Flack does not save the verifier.
 
@@ -118,7 +118,7 @@ Steps 2 and 3 apply to every notification that the existing check makes read-onl
 
 ### Workspace
 
-Flack uses a workspace only when one of these holds:
+If a structured field carries a workspace ID that the probe evidence shows names the notification's workspace, that ID decides: when it is not a signed-in workspace, the message stays read-only, whatever the setting below says. Otherwise Flack uses a workspace only when one of these holds:
 
 - a workspace ID in a structured notification field, that the probe evidence shows names the notification's workspace, matches a signed-in workspace; or
 - the person turned on **Slack on this phone uses only my signed-in workspaces**, and either exactly one workspace is signed in, or the notification's subtext equals the name of exactly one of them.
@@ -204,11 +204,11 @@ Small stacked pull requests, each with focused unit tests:
 
 ## What the maintainer does
 
-1. Open https://api.slack.com/apps, choose **Create New App**, then **From a manifest**, and pick the NJ PBS workspace as the development workspace.
+1. Open https://api.slack.com/apps, choose **Create New App**, then **From a manifest**, and pick the first test workspace as the development workspace.
 2. Paste [slack-app-manifest.json](slack-app-manifest.json) and create the app. Under **OAuth & Permissions**, check that PKCE is on and the redirect URL is `tech.amditis.flack://oauth`.
 3. Under **Manage Distribution**, complete Slack's checklist and turn on public distribution. Do not submit it to the Marketplace; unlisted distribution needs no Slack review. If Slack refuses the custom-scheme redirect, stop and report it on #28.
 4. Optional: under **Basic Information**, add an icon, and add the privacy page `https://jamditis.github.io/flack/privacy.html` if Slack asks for one.
-5. If a workspace requires admin approval for apps, an admin of that workspace approves Flack. For NJ PBS, check this before the first test.
+5. If a workspace requires admin approval for apps, an admin of that workspace approves Flack. Check this for the first test workspace before the first test.
 6. Copy the **Client ID** from **Basic Information** and set it as the repository variable `FLACK_SLACK_CLIENT_ID` (Settings, Secrets and variables, Actions, Variables). It is a variable, not a secret. Agents do not set it.
 7. Run the route field probe test in [TEST_PLAN.md](TEST_PLAN.md) with v0.2.2 and paste the report on #29.
 8. After the sign-in build ships, each tester signs in from Flack's phone screen while parked.
