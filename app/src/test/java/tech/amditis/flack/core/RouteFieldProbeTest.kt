@@ -39,6 +39,40 @@ class RouteFieldProbeTest {
         assertTrue(report.contains("extra key 2: present"))
     }
 
+    @Test fun showsAStaticExtrasKeyNameOnlyWhenItsValueHasAnIdShape() {
+        record(
+            null, "#paper-kites", "Riley Example", 1L,
+            listOf(
+                "kite_channel" to "C0INVENTED2",
+                "kite_label" to "no ids here",
+                "riley9" to "D0INVENTED3",
+                "kiteCABCDEFGH" to "T0INVENTED4",
+                "riley example" to "U0INVENTED5",
+            ),
+        )
+        val report = probe.report()
+        assertTrue(report, report.contains("key name=kite_channel"))
+        listOf("kite_label", "riley9", "kiteCABCDEFGH", "riley example", "INVENTED").forEach { assertFalse(it, report.contains(it)) }
+    }
+
+    @Test fun showsIdPrefixLetters() {
+        record("T0INVENTED1:D0INVENTED2 U0INVENTED3", "#paper-kites", "Riley Example", 1L)
+        assertTrue(line(probe.report(), 1, "tag").contains("ID prefixes: D T U"))
+    }
+
+    @Test fun workspaceAgreementIsCheckedWithinAConversation() {
+        record("T0AAAAAAA1", "#paper-kites", "Riley Example", 1L)
+        record("T0AAAAAAA1", "#paper-kites", "Sam Example", 2L)
+        record("T0BBBBBBB2", "#kite-repairs", "Riley Example", 3L)
+        val second = line(probe.report(), 2, "tag")
+        assertTrue(second, second.contains("workspace (group: same conversation label) agrees within group=yes"))
+        assertFalse(second, second.contains("workspace (group: same conversation label) differs outside"))
+        val split = RouteFieldProbe()
+        split.record("ELIGIBLE", true, RouteFields(tag = "T0AAAAAAA1"), ProbeContext("#paper-kites", "Riley Example", 1L))
+        split.record("ELIGIBLE", true, RouteFields(tag = "T0BBBBBBB2"), ProbeContext("#paper-kites", "Riley Example", 2L))
+        assertTrue(line(split.report(), 2, "tag").contains("workspace (group: same conversation label) agrees within group=no"))
+    }
+
     @Test fun countsIdsWithoutDigitsAndIdsTouchingLowercase() {
         record("CABCDEFGH channelC0INVENTED2", "#paper-kites", "Riley Example", 1L)
         assertTrue(line(probe.report(), 1, "tag").contains("channel=2"))

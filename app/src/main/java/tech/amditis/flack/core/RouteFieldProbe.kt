@@ -36,7 +36,9 @@ data class ProbeContext(
  * within one conversation and differ between conversations, and whether a
  * timestamp equals this message's time or an earlier message's time (a thread
  * parent). It never exports a value, title, name or message text, so the report
- * stays safe to paste into a public issue.
+ * stays safe to paste into a public issue. The one name it shows is an extras
+ * key that looks like an app constant (see [staticKeyName]) and whose value has
+ * an ID or timestamp shape, so a mapping can name the key.
  */
 class RouteFieldProbe {
     /**
@@ -46,14 +48,19 @@ class RouteFieldProbe {
     private class Shape(
         val empty: Boolean,
         val counts: String,
+        /** Prefix letters of the IDs found, such as "C D T": Slack IDs are not secret, the letter is the kind. */
+        val prefixes: String,
         val channels: Set<String>,
         val workspaces: Set<String>,
         val users: Set<String>,
         val times: List<Long>,
     )
 
-    /** [matchKey] is hashed for extras, whose key names can hold anything. */
-    private class Field(val label: String, val matchKey: String, val shape: Shape?)
+    /**
+     * [matchKey] is hashed for extras, whose key names can hold anything. [name] is
+     * the extras key only when it looks like an app constant.
+     */
+    private class Field(val label: String, val matchKey: String, val shape: Shape?, val name: String? = null)
 
     private class Case(
         val route: String,
@@ -84,7 +91,7 @@ class RouteFieldProbe {
             add(Field("senderUri", "senderUri", shape(fields.senderUri)))
             fields.extras.take(MAX_EXTRAS).forEach { (key, value) ->
                 val hashed = hash("extra|$key")
-                add(Field(keyLabel(hashed), hashed, shape(value)))
+                add(Field(keyLabel(hashed), hashed, shape(value), staticKeyName(key)))
             }
         }
         // A titled conversation is one conversation. A one-to-one DM without a title
@@ -119,6 +126,7 @@ class RouteFieldProbe {
             case.fields.forEach { field -> appendLine("  ${field.label}: ${describe(index, case, field)}") }
         }
         appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
+        appendLine("An extras key name is shown only when it is letters, dots and underscores and its value has one of these shapes.")
         appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
         appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
     }
@@ -135,9 +143,13 @@ class RouteFieldProbe {
         val shape = field.shape ?: return "absent"
         if (shape.empty) return "empty"
         val parts = mutableListOf("present, ${shape.counts}")
+        if (shape.prefixes.isNotEmpty()) parts += "ID prefixes: ${shape.prefixes}"
+        val hasShape = shape.channels.isNotEmpty() || shape.workspaces.isNotEmpty() || shape.users.isNotEmpty() || shape.times.isNotEmpty()
+        if (field.name != null && hasShape) parts += "key name=${field.name}"
         // Compares this field's IDs with the same field in other cases. [group] is
         // null when either case's grouping is unknown; those cases are skipped.
-        fun compare(group: (Case) -> Boolean?, ids: (Shape) -> Set<String>, name: String) {
+        // [outside] is off where different groups can share an ID, as conversations share a workspace.
+        fun compare(group: (Case) -> Boolean?, ids: (Shape) -> Set<String>, name: String, outside: Boolean = true) {
             val mine = ids(shape)
             if (mine.isEmpty()) return
             val compared = cases.withIndex().filter { it.index != index }.mapNotNull { (_, other) ->
@@ -146,9 +158,9 @@ class RouteFieldProbe {
                 if (theirs.isEmpty()) null else same to theirs
             }
             val inside = compared.filter { it.first }.map { it.second }
-            val outside = compared.filter { !it.first }.map { it.second }
+            val others = compared.filter { !it.first }.map { it.second }
             if (inside.isNotEmpty()) parts += "$name agrees within group=${yesNo(inside.all { it == mine })}"
-            if (outside.isNotEmpty()) parts += "$name differs outside group=${yesNo(outside.all { it.intersect(mine).isEmpty() })}"
+            if (outside && others.isNotEmpty()) parts += "$name differs outside group=${yesNo(others.all { it.intersect(mine).isEmpty() })}"
         }
         compare(
             { other -> if (case.conversation == null || other.conversation == null) null else other.conversation == case.conversation },
@@ -157,6 +169,10 @@ class RouteFieldProbe {
         compare(
             { other -> if (case.sender == null || other.sender == null) null else other.sender == case.sender },
             { it.users }, "user (group: same sender name)",
+        )
+        compare(
+            { other -> if (case.conversation == null || other.conversation == null) null else other.conversation == case.conversation },
+            { it.workspaces }, "workspace (group: same conversation label)", outside = false,
         )
         if (shape.workspaces.isNotEmpty()) {
             val seen = cases.mapNotNull { other -> other.fields.firstOrNull { it.matchKey == field.matchKey }?.shape?.workspaces?.ifEmpty { null } }
@@ -191,17 +207,30 @@ class RouteFieldProbe {
         private fun shape(value: String?): Shape? {
             value ?: return null
             fun ids(regex: Regex) = regex.findAll(value).map { hash(it.value) }.toSet()
+            val prefixes = listOf(CHANNEL, WORKSPACE, USER).flatMap { regex -> regex.findAll(value).map { it.value.first() } }
+                .toSortedSet().joinToString(" ")
             val counts = "channel=${CHANNEL.findAll(value).count()} workspace=${WORKSPACE.findAll(value).count()} " +
                 "user=${USER.findAll(value).count()} timestamp=${TIMESTAMP.findAll(value).count()}"
             return Shape(
                 empty = value.isEmpty(),
                 counts = counts,
+                prefixes = prefixes,
                 channels = ids(CHANNEL),
                 workspaces = ids(WORKSPACE),
                 users = ids(USER),
                 times = TIMESTAMP.findAll(value).mapNotNull { timestampMillis(it.value) }.toList(),
             )
         }
+        private val STATIC_KEY = Regex("[A-Za-z_.]{1,64}")
+
+        /**
+         * The extras key when it looks like an app constant: letters, dots and
+         * underscores only, with no ID shape in it. Digits, spaces and anything
+         * else mean the key could hold a name or an ID, so it stays hidden.
+         */
+        private fun staticKeyName(key: String): String? =
+            key.takeIf { STATIC_KEY.matches(it) && listOf(CHANNEL, WORKSPACE, USER).none { regex -> regex.containsMatchIn(it) } }
+
         private fun yesNo(value: Boolean) = if (value) "yes" else "no"
         private fun near(a: Long, b: Long) = abs(a - b) <= TIME_TOLERANCE_MILLIS
 
