@@ -115,8 +115,9 @@ class SlackListenerService : NotificationListenerService() {
 
     /** The Slack API destination for a message without a usable original action. */
     private fun apiRoute(parsed: ParsedNotification): ApiRoute {
-        val conversation = parsed.facts.conversation ?: return ApiRoute.ReadOnly(ApiReadOnlyReason.NO_CONTEXT)
-        return ApiRouteResolver.resolve(conversation, parsed.routeFields, { SlackSession.accounts(this).workspaces() })
+        val conversation = parsed.facts.conversation ?: return ApiRoute.ReadOnly(ApiReadOnlyReason.NO_FIELD_MAPPING)
+        // Never waits for a sign-in, refresh or sign-out that holds the accounts lock on the network.
+        return ApiRouteResolver.resolve(conversation, parsed.routeFields, { SlackSession.accounts(this).knownWorkspaces() })
     }
 
     private fun forward(

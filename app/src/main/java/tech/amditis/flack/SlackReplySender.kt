@@ -12,7 +12,11 @@ data class ApiReplyResult(val status: HandoffStatus, val slackCode: String? = nu
  */
 class SlackReplySender(private val accounts: SlackAccounts, private val transport: SlackTransport) {
 
-    fun send(destination: ApiDestination, text: String): ApiReplyResult {
+    /**
+     * [stillCurrent] is checked after the token lookup and any refresh, just before
+     * the post: a car copy withdrawn or replaced while the reply waited is not sent.
+     */
+    fun send(destination: ApiDestination, text: String, stillCurrent: () -> Boolean = { true }): ApiReplyResult {
         // The token is looked up by the destination's workspace ID, so a reply can only
         // go out under that workspace's sign-in. Refreshed here if it expires soon.
         val token = try {
@@ -21,6 +25,7 @@ class SlackReplySender(private val accounts: SlackAccounts, private val transpor
             // The refresh or the stored sign-in failed before chat.postMessage was sent.
             return ApiReplyResult(HandoffStatus.NOT_SENT)
         } ?: return ApiReplyResult(HandoffStatus.NOT_SENT_SIGN_IN)
+        if (!stillCurrent()) return ApiReplyResult(HandoffStatus.NOT_SENT)
 
         val form = buildMap {
             put("channel", destination.channelId)

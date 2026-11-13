@@ -61,7 +61,7 @@ class ApiRouteTest {
     }
 
     @Test fun aGroupWithoutATitleStaysReadOnly() {
-        assertEquals(readOnly(ApiReadOnlyReason.NO_CONTEXT), resolve(conversation = channel.copy(title = " ")))
+        assertEquals(readOnly(ApiReadOnlyReason.UNTITLED_GROUP), resolve(conversation = channel.copy(title = " ")))
     }
 
     @Test fun aChannelMessageWithAllFieldsRoutesToTheChannelItself() {

@@ -21,13 +21,17 @@ interface TokenSealer {
 /** The signed-in workspaces, as one encrypted file in the no-backup directory. */
 class AccountStore(private val file: File, private val sealer: TokenSealer) {
 
+    /** The list last read or written by this process. Null until then. */
+    @Volatile var lastKnown: List<WorkspaceToken>? = null
+        private set
+
     /**
      * Throws [SlackCallException] with [SlackError.STORAGE] when the file cannot be
      * read now; the file and key are kept, so a passing failure loses nothing. Only
      * data that can never be opened is deleted, and the person signs in again.
      */
     fun load(): List<WorkspaceToken> {
-        if (!file.exists()) return emptyList()
+        if (!file.exists()) return emptyList<WorkspaceToken>().also { lastKnown = it }
         val plain = try {
             sealer.open(file.readBytes())
         } catch (_: SealedDataLost) {
@@ -37,7 +41,7 @@ class AccountStore(private val file: File, private val sealer: TokenSealer) {
             throw SlackCallException(SlackError.STORAGE)
         }
         return try {
-            decode(plain.toString(Charsets.UTF_8))
+            decode(plain.toString(Charsets.UTF_8)).also { lastKnown = it }
         } catch (_: org.json.JSONException) {
             clear()
             emptyList()
@@ -61,11 +65,13 @@ class AccountStore(private val file: File, private val sealer: TokenSealer) {
             temp.delete()
             throw SlackCallException(SlackError.STORAGE)
         }
+        lastKnown = tokens
     }
 
     fun clear() {
         file.delete()
         sealer.destroy()
+        lastKnown = emptyList()
     }
 
     companion object {
@@ -114,6 +120,13 @@ class SlackAccounts(
 ) {
     @Synchronized
     fun workspaces(): List<WorkspaceToken> = store.load()
+
+    /**
+     * The signed-in workspaces without taking the lock that sign-in, refresh and
+     * sign-out hold during network calls. May be a moment old; dispatch checks the
+     * token again. Throws like [AccountStore.load] when nothing was read yet.
+     */
+    fun knownWorkspaces(): List<WorkspaceToken> = store.lastKnown ?: store.load()
 
     /**
      * The saved sign-in. [previousRevoked] is false when this replaced an earlier

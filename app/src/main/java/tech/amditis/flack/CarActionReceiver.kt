@@ -90,7 +90,10 @@ class CarActionReceiver : BroadcastReceiver() {
         val destination = binding.apiRoute ?: return
         val app = context.applicationContext
         API_WORKER.execute {
-            val result = SlackReplySender(SlackSession.accounts(app), SlackHttp).send(destination, text)
+            // A reply that waited behind another one, or for a refresh, is dropped if its copy was withdrawn meanwhile.
+            val result = SlackReplySender(SlackSession.accounts(app), SlackHttp).send(destination, text) {
+                BridgeState.registry.isCurrent(binding)
+            }
             BridgeState.recordHandoff(result.status, result.slackCode)
             val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
             // The listener changes copies on the main thread. Check and repost there too,

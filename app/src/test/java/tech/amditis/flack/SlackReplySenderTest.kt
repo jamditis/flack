@@ -136,6 +136,13 @@ class SlackReplySenderTest {
         assertEquals("xoxe.xoxp-access-2", posts().single().bearer)
     }
 
+    @Test fun aCopyWithdrawnWhileTheReplyWaitedIsNotSent() {
+        signedIn()
+        respond = { posted() }
+        assertEquals(ApiReplyResult(HandoffStatus.NOT_SENT), sender.send(channel, "On my way") { false })
+        assertTrue(posts().isEmpty())
+    }
+
     @Test fun aRefusedRefreshAsksForSignInAndSendsNothing() {
         signedIn(expiresAt = now + 60_000L)
         respond = { throw SlackCallException(SlackError.REFUSED, "invalid_refresh_token") }

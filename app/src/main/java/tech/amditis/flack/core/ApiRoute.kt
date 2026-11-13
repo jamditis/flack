@@ -48,7 +48,7 @@ enum class ApiReadOnlyReason {
     /** No evidence-backed mapping for this message kind, or the kind is unknown. */
     NO_FIELD_MAPPING,
     /** A group without a title: the driver could not hear where the reply goes. */
-    NO_CONTEXT,
+    UNTITLED_GROUP,
     WORKSPACE_UNKNOWN,
     NOT_SIGNED_IN,
     SIGN_IN_EXPIRED,
@@ -89,9 +89,7 @@ object ApiRouteResolver {
             false -> MessageKind.DIRECT
             null -> return readOnly(ApiReadOnlyReason.NO_FIELD_MAPPING)
         }
-        if (CapabilityCheck.contextLabel(conversation) == null || (kind == MessageKind.GROUP && conversation.title.isNullOrBlank())) {
-            return readOnly(ApiReadOnlyReason.NO_CONTEXT)
-        }
+        if (kind == MessageKind.GROUP && conversation.title.isNullOrBlank()) return readOnly(ApiReadOnlyReason.UNTITLED_GROUP)
         val mapping = mappings.filter { it.kind == kind }.singleOrNull() ?: return readOnly(ApiReadOnlyReason.NO_FIELD_MAPPING)
 
         val teamId = extract(fields, mapping.workspace)?.takeIf(WORKSPACE_ID::matches)
