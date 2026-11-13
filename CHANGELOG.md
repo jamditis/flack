@@ -4,6 +4,17 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+## 0.2.2
+
+- The test report has a route field probe for the last 20 Slack notifications.
+  For each one it lists which notification fields Slack fills, how many values
+  in each look like a Slack ID or timestamp, and yes/no relations between
+  notifications: whether an ID agrees within one conversation or one sender and
+  differs between them, and whether a timestamp matches this message or an
+  earlier one. It records no values, names or message text. The results show
+  which fields a Slack sign-in reply route could use (docs/SLACK_SIGN_IN.md,
+  #29). Nothing else changes: Flack still has no network access.
+
 ## 0.2.1
 
 - The test report includes content-free facts for the last 20 multi-action

@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.Message
 import tech.amditis.flack.core.ReplyActionFacts
+import tech.amditis.flack.core.RouteFields
 import tech.amditis.flack.core.SourceFacts
 import java.security.MessageDigest
 
@@ -15,6 +16,8 @@ class ParsedNotification(
     val facts: SourceFacts,
     /** Same order as [SourceFacts.replyActions]. */
     val actionIntents: List<PendingIntent?>,
+    /** Identifier-bearing fields for the route field probe. Memory only. */
+    val routeFields: RouteFields = RouteFields(),
 ) {
     /**
      * Identifies this notification's content. Equal fingerprints mean a repeated
@@ -56,7 +59,37 @@ object SlackNotificationParser {
             conversation = conversation(notification),
             replyActions = actions.map { replyFacts(it, sbn.uid) },
         )
-        return ParsedNotification(facts, actions.map { it.actionIntent })
+        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn))
+    }
+
+    private fun routeFields(sbn: StatusBarNotification): RouteFields {
+        val notification = sbn.notification
+        val extras = notification.extras
+        val strings = mutableListOf<Pair<String, String>>()
+        var other = 0
+        // Android's own keys hold the title and message text, not identifiers.
+        extras.keySet().filterNot { it.startsWith("android.") }.sorted().forEach { key ->
+            @Suppress("DEPRECATION")
+            when (val value = extras.get(key)) {
+                is CharSequence -> strings += key to value.toString()
+                null -> Unit
+                else -> other++
+            }
+        }
+        // The newest incoming sender's Person key and URI may carry a Slack user ID. Same
+        // message as the probe's context: the newest incoming one with text, as conversation() keeps.
+        val sender = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+            ?.messages?.lastOrNull { it.person != null && !it.text.isNullOrBlank() }?.person
+        return RouteFields(
+            senderKey = sender?.key,
+            senderUri = sender?.uri,
+            shortcutId = notification.shortcutId,
+            locusId = notification.locusId?.id,
+            tag = sbn.tag,
+            extras = strings,
+            otherExtras = other,
+            hasSubText = !extras.getCharSequence(Notification.EXTRA_SUB_TEXT).isNullOrEmpty(),
+        )
     }
 
     private fun conversation(notification: Notification): Conversation? {

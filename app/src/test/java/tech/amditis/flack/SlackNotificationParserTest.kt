@@ -149,4 +149,30 @@ class SlackNotificationParserTest {
         assertEquals(a, b)
         assertNotEquals(a, c)
     }
+
+    @Test fun collectsRouteFieldsButNotAndroidDisplayKeys() {
+        val notification = NotificationCompat.Builder(context, "slack")
+            .setSmallIcon(android.R.drawable.sym_def_app_icon)
+            .setContentTitle("#paper-kites")
+            .setContentText("Lunch at noon?")
+            .setSubText("Paper Kites")
+            .setShortcutId("T0INVENTED1:C0INVENTED2")
+            .setLocusId(androidx.core.content.LocusIdCompat("C0INVENTED2"))
+            .build()
+        notification.extras.putString("invented.channel", "C0INVENTED2")
+        notification.extras.putInt("invented.count", 3)
+        @Suppress("DEPRECATION")
+        val sbn = object : android.service.notification.StatusBarNotification(
+            SLACK_PACKAGE, SLACK_PACKAGE, 7, "1700000000.000100", SyntheticSlack.SLACK_UID, 0, 0, notification,
+            android.os.Process.myUserHandle(), 0L,
+        ) {}
+        val fields = SlackNotificationParser.parse(sbn).routeFields
+        assertEquals("T0INVENTED1:C0INVENTED2", fields.shortcutId)
+        assertEquals("C0INVENTED2", fields.locusId)
+        assertEquals("1700000000.000100", fields.tag)
+        assertEquals(listOf("invented.channel" to "C0INVENTED2"), fields.extras.filter { it.first.startsWith("invented.") })
+        assertTrue(fields.extras.none { it.first.startsWith("android.") })
+        assertTrue(fields.otherExtras >= 1)
+        assertTrue(fields.hasSubText)
+    }
 }
