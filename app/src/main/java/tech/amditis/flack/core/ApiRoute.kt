@@ -32,9 +32,11 @@ class FieldMapping(
 )
 
 /**
- * The shipped mappings. Empty until the route field probe (#29) shows which
- * fields carry the IDs, so every message without a usable original reply action
- * stays read-only.
+ * The shipped mappings. Still empty after the first route field probe report
+ * (#29, November 13, 2026): it showed conversation IDs for one-to-one messages,
+ * but no named workspace field and no thread signal (docs/SLACK_SIGN_IN.md,
+ * "Probe evidence"). Every message without a usable original reply action stays
+ * read-only until a later report shows all three for a message type.
  */
 object FieldMappings {
     val ALL: List<FieldMapping> = emptyList()

@@ -140,16 +140,13 @@ These come from Android documentation and AOSP behavior that could not be verifi
 
 These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels and invented message text.
 
-- **Route field probe (v0.2.2, #29):** on the S24 Ultra in the first test workspace, with Flack forwarding, a second test account sends these in order, with invented text, a few seconds apart:
-  1. a DM;
-  2. a DM from a second test account;
-  3. two messages in test channel A;
-  4. one message in test channel B;
-  5. a message in channel A, then two replies in its thread;
-  6. one reply in a different thread of channel A;
-  7. a group DM message;
-  8. a mention in channel B.
-  Then tap **Copy test report** and paste it on #29. For each notification, the report lists which fields are present, how many values in each have an ID or timestamp shape, and yes/no relations: whether a field's channel ID agrees within one conversation and differs between conversations, whether a user ID agrees for one sender, whether a workspace ID stays the same, and whether a timestamp equals this message's time or an earlier message's time (a thread parent). It records no values, names or text. Note which case numbers belong to which step, because Slack may update one notification several times.
+- **Route field probe, second run (#29):** the first run (November 13, 2026) is summarized in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md#probe-evidence-november-13-2026). Use a release with the ID prefixes and key names in the probe. On the S24 Ultra, with Flack forwarding, use three test accounts with distinct invented names (Riley Example and Sam Example in workspace 1, Alex Example in workspace 2), test channels and group DM names used for nothing else, and invented text. Send these in order, a few seconds apart, and write down the step for each message:
+  1. Workspace 1: Riley sends the phone owner two DMs.
+  2. Workspace 1: Riley sends two messages in a group DM with the phone owner and Sam.
+  3. Workspace 1: Riley sends two messages in test channel A and mentions the phone owner in each.
+  4. Workspace 1: Riley posts a new message in test channel A that mentions the phone owner, then Sam sends two replies in its thread, each mentioning the phone owner. The first message must arrive as its own notification, so the probe can match the thread parent's time.
+  5. Workspace 2: Alex sends the phone owner two DMs.
+  Send no more than 20 messages in all: the probe keeps the last 20 notifications, and other Slack notifications that arrive during the test count too. Then tap **Copy test report** and paste it on #29, with the step for each case number. Slack may update one notification several times, so one step can fill more than one case.
 - **Sign-in:** sign in while parked, close Flack during the browser step and sign in again. Add a second workspace, then sign out of one. Confirm that the phone says the sign-out was confirmed and no longer lists that workspace. Sign-out revokes tokens; it does not remove Flack from the workspace's apps in Slack, so that list is not part of this check. Confirm the phone screen lists each workspace and the test report shows no name, token or workspace value. In a workspace that needs admin approval, record what Slack shows.
 - **Coverage:** with the person signed in, every message type above should reach the car with a reply action. Record the test report's route counts and each read-only reason.
 - **Wrong channel:** two test channels with similar names, and the same text sent in both within a minute. Each reply must appear in its own channel or stay read-only. Any reply in the other channel blocks the pilot.

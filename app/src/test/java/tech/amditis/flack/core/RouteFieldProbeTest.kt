@@ -39,6 +39,42 @@ class RouteFieldProbeTest {
         assertTrue(report.contains("extra key 2: present"))
     }
 
+    @Test fun showsOnlyExactListedKeyNames() {
+        record(
+            null, "#paper-kites", "Riley Example", 1L,
+            listOf(
+                "com.Slack.extra.channel_id" to "C0INVENTED2",
+                "team_id" to "no ids here",
+                "RileyExample" to "T0INVENTED4",
+                "riley.example.team" to "U0INVENTED5",
+                "Team_ID" to "T0INVENTED6",
+            ),
+        )
+        val report = probe.report()
+        assertTrue(line(report, 1, "extra key 1").contains("key name=com.Slack.extra.channel_id"))
+        assertFalse(line(report, 1, "extra key 2").contains("key name"))
+        listOf(3, 4, 5).forEach { assertTrue(line(report, 1, "extra key $it").contains("key name=not on the list")) }
+        listOf("team_id", "Team_ID", "Riley", "riley", "INVENTED").forEach { assertFalse(it, report.contains(it)) }
+    }
+
+    @Test fun showsIdPrefixLetters() {
+        record("T0INVENTED1:D0INVENTED2 U0INVENTED3", "#paper-kites", "Riley Example", 1L)
+        assertTrue(line(probe.report(), 1, "tag").contains("ID prefixes: D T U"))
+    }
+
+    @Test fun workspaceAgreementIsCheckedWithinAConversation() {
+        record("T0AAAAAAA1", "#paper-kites", "Riley Example", 1L)
+        record("T0AAAAAAA1", "#paper-kites", "Sam Example", 2L)
+        record("T0BBBBBBB2", "#kite-repairs", "Riley Example", 3L)
+        val second = line(probe.report(), 2, "tag")
+        assertTrue(second, second.contains("workspace (group: same conversation label) agrees within group=yes"))
+        assertFalse(second, second.contains("workspace (group: same conversation label) differs outside"))
+        val split = RouteFieldProbe()
+        split.record("ELIGIBLE", true, RouteFields(tag = "T0AAAAAAA1"), ProbeContext("#paper-kites", "Riley Example", 1L))
+        split.record("ELIGIBLE", true, RouteFields(tag = "T0BBBBBBB2"), ProbeContext("#paper-kites", "Riley Example", 2L))
+        assertTrue(line(split.report(), 2, "tag").contains("workspace (group: same conversation label) agrees within group=no"))
+    }
+
     @Test fun countsIdsWithoutDigitsAndIdsTouchingLowercase() {
         record("CABCDEFGH channelC0INVENTED2", "#paper-kites", "Riley Example", 1L)
         assertTrue(line(probe.report(), 1, "tag").contains("channel=2"))

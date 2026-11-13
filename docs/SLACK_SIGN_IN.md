@@ -214,10 +214,60 @@ Rules in this build:
 - `chat.postMessage` escapes `&`, `<` and `>`. Slack's answer must name the requested channel and thread. Otherwise the status is "Posted to Slack, but Slack's answer did not confirm the same conversation and thread".
 - A failure to connect is "Not sent". After the first byte of the request is written, a lost or unreadable answer is "Outcome unknown". An HTTP 429 is read as Slack's `ratelimited` refusal.
 
+## Probe evidence, November 13, 2026
+
+The maintainer's report is on #29: Flack 0.3.0, Slack 26.11.20.0, Samsung S24 Ultra, Android 17. It has seven route field probe cases and twelve multiple reply action cases. The maintainer is signed in to about ten workspaces in Slack on that phone, so a field that differs between messages may still name each message's own workspace.
+
+What the report shows:
+
+- **Conversation.** `shortcutId` and one string extra (extra key 2) each hold one channel-shaped ID. In cases 1 to 4, four one-to-one notifications from one conversation, both agree within the conversation and differ from every other case. Cases 5 to 7 each come from a different conversation, so agreement within a group conversation is not shown. The report does not say whether an ID starts with `C`, `G` or `D`.
+- **Sender.** `senderKey` holds one user-shaped ID that agrees for one sender and differs between senders. A sender ID does not name a conversation (see [Step 4](#step-4-before-the-probe-evidence)), so it is not used.
+- **Workspace.** No named field holds a workspace-shaped ID. Extra keys 3, 4 and 5 each hold one, and their values are not the same in every case. The report gives these keys local numbers, not their names, so a mapping cannot refer to them. It also does not say whether they agree within one conversation, so it does not show which of them, if any, is the message's own workspace.
+- **Place.** Only case 6 has timestamp-shaped values (extra keys 4 and 7). Neither equals case 6's message time or an earlier case's message time. The report does not show a thread parent, and it does not show that a missing timestamp means the message is not in a thread.
+
+So `FieldMappings.ALL` stays empty: no message type has the workspace, conversation and place that a mapping needs.
+
+| Message type | Mapped | Why |
+| --- | --- | --- |
+| DM (one-to-one) | No | The conversation ID agrees within one DM (cases 1 to 4), but the workspace field is unknown, the `D` prefix is not shown, and a thread is not ruled out. |
+| Group DM | No | The report cannot tell a group DM from a channel (both have `isGroup` true, and prefixes are not shown). No group conversation appears twice. The workspace field is unknown. |
+| Channel | No | Same as group DM. |
+| Thread | No | No timestamp is shown to be a thread parent. The one timestamp-bearing case (6) matched no notified message. |
+
+### Why Slack's reply actions are not used
+
+Every multiple reply action case has three actions: one with `semanticAction=2` (mark as read) and no input, then **Reply in thread** and **Reply**, each with one text input. Both reply actions have `semanticAction=0` (none) and `showsUserInterface=true`.
+
+The capability check (SPEC.md section 6) counts an action as a reply action only when it takes free-form text and declares `SEMANTIC_ACTION_REPLY` (1). Slack's two actions declare 0, so the check finds no reply action and reports `NO_REPLY_ACTION`. It stops before the `MULTIPLE_REPLY_ACTIONS` check. If the check ignored the semantic action, it would find two actions and stop at `MULTIPLE_REPLY_ACTIONS`; either action alone would still fail as `REPLY_OPENS_APP`, because it shows an interface. So the routed cases are `NO_REPLY_ACTION` even though Slack offers Reply buttons on the phone.
+
+The two lists are recorded at different points. Flack records the action shapes for every Slack notification with more than one text input, before any check, and the route field probe records only notifications that the check does not reject. The two lists have different case numbers and cannot be matched one to one.
+
+### Next probe
+
+The probe now also shows, for each field:
+
+- the prefix letters of the IDs it holds (`ID prefixes: D T`), so a DM can be told from a channel;
+- for an extras key whose value holds an ID or timestamp, its exact name when it is on a fixed list of common ID key names (such as `team_id`, `channelId` or `thread_ts`, alone or after Slack's package prefix `com.Slack.`); any other key shows "not on the list", so only fixed strings appear in the report. Slack does not document its extras, so the list is a guess. If the keys are not on it, probe stage two (comparison with IDs from Slack after sign-in) is still needed;
+- whether a workspace ID agrees within one conversation.
+
+The maintainer runs the second probe in [TEST_PLAN.md](TEST_PLAN.md). A later pull request adds a mapping for a message type only when that report shows all three of the workspace, the conversation and the place for it.
+
+### Rules from an existing Slack reply bridge
+
+The maintainer runs a separate Slack bridge that posts replies in two workspaces. Its reply rules were compared with Flack's:
+
+| Bridge rule | In Flack | Notes |
+| --- | --- | --- |
+| Check the signed-in user and workspace before any post | Yes, at sign-in and refresh | Flack keeps the user and workspace IDs from Slack's sign-in answer and refuses a refresh that names another workspace. It looks up the token by the destination's workspace ID. It does not call `auth.test` before each post, because each token comes from that workspace's own sign-in. |
+| Check the channel, sender, timestamp and thread against the incoming message | Partly | The bridge reads the message back with `conversations.history` or `conversations.replies`. Flack does not: those methods allow one request per minute for an app that is not in the Marketplace, and Flack does not ask for their scopes. Flack instead needs probe evidence for each field, and checks that Slack's answer to `chat.postMessage` names the requested channel and thread. |
+| Never take the workspace from a display name or message text | Yes | The workspace ID decides. The subtext rule is not built. |
+| Keep state for each workspace | Yes | One token record for each workspace ID, with its own sign-out. Flack keeps no conversation state. |
+| Hold an uncertain delivery and never retry it | Yes | Flack has no queue. An uncertain post shows "Outcome unknown", its reply token is used up, and it is not retried. |
+
 ## Open questions
 
 1. Does Slack accept the custom-scheme redirect `tech.amditis.flack://oauth` for an app with public distribution turned on, given its "SSL for OAuth redirect URLs" rule? If not, the serverless design needs a different redirect, and the secretless refresh must be checked again. (#28)
-2. Do Slack's Android notifications carry a workspace ID, a conversation or sender ID, and a thread or channel signal in structured fields? The route field probe answers this. (#29)
+2. Do Slack's Android notifications carry a workspace ID, a conversation or sender ID, and a thread or channel signal in structured fields? The first probe report found conversation and sender IDs, unnamed extras with workspace IDs, and no proven thread signal (see [Probe evidence](#probe-evidence-november-13-2026)). The second probe answers the rest. (#29)
 
 ## What the maintainer does
 
