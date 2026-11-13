@@ -4,10 +4,10 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.core.net.toUri
 import tech.amditis.flack.core.SignInAttempts
 import tech.amditis.flack.core.SignInCallback
 import tech.amditis.flack.core.SignInFailure
@@ -69,7 +69,7 @@ object SlackSession {
         val start = attempts.start()
         val url = SlackOAuth.authorizeUrl(BuildConfig.SLACK_CLIENT_ID, start.state, start.challenge)
         return try {
-            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
+            activity.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addCategory(Intent.CATEGORY_BROWSABLE))
             true
         } catch (_: ActivityNotFoundException) {
             false
