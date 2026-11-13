@@ -5,8 +5,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 ## Unreleased
 
 - The route field probe in the test report now shows the first letter of each
-  ID it finds (for example D for a DM), the name of an extras key when the name
-  is a plain constant and its value holds an ID, and whether a workspace ID
+  ID it finds (for example D for a DM), the name of an extras key that holds an
+  ID when the name is on a fixed list of common ID key names, and whether a workspace ID
   agrees within one conversation. The first probe report (#29) did not show
   which field names the workspace or a thread, so the Slack API route still
   offers no replies. docs/TEST_PLAN.md has the steps for the next probe.

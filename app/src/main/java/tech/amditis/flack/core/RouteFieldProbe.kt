@@ -37,8 +37,8 @@ data class ProbeContext(
  * timestamp equals this message's time or an earlier message's time (a thread
  * parent). It never exports a value, title, name or message text, so the report
  * stays safe to paste into a public issue. The one name it shows is an extras
- * key that looks like an app constant (see [staticKeyName]) and whose value has
- * an ID or timestamp shape, so a mapping can name the key.
+ * key that matches a fixed list of common ID key names (see [knownKeyName]), and
+ * then only the list's own spelling, so a mapping can name the key.
  */
 class RouteFieldProbe {
     /**
@@ -58,7 +58,7 @@ class RouteFieldProbe {
 
     /**
      * [matchKey] is hashed for extras, whose key names can hold anything. [name] is
-     * the extras key only when it looks like an app constant.
+     * the matching entry of [KNOWN_KEYS], never the key itself.
      */
     private class Field(val label: String, val matchKey: String, val shape: Shape?, val name: String? = null)
 
@@ -91,7 +91,7 @@ class RouteFieldProbe {
             add(Field("senderUri", "senderUri", shape(fields.senderUri)))
             fields.extras.take(MAX_EXTRAS).forEach { (key, value) ->
                 val hashed = hash("extra|$key")
-                add(Field(keyLabel(hashed), hashed, shape(value), staticKeyName(key)))
+                add(Field(keyLabel(hashed), hashed, shape(value), knownKeyName(key)))
             }
         }
         // A titled conversation is one conversation. A one-to-one DM without a title
@@ -126,7 +126,7 @@ class RouteFieldProbe {
             case.fields.forEach { field -> appendLine("  ${field.label}: ${describe(index, case, field)}") }
         }
         appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
-        appendLine("An extras key name is shown only when it is letters, dots and underscores and its value has one of these shapes.")
+        appendLine("An extras key name is shown only when its value has one of these shapes and it is on Flack's list of common ID key names, in the list's spelling.")
         appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
         appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
     }
@@ -145,7 +145,7 @@ class RouteFieldProbe {
         val parts = mutableListOf("present, ${shape.counts}")
         if (shape.prefixes.isNotEmpty()) parts += "ID prefixes: ${shape.prefixes}"
         val hasShape = shape.channels.isNotEmpty() || shape.workspaces.isNotEmpty() || shape.users.isNotEmpty() || shape.times.isNotEmpty()
-        if (field.name != null && hasShape) parts += "key name=${field.name}"
+        if (field.label.startsWith("extra key") && hasShape) parts += "key name=${field.name ?: "not on the list"}"
         // Compares this field's IDs with the same field in other cases. [group] is
         // null when either case's grouping is unknown; those cases are skipped.
         // [outside] is off where different groups can share an ID, as conversations share a workspace.
@@ -221,15 +221,29 @@ class RouteFieldProbe {
                 times = TIMESTAMP.findAll(value).mapNotNull { timestampMillis(it.value) }.toList(),
             )
         }
-        private val STATIC_KEY = Regex("[A-Za-z_.]{1,64}")
+        /**
+         * Common spellings of ID key names, lowercase without separators. A guess
+         * list, not Slack's documented keys: Slack does not document its extras.
+         * Only these fixed strings can appear in a report, so a key that holds a
+         * name or other text never does.
+         */
+        private val KNOWN_KEYS = listOf(
+            "team", "teamid", "workspace", "workspaceid", "enterprise", "enterpriseid", "org", "orgid",
+            "channel", "channelid", "conversation", "conversationid", "dm", "dmid",
+            "user", "userid", "sender", "senderid", "author", "authorid",
+            "ts", "messagets", "msgts", "threadts", "parentts", "rootts", "thread", "threadid",
+            "message", "messageid", "msgid",
+        ).toSet()
 
         /**
-         * The extras key when it looks like an app constant: letters, dots and
-         * underscores only, with no ID shape in it. Digits, spaces and anything
-         * else mean the key could hold a name or an ID, so it stays hidden.
+         * The [KNOWN_KEYS] entry for an extras key, compared without case, `_` or `-`.
+         * For a dotted key only the part after the last dot is compared, and the
+         * prefix is never shown.
          */
-        private fun staticKeyName(key: String): String? =
-            key.takeIf { STATIC_KEY.matches(it) && listOf(CHANNEL, WORKSPACE, USER).none { regex -> regex.containsMatchIn(it) } }
+        private fun knownKeyName(key: String): String? {
+            val normalized = key.substringAfterLast('.').lowercase().replace("_", "").replace("-", "")
+            return normalized.takeIf { it in KNOWN_KEYS }
+        }
 
         private fun yesNo(value: Boolean) = if (value) "yes" else "no"
         private fun near(a: Long, b: Long) = abs(a - b) <= TIME_TOLERANCE_MILLIS
