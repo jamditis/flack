@@ -38,6 +38,7 @@ object SlackHttp : SlackTransport {
     private const val BASE = "https://slack.com/api/"
     private const val CONNECT_TIMEOUT_MILLIS = 5_000
     private const val READ_TIMEOUT_MILLIS = 10_000
+    private const val HTTP_TOO_MANY_REQUESTS = 429
 
     override fun call(method: String, form: Map<String, String>, bearer: String?): JSONObject {
         val body = form.entries.joinToString("&") { (key, value) ->
@@ -68,7 +69,8 @@ object SlackHttp : SlackTransport {
             // From the first byte written, Slack may have the request.
             val text = try {
                 connection.outputStream.use { it.write(body) }
-                // Slack answers a rate limit with HTTP 429 and its usual JSON body.
+                // HTTP 429 is Slack's rate limit: the request was refused, whatever the body says.
+                if (connection.responseCode == HTTP_TOO_MANY_REQUESTS) throw SlackCallException(SlackError.REFUSED, "ratelimited")
                 val stream = if (connection.responseCode < 400) connection.inputStream else connection.errorStream
                 stream?.use { it.readBytes() }?.toString(Charsets.UTF_8).orEmpty()
             } catch (_: IOException) {
