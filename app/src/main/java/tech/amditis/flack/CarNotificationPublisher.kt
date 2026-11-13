@@ -52,7 +52,7 @@ object CarNotificationPublisher {
         binding: Binding<PendingIntent>,
         conversation: Conversation,
         alert: Boolean,
-        replyEnabled: Boolean = binding.action != null,
+        replyEnabled: Boolean = binding.canReply,
         sentText: String? = null,
     ): Boolean {
         val manager = NotificationManagerCompat.from(context)
@@ -113,7 +113,7 @@ object CarNotificationPublisher {
             .setOnlyAlertOnce(hide || !alert)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
-        if (replyEnabled && binding.action != null) builder.addAction(reply)
+        if (replyEnabled && binding.canReply) builder.addAction(reply)
         return try {
             manager.notify(binding.carNotificationId, builder.build())
             BridgeState.recordCopy(binding.token, channelId)

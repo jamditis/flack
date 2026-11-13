@@ -6,15 +6,19 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Receives the car's reply and mark-as-read actions.
  *
- * A reply is sent to Slack's original reply action once, under Slack's own
- * RemoteInput key. Nothing is retried, and success means "handed to Slack",
- * never "delivered" (SPEC.md section 8).
+ * A reply is sent once: to Slack's original reply action under Slack's own
+ * RemoteInput key, where success means "handed to Slack", or with
+ * chat.postMessage to the copy's certain API destination, where only Slack's
+ * answer confirms it. Nothing is retried (SPEC.md section 8).
  */
 class CarActionReceiver : BroadcastReceiver() {
 
@@ -49,6 +53,10 @@ class CarActionReceiver : BroadcastReceiver() {
                 }
             }
             is ConsumeResult.Dispatch -> {
+                if (result.binding.apiRoute != null) {
+                    postWithApi(context, result.binding, result.text)
+                    return
+                }
                 val key = result.binding.resultKey ?: return
                 val action = result.binding.action ?: return
                 val fillIn = Intent()
@@ -65,16 +73,47 @@ class CarActionReceiver : BroadcastReceiver() {
                     HandoffStatus.HANDOFF_FAILED
                 }
                 BridgeState.recordHandoff(status)
-                // Android Auto waits for the copy to change after a reply. Repost it without
-                // a reply action, since this token is used up. Slack's own update, if any,
-                // replaces it with a fresh token.
-                val conversation = BridgeState.conversation(result.binding.carNotificationId)
-                // Skip if Slack already replaced this generation with a newer one.
-                if (conversation != null && BridgeState.registry.isCurrent(result.binding)) {
-                    val sent = if (status == HandoffStatus.HANDED_TO_SLACK) result.text else null
-                    CarNotificationPublisher.post(context, result.binding, conversation, alert = false, replyEnabled = false, sentText = sent)
-                }
+                repostSpent(context, result.binding, if (status == HandoffStatus.HANDED_TO_SLACK) result.text else null)
             }
         }
+    }
+
+    /**
+     * One chat.postMessage call on a background thread, inside the broadcast's
+     * goAsync window. The token is already consumed, so a second tap cannot send again.
+     */
+    private fun postWithApi(context: Context, binding: Binding<PendingIntent>, text: String) {
+        val destination = binding.apiRoute ?: return
+        val app = context.applicationContext
+        val pending = goAsync()
+        API_WORKER.execute {
+            try {
+                val sender = SlackReplySender(SlackSession.accounts(app), SlackHttp)
+                val result = sender.send(destination, text)
+                BridgeState.recordHandoff(result.status, result.slackCode)
+                val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
+                repostSpent(app, binding, if (posted) text else null)
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    /**
+     * Android Auto waits for the copy to change after a reply. Repost it without a
+     * reply action, since this token is used up. Slack's own update, if any, replaces
+     * it with a fresh token.
+     */
+    private fun repostSpent(context: Context, binding: Binding<PendingIntent>, sentText: String?) {
+        val conversation = BridgeState.conversation(binding.carNotificationId)
+        // Skip if Slack already replaced this generation with a newer one.
+        if (conversation != null && BridgeState.registry.isCurrent(binding)) {
+            CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = false, sentText = sentText)
+        }
+    }
+
+    private companion object {
+        /** One API reply at a time. */
+        val API_WORKER: ExecutorService = Executors.newSingleThreadExecutor()
     }
 }

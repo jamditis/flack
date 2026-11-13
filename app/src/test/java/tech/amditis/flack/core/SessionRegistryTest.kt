@@ -276,4 +276,29 @@ class SessionRegistryTest {
         reg.publish("a", "2")
         assertEquals(listOf(b), reg.publish("c", "1").evicted)
     }
+
+    private val kites = ApiDestination("T0PAPER001", "C0KITES001", null)
+
+    @Test fun anApiRouteDispatchesOnceWithoutAnOriginalAction() {
+        val reg = registry()
+        val binding = (reg.observe("channel", "f1", null, null, false, apiRoute = kites) as Observation.Publish).binding
+        assertTrue(binding.canReply)
+        val dispatch = reg.consume(binding.token, "On my way") as ConsumeResult.Dispatch
+        assertEquals(kites, dispatch.binding.apiRoute)
+        assertEquals(ConsumeRejection.ALREADY_CONSUMED, (reg.consume(binding.token, "On my way") as ConsumeResult.Rejected).reason)
+    }
+
+    @Test fun aChangedApiRouteIsANewGeneration() {
+        val reg = registry()
+        val first = (reg.observe("channel", "f1", null, null, false, apiRoute = kites) as Observation.Publish).binding
+        val second = (reg.observe("channel", "f1", null, null, false) as Observation.Publish).binding
+        assertNull(second.apiRoute)
+        assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(first.token, "On my way") as ConsumeResult.Rejected).reason)
+        assertEquals(ConsumeRejection.NO_REPLY_ACTION, (reg.consume(second.token, "On my way") as ConsumeResult.Rejected).reason)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun aBindingNeverHasBothRoutes() {
+        registry().observe("channel", "f1", FakeAction("channel"), "reply_text", false, apiRoute = kites)
+    }
 }

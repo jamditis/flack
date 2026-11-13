@@ -9,8 +9,10 @@ import javax.net.ssl.HttpsURLConnection
 
 /** Fixed, content-free reasons a Slack call failed. Never carries a token or response body. */
 enum class SlackError {
-    /** No connection, or it failed before the request was sent. */
+    /** No connection: the request was never sent. */
     NETWORK,
+    /** The request may have reached Slack, but no answer came back. */
+    NO_ANSWER,
     /** Slack answered with something that is not a Slack API response. */
     BAD_RESPONSE,
     /** Slack answered `ok: false`. [SlackCallException.slackCode] has Slack's error code. */
@@ -41,29 +43,41 @@ object SlackHttp : SlackTransport {
         val body = form.entries.joinToString("&") { (key, value) ->
             "${URLEncoder.encode(key, "UTF-8")}=${URLEncoder.encode(value, "UTF-8")}"
         }.toByteArray()
-        val text = try {
-            val connection = URL(BASE + method).openConnection() as HttpsURLConnection
-            try {
-                connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
-                connection.readTimeout = READ_TIMEOUT_MILLIS
-                connection.requestMethod = "POST"
-                connection.doOutput = true
-                connection.instanceFollowRedirects = false
-                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
-                bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-                // A streamed body cannot be replayed on a reused socket, so a code
-                // exchange whose answer was lost is never sent twice.
-                connection.setFixedLengthStreamingMode(body.size)
-                connection.outputStream.use { it.write(body) }
-                connection.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
-            } finally {
-                connection.disconnect()
-            }
+        val connection = try {
+            URL(BASE + method).openConnection() as HttpsURLConnection
         } catch (_: IOException) {
-            // The message of an IOException can echo the request; drop it.
             throw SlackCallException(SlackError.NETWORK)
         }
-        return parse(text)
+        try {
+            connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
+            connection.readTimeout = READ_TIMEOUT_MILLIS
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+            bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+            // A streamed body cannot be replayed on a reused socket, so a request whose
+            // answer was lost is never sent twice.
+            connection.setFixedLengthStreamingMode(body.size)
+            try {
+                connection.connect()
+            } catch (_: IOException) {
+                // The message of an IOException can echo the request; drop it.
+                throw SlackCallException(SlackError.NETWORK)
+            }
+            // From the first byte written, Slack may have the request.
+            val text = try {
+                connection.outputStream.use { it.write(body) }
+                // Slack answers a rate limit with HTTP 429 and its usual JSON body.
+                val stream = if (connection.responseCode < 400) connection.inputStream else connection.errorStream
+                stream?.use { it.readBytes() }?.toString(Charsets.UTF_8).orEmpty()
+            } catch (_: IOException) {
+                throw SlackCallException(SlackError.NO_ANSWER)
+            }
+            return parse(text)
+        } finally {
+            connection.disconnect()
+        }
     }
 
     fun parse(text: String): JSONObject {

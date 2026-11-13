@@ -435,6 +435,17 @@ class CarPathTest {
         assertEquals(0, manager.size())
     }
 
+    @Test fun aChannelMessageWithoutAReplyActionStaysReadOnlyUntilAFieldMappingExists() {
+        val before = reasonCount("NO_FIELD_MAPPING")
+        // ID-shaped values in structured fields are not evidence of what they mean.
+        val sbn = SyntheticSlack.dm(app, key = "no-action", title = "#paper-kites", isGroup = true, reply = null)
+        sbn.notification.extras.putString("test.route", "T0PAPER001:C0KITES001:1700000000.000100")
+        post(sbn)
+        assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        assertEquals(before + 1, reasonCount("NO_FIELD_MAPPING"))
+        assertTrue(BridgeState.diagnostics().contains("Reply offered through the Slack API: 0"))
+    }
+
     @Test fun mixedChannelAndThreadActionsKeepReadoutAndInvalidateHeldReplies() {
         val beforeReasons = reasonCount("MULTIPLE_REPLY_ACTIONS")
         val channel = SyntheticSlack.replyIntent(app, "channel-paper")

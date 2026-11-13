@@ -197,6 +197,21 @@ Small stacked pull requests, each with focused unit tests:
 3. Probe stage two: per-field comparison with known IDs after sign-in.
 4. API reply: the field mappings the evidence supports, the workspace rule, message match where it applies, dispatch, the route order and the test report counts.
 
+## Step 4 before the probe evidence
+
+Built on November 13, 2026, before the #29 report. The route order, certainty rules, dispatch and status text are in place, and the field mapping table (`FieldMappings.ALL` in `core/ApiRoute.kt`) is empty. So every message without a usable original action stays read-only, counted as `NO_FIELD_MAPPING`. A later pull request adds mappings from the evidence.
+
+Rules in this build:
+
+- A mapping covers one kind: one-to-one (`isGroup` false) or group (`isGroup` true). An unknown kind has no mapping. Two mappings for one kind count as none.
+- A mapping names a field and a pattern for each of the workspace ID, the conversation ID and the thread timestamp. Each pattern must match exactly once. A one-to-one message needs a `D` conversation ID, a group needs a `C` or `G` ID.
+- The workspace ID decides. A workspace that is not signed in, or must sign in again, stays read-only, even when another workspace is signed in. The **Slack on this phone uses only my signed-in workspaces** setting and the subtext rule are not built: a mapping without a workspace field is not possible in this build.
+- Only an absent thread field means the conversation itself. A thread field without exactly one timestamp leaves the place unknown (`NO_PLACE`).
+- A group without a title stays read-only (`NO_CONTEXT`), so the driver always hears which conversation a reply goes to.
+- Message match (search) is not built.
+- `chat.postMessage` escapes `&`, `<` and `>`. Slack's answer must name the requested channel and thread. Otherwise the status is "Posted to Slack, but Slack's answer did not confirm the same conversation and thread".
+- A failure to connect is "Not sent". After the first byte of the request is written, a lost or unreadable answer is "Outcome unknown". An HTTP 429 is read as Slack's `ratelimited` refusal.
+
 ## Open questions
 
 1. Does Slack accept the custom-scheme redirect `tech.amditis.flack://oauth` for an app with public distribution turned on, given its "SSL for OAuth redirect URLs" rule? If not, the serverless design needs a different redirect, and the secretless refresh must be checked again. (#28)
