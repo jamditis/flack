@@ -39,22 +39,22 @@ class RouteFieldProbeTest {
         assertTrue(report.contains("extra key 2: present"))
     }
 
-    @Test fun showsOnlyListedKeyNamesInTheListsSpelling() {
+    @Test fun showsOnlyExactListedKeyNames() {
         record(
             null, "#paper-kites", "Riley Example", 1L,
             listOf(
-                "com.kites.Channel_ID" to "C0INVENTED2",
+                "com.Slack.extra.channel_id" to "C0INVENTED2",
                 "team_id" to "no ids here",
                 "RileyExample" to "T0INVENTED4",
                 "riley.example.team" to "U0INVENTED5",
+                "Team_ID" to "T0INVENTED6",
             ),
         )
         val report = probe.report()
-        assertTrue(line(report, 1, "extra key 1").contains("key name=channelid"))
+        assertTrue(line(report, 1, "extra key 1").contains("key name=com.Slack.extra.channel_id"))
         assertFalse(line(report, 1, "extra key 2").contains("key name"))
-        assertTrue(line(report, 1, "extra key 3").contains("key name=not on the list"))
-        assertTrue(line(report, 1, "extra key 4").contains("key name=team"))
-        listOf("kites", "Channel_ID", "team_id", "Riley", "riley", "INVENTED").forEach { assertFalse(it, report.contains(it)) }
+        listOf(3, 4, 5).forEach { assertTrue(line(report, 1, "extra key $it").contains("key name=not on the list")) }
+        listOf("team_id", "Team_ID", "Riley", "riley", "INVENTED").forEach { assertFalse(it, report.contains(it)) }
     }
 
     @Test fun showsIdPrefixLetters() {

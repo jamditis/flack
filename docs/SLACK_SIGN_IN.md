@@ -247,7 +247,7 @@ The two lists are recorded at different points. Flack records the action shapes 
 The probe now also shows, for each field:
 
 - the prefix letters of the IDs it holds (`ID prefixes: D T`), so a DM can be told from a channel;
-- for an extras key whose value holds an ID or timestamp, its name when it is on a fixed list of common ID key names (such as `teamid`, `channelid` or `threadts`, compared without case, `_` or `-`, and after the last dot), shown in the list's spelling; any other key shows "not on the list", so no key name from Slack is copied into the report. Slack does not document its extras, so the list is a guess. If the keys are not on it, probe stage two (comparison with IDs from Slack after sign-in) is still needed;
+- for an extras key whose value holds an ID or timestamp, its exact name when it is on a fixed list of common ID key names (such as `team_id`, `channelId` or `thread_ts`, alone or after Slack's package prefix `com.Slack.`); any other key shows "not on the list", so only fixed strings appear in the report. Slack does not document its extras, so the list is a guess. If the keys are not on it, probe stage two (comparison with IDs from Slack after sign-in) is still needed;
 - whether a workspace ID agrees within one conversation.
 
 The maintainer runs the second probe in [TEST_PLAN.md](TEST_PLAN.md). A later pull request adds a mapping for a message type only when that report shows all three of the workspace, the conversation and the place for it.
