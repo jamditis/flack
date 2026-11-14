@@ -115,9 +115,17 @@ class SessionRegistry<A : Any>(
         apiRoute: ApiDestination? = null,
         // A duplicate source callback must not reset a confirmed route or its consumed token.
         apiLookupPending: Boolean = false,
+        // A child takes over the same message's summary copy without a second alert or reply attempt.
+        replacesKey: String? = null,
     ): Observation<A> {
         // The original action comes first; the API route is only for messages without one.
         require(action == null || apiRoute == null) { "one reply route per binding" }
+        val previousTarget = entries[notificationKey]
+        val replaced = replacesKey?.let { entries.remove(it) }
+        if (replaced != null) {
+            carIds.remove(replacesKey)
+            carIds[notificationKey] = replaced.binding.carNotificationId
+        }
         val previousActions = knownActions[notificationKey]
         knownActions[notificationKey] = actions.toSet()
         val clashes = clashingKeys(notificationKey, listOfNotNull(action))
@@ -125,9 +133,9 @@ class SessionRegistry<A : Any>(
         if (clashes.isNotEmpty()) conflicted.add(notificationKey)
         val safeAction = action.takeUnless { notificationKey in conflicted }
         val safeKey = resultKey.takeIf { safeAction != null }
-        val existing = entries[notificationKey]
+        val existing = replaced ?: previousTarget
         // Same content and the same reply capability: a repeated callback.
-        if (existing != null &&
+        if (replaced == null && existing != null &&
             disabled.isEmpty() &&
             existing.fingerprint == fingerprint &&
             existing.binding.action == safeAction &&
@@ -155,15 +163,19 @@ class SessionRegistry<A : Any>(
             apiRoute = apiRoute,
         )
         entries.remove(notificationKey)
-        entries[notificationKey] = Entry(binding, fingerprint, consumed = false)
+        entries[notificationKey] = Entry(binding, fingerprint,
+            consumed = replaced?.consumed ?: existing?.takeIf { it.fingerprint == fingerprint }?.consumed ?: false)
 
         val evicted = mutableListOf<Binding<A>>()
+        if (replaced != null && previousTarget != null && previousTarget.binding.carNotificationId != binding.carNotificationId) {
+            evicted.add(previousTarget.binding)
+        }
         while (entries.size > maxBindings) {
             val oldestKey = entries.keys.first()
             evicted.add(entries.remove(oldestKey)!!.binding)
             carIds.remove(oldestKey)
         }
-        return Observation.Publish(binding, alert = !newestFromSelf && existing?.fingerprint != fingerprint, evicted = evicted, replyDisabled = disabled)
+        return Observation.Publish(binding, alert = replaced == null && !newestFromSelf && existing?.fingerprint != fingerprint, evicted = evicted, replyDisabled = disabled)
     }
 
     private fun disableReplies(keys: List<String>): List<Binding<A>> = keys.mapNotNull { key ->

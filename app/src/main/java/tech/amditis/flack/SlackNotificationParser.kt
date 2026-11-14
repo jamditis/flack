@@ -19,7 +19,22 @@ class ParsedNotification(
     val actionIntents: List<PendingIntent?>,
     /** Identifier-bearing fields for the route field probe. Memory only. */
     val routeFields: RouteFields = RouteFields(),
+    val hasMessagingMessages: Boolean = false,
 ) {
+    /** Cross-key identity for a summary and child. Exact observed fields, memory only. */
+    data class MessageIdentity(
+        val conversationId: String?, val workspaceIds: Set<String>, val title: String?,
+        val isGroup: Boolean?, val senderKey: String?, val message: Message,
+    )
+
+    val newestMessageIdentity: MessageIdentity?
+        get() = facts.conversation?.let { conversation ->
+            conversation.messages.lastOrNull()?.let {
+                MessageIdentity(routeFields.shortcutId, ApiRouteResolver.workspaceIds(routeFields), conversation.title,
+                    conversation.isGroup, routeFields.senderKey, it)
+            }
+        }
+
     /**
      * Identifies this notification's content. Equal fingerprints mean a repeated
      * callback, not a new message. Kept in memory only.
@@ -63,7 +78,9 @@ object SlackNotificationParser {
             conversation = conversation(notification),
             replyActions = actions.map { replyFacts(it, sbn.uid) },
         )
-        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn))
+        val hasMessages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+            ?.messages?.any { !it.text.isNullOrBlank() } == true
+        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn), hasMessages)
     }
 
     private fun routeFields(sbn: StatusBarNotification): RouteFields {

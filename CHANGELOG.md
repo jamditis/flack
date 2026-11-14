@@ -4,6 +4,11 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- Slack messages marked as a group summary can now reach the car when no
+  child notification is active. Flack selects by notification features,
+  keeps one car copy when a child arrives, and still drops empty summaries.
+  Unfamiliar readable formats stay read-only. The test report names each
+  filter rule and shows the last 20 feature sets, without message content.
 - Car copies use high-importance channels in both phone modes. Quiet mode uses
   a new channel so upgrades do not keep the old minimum importance. Phone
   quieting is now off by default so the car can alert; a saved switch choice is
