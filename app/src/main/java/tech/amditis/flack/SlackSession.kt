@@ -49,15 +49,14 @@ object SlackSession {
     }
 
     /** Loads the signed-in workspaces off the main thread. */
-    fun loadWorkspaces(context: Context, result: (List<WorkspaceToken>) -> Unit) {
+    fun loadWorkspaces(context: Context, result: (Result<List<WorkspaceToken>>) -> Unit) {
         val app = context.applicationContext
         val accounts = accounts(app)
         worker.execute {
             val list = try {
-                accounts.workspaces()
-            } catch (_: SlackCallException) {
-                lastMessage = app.getString(R.string.signin_read_error)
-                emptyList()
+                Result.success(accounts.workspaces())
+            } catch (error: SlackCallException) {
+                Result.failure(error)
             }
             main.post { result(list) }
         }

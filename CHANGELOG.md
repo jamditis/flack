@@ -4,6 +4,10 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- The phone shows when no Slack workspace is signed in, beside the existing
+  Add a Slack workspace action. The cue follows your current sign-in state;
+  an unreadable sign-in store shows an error instead.
+
 ## 0.3.3
 
 - Slack messages marked as a group summary can now reach the car when no
