@@ -59,7 +59,7 @@ class ReportedSlackCarTest {
             replySemanticAction = 0, extraReplySemanticAction = 0)
         val actions = source.notification.actions
         val read = Notification.Action.Builder(null, "Mark as read", SyntheticSlack.replyIntent(app, "$key-read"))
-            .setSemanticAction(2).setShowsUserInterface(false).build()
+            .setSemanticAction(2).build()
         val notification = Notification.Builder.recoverBuilder(app, source.notification).setGroup("synthetic-slack").build()
         notification.actions = arrayOf(read, actions[1], actions[0])
         return SyntheticSlack.statusBar(notification, key)
