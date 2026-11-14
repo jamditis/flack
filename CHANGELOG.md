@@ -2,7 +2,7 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.4
 
 - Slack's plain Reply action can be used when Slack omits Android's reply
   semantic, including beside Reply in thread. The original action and its input
