@@ -4,6 +4,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+## 0.3.3
+
 - Slack messages marked as a group summary can now reach the car when no
   child notification is active. Flack selects by notification features,
   keeps one car copy when a child arrives, and still drops empty summaries.
