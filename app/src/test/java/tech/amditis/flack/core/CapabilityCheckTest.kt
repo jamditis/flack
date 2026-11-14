@@ -112,8 +112,40 @@ class CapabilityCheckTest {
         }
     }
 
-    @Test fun aReplyLabelWithoutTheReplySemanticIsReadOnly() {
-        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(dm(actions = listOf(replyAction().copy(title = "Reply", semanticAction = 0)))))
+    @Test fun theReportedSlackActionsSelectThePlainReplyInEveryOrder() {
+        val read = replyAction(keys = emptyList()).copy(semanticAction = 2)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0)
+        val direct = replyAction().copy(title = "Reply", semanticAction = 0)
+        val actions = listOf(read, thread, direct)
+        actions.indices.forEach { first ->
+            actions.indices.filter { it != first }.forEach { second ->
+                val order = listOf(actions[first], actions[second], actions[3 - first - second])
+                listOf(false, true).forEach { group ->
+                    assertEquals(Capability.Eligible(order.indexOf(direct), "reply_text"),
+                        CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = order)))
+                }
+            }
+        }
+    }
+
+    @Test fun anUnspecifiedSemanticRequiresOnePlainInputAndTheSameSafetyChecks() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 0)
+        assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(direct))))
+        // A unique input need not have an English title. Non-reply semantics never qualify.
+        assertEquals(Capability.Eligible(0, "reply_text"),
+            CapabilityCheck.evaluate(dm(actions = listOf(direct.copy(title = null)))))
+        listOf(
+            direct.copy(showsUserInterface = true) to RejectReason.REPLY_OPENS_APP,
+            direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,
+            direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
+            direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
+            direct.copy(semanticAction = 2) to RejectReason.NO_REPLY_ACTION,
+            direct.copy(title = "Reply in thread") to RejectReason.NO_REPLY_ACTION,
+        ).forEach { (action, reason) ->
+            assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(action))))
+        }
+        assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+            CapabilityCheck.evaluate(dm(actions = listOf(direct, direct.copy(title = "Other input")))))
     }
 
     @Test fun aUniqueSemanticThreadReplyKeepsItsOriginalActionAndKey() {

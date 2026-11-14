@@ -15,6 +15,18 @@ import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Conversation
 
+/** Fixed labels only; exception messages can contain private source data. */
+enum class CopyPostOutcome { POSTED, NOTIFICATIONS_DISABLED, CHANNEL_BLOCKED, CHANNEL_GROUP_BLOCKED, CHANNEL_MISSING, SECURITY_EXCEPTION }
+
+data class CopyPostAttempt(
+    val outcome: CopyPostOutcome,
+    val channel: String,
+    val notificationsEnabled: Boolean?,
+    val importance: Int?,
+    val groupBlocked: Boolean?,
+    val exceptionClass: String?,
+)
+
 /**
  * Posts the car copy of a Slack conversation as a MessagingStyle notification
  * with a reply and a mark-as-read action, the shape Android Auto reads aloud.
@@ -61,14 +73,50 @@ object CarNotificationPublisher {
         replyEnabled: Boolean = binding.canReply,
         sentText: String? = null,
     ): Boolean {
-        val manager = NotificationManagerCompat.from(context)
-        if (!manager.areNotificationsEnabled()) return false
-        ensureChannel(context)
-        val hide = BridgeState.hidesPhoneCopies(context)
-        val channelId = if (hide) QUIET_CHANNEL_ID else CHANNEL_ID
-        // The user can block just this channel; the post would then vanish silently.
-        if (manager.getNotificationChannel(channelId)?.importance == NotificationManager.IMPORTANCE_NONE) return false
+        val channelId = if (BridgeState.hidesPhoneCopies(context)) QUIET_CHANNEL_ID else CHANNEL_ID
+        var enabled: Boolean? = null
+        var importance: Int? = null
+        var groupBlocked: Boolean? = null
+        var exceptionClass: String? = null
+        val outcome = try {
+            val manager = NotificationManagerCompat.from(context)
+            enabled = manager.areNotificationsEnabled()
+            ensureChannel(context)
+            val channel = manager.getNotificationChannel(channelId)
+            importance = channel?.importance
+            groupBlocked = channel?.group?.let { manager.getNotificationChannelGroup(it)?.isBlocked } ?: false
+            when {
+                enabled == false -> CopyPostOutcome.NOTIFICATIONS_DISABLED
+                channel == null -> CopyPostOutcome.CHANNEL_MISSING
+                importance == NotificationManager.IMPORTANCE_NONE -> CopyPostOutcome.CHANNEL_BLOCKED
+                groupBlocked == true -> CopyPostOutcome.CHANNEL_GROUP_BLOCKED
+                else -> {
+                    postCopy(context, binding, conversation, alert, replyEnabled, sentText, channelId)
+                    CopyPostOutcome.POSTED
+                }
+            }
+        } catch (error: SecurityException) {
+            exceptionClass = error.javaClass.simpleName.take(80)
+            CopyPostOutcome.SECURITY_EXCEPTION
+        }
+        BridgeState.recordPost(CopyPostAttempt(outcome, channelId, enabled, importance, groupBlocked, exceptionClass))
+        if (outcome != CopyPostOutcome.POSTED) return false
         BridgeState.rememberConversation(binding.carNotificationId, conversation)
+        BridgeState.recordCopy(binding.token, channelId)
+        return true
+    }
+
+    private fun postCopy(
+        context: Context,
+        binding: Binding<PendingIntent>,
+        conversation: Conversation,
+        alert: Boolean,
+        replyEnabled: Boolean,
+        sentText: String?,
+        channelId: String,
+    ) {
+        val manager = NotificationManagerCompat.from(context)
+        val hide = BridgeState.hidesPhoneCopies(context)
 
         val me = Person.Builder().setName(context.getString(R.string.you)).setKey("self").build()
         val style = NotificationCompat.MessagingStyle(me)
@@ -120,14 +168,7 @@ object CarNotificationPublisher {
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
         if (replyEnabled && binding.canReply) builder.addAction(reply)
-        return try {
-            manager.notify(binding.carNotificationId, builder.build())
-            BridgeState.recordCopy(binding.token, channelId)
-            true
-        } catch (_: SecurityException) {
-            // Notification permission was revoked between the check and the post.
-            false
-        }
+        manager.notify(binding.carNotificationId, builder.build())
     }
 
     fun cancel(context: Context, bindings: Collection<Binding<PendingIntent>>) {

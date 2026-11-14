@@ -31,12 +31,19 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
 Android Auto requires both reply and mark-as-read actions, so it may hide these
 read-only copies. For every conversation type, Flack uses the phone notification's
-single free-form action with the REPLY semantic action, after checking that it
-does not open an app. No label selects a route. Ambiguous semantic reply choices,
+single free-form action with the REPLY semantic action. When Slack leaves that
+semantic unset, Flack selects the single plain input action and excludes
+"Reply in thread". It checks the original action's creator, mutability and
+background behavior before offering a reply. Ambiguous reply choices,
 unknown conversation shape, missing group context, or a shared source action
 disable replying. Flack never chooses a destination from a sender or channel
 name. The [capability table](docs/ROADMAP.md#notification-capabilities) records
 the rules and evidence limits.
+
+When a car copy cannot be posted, the phone status names the failure. The test
+report keeps the last 20 posting outcomes, including notification permission
+state, channel importance, channel-group blocks and exception class names.
+It retains no exception messages or notification content.
 
 Flack follows your Slack mobile notification settings. Whatever Slack notifies
 you about on your phone can reach the car. For channel messages, Slack must be

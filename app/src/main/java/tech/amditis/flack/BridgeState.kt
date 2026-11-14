@@ -69,6 +69,10 @@ object BridgeState {
     private data class CopyRecord(val id: Int, val channel: String, var opened: Boolean = false)
     private val copyRecords = LinkedHashMap<String, CopyRecord>()
     private var nextCopyRecord = 1
+    private val postOutcomes = ArrayDeque<CopyPostAttempt>()
+    @Volatile internal var onPostChange: (() -> Unit)? = null
+    val lastPostOutcome: CopyPostOutcome?
+        @Synchronized get() = postOutcomes.lastOrNull()?.outcome
 
     @Volatile var listenerConnected = false
 
@@ -128,11 +132,26 @@ object BridgeState {
     }
 
     @Synchronized fun copyDiagnostics(): String = buildString {
+        appendLine("Copy post attempts (last 20):")
+        postOutcomes.forEach {
+            appendLine("  outcome=${it.outcome}; channel=${it.channel}; areNotificationsEnabled=${it.notificationsEnabled}; " +
+                "importance=${it.importance}; channelBlocked=${it.importance?.let { value -> value == 0 }}; " +
+                "groupBlocked=${it.groupBlocked}; exceptionClass=${it.exceptionClass}")
+        }
         appendLine("Recent copies (last 20):")
         copyRecords.values.forEach {
             appendLine("  Copy ${it.id}: channel=${it.channel}; opened in Android Auto=${it.opened}")
         }
         appendLine("Android Auto display: Not reported by the host. Opened confirms its mark-as-read action only.")
+    }
+
+    /** Our channel's state and the exception class, never source data or exception text. Memory only. */
+    fun recordPost(attempt: CopyPostAttempt) {
+        synchronized(this) {
+            if (postOutcomes.size == 20) postOutcomes.removeFirst()
+            postOutcomes.addLast(attempt)
+        }
+        onPostChange?.invoke()
     }
 
     /** Forward new messages only when switched on and, unless the user opted out, in the car. */

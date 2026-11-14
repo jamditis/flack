@@ -35,6 +35,21 @@ copies can alert on the phone. Verify that own replies and other non-alerting
 updates stay quiet, and that source removal and car disconnection remove
 Flack's copies. Android Auto controls its launcher notice; Flack does not post it.
 
+For a FORWARD filter decision with no recent copy, inspect Copy post attempts
+in the test report. It retains only the last 20 attempts in memory, with
+areNotificationsEnabled, selected channel importance/blocked state, channel-group
+blocked state and caught exception class. Exception messages, source IDs and
+message content are excluded. The phone status also names a failed post; a
+successful later post clears that warning. A blocked channel or group must be
+allowed in Android settings before receiving a new message. Flack preserves
+Android's blocks and does not replay the old notification.
+
+For the Slack shape with mark-as-read (semantic 2, no input), Reply in thread
+(semantic 0, input) and Reply (semantic 0, input), verify that the plain Reply is
+offered and sends once through its original action. Repeat with reordered
+actions, a DM and a channel. A unique explicit REPLY semantic still takes
+priority. Multiple indistinguishable inputs remain read-only.
+
 ## G0: Test the native route
 
 1. For each target phone, record the model, Android/One UI, Slack, Google/Gemini, Android Auto, car/head unit, and wired/wireless connection.
