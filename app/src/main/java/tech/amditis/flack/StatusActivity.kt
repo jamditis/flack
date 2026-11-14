@@ -24,6 +24,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import tech.amditis.flack.core.WorkspaceToken
 
 /**
  * Phone-side setup guide and status, used while parked. Five steps, each with
@@ -169,15 +170,12 @@ class StatusActivity : Activity() {
     /** Lists signed-in workspaces. Names show on the phone only, never in the test report. */
     private fun refreshSignIn() {
         val configured = SlackSession.isConfigured
-        findViewById<TextView>(R.id.signin_body).setText(if (configured) R.string.signin_body else R.string.signin_not_configured)
-        findViewById<View>(R.id.signin_add).visibility = if (configured) View.VISIBLE else View.GONE
-        showSignInMessage()
+        renderSignInState(configured, null)
         val list = findViewById<LinearLayout>(R.id.workspaces)
-        SlackSession.loadWorkspaces(this) { workspaces ->
-            // The load can set a message, such as a storage error.
-            showSignInMessage()
+        SlackSession.loadWorkspaces(this) { result ->
+            renderSignInState(configured, result)
             list.removeAllViews()
-            workspaces.sortedBy { it.teamName }.forEach { workspace ->
+            result.getOrNull().orEmpty().sortedBy { it.teamName }.forEach { workspace ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = android.view.Gravity.CENTER_VERTICAL
@@ -206,9 +204,16 @@ class StatusActivity : Activity() {
         }
     }
 
-    private fun showSignInMessage() {
+    /** Null is still loading; a failed read must never claim the person signed out. */
+    internal fun renderSignInState(configured: Boolean, result: Result<List<WorkspaceToken>>?) {
+        val body = getString(if (configured) R.string.signin_body else R.string.signin_not_configured)
+        findViewById<TextView>(R.id.signin_body).text =
+            if (configured && result?.getOrNull()?.isEmpty() == true) {
+                getString(R.string.signin_required) + "\n\n" + body
+            } else body
+        findViewById<View>(R.id.signin_add).visibility = if (configured) View.VISIBLE else View.GONE
         findViewById<TextView>(R.id.signin_message).apply {
-            text = SlackSession.lastMessage
+            text = if (result?.isFailure == true) getString(R.string.signin_read_error) else SlackSession.lastMessage
             visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
         }
     }
