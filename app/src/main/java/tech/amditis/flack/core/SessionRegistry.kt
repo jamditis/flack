@@ -117,6 +117,8 @@ class SessionRegistry<A : Any>(
         apiLookupPending: Boolean = false,
         // A child takes over the same message's summary copy without a second alert or reply attempt.
         replacesKey: String? = null,
+        // A format change expires pending API lookups; unchanged content stays quiet and consumed.
+        forceGeneration: Boolean = false,
     ): Observation<A> {
         // The original action comes first; the API route is only for messages without one.
         require(action == null || apiRoute == null) { "one reply route per binding" }
@@ -135,7 +137,7 @@ class SessionRegistry<A : Any>(
         val safeKey = resultKey.takeIf { safeAction != null }
         val existing = replaced ?: previousTarget
         // Same content and the same reply capability: a repeated callback.
-        if (replaced == null && existing != null &&
+        if (!forceGeneration && replaced == null && existing != null &&
             disabled.isEmpty() &&
             existing.fingerprint == fingerprint &&
             existing.binding.action == safeAction &&

@@ -58,7 +58,7 @@ class GroupSummaryContractTest {
 
     private fun source(
         key: String, summary: Boolean, conversationId: String = "D0PAPER001",
-        group: String = "invented-slack-group", text: String = "Paper boats at noon",
+        group: String? = "invented-slack-group", text: String = "Paper boats at noon",
         messaging: Boolean = true, reply: Boolean = true,
     ): StatusBarNotification {
         val builder = NotificationCompat.Builder(app, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
@@ -202,6 +202,40 @@ class GroupSummaryContractTest {
         assertFalse(binding("plain")!!.canReply)
         assertTrue(TestReport.build(app).contains("row=UNKNOWN_READ_ONLY; action=FORWARD"))
         assertTrue(TestReport.build(app).contains("conversationId=UNKNOWN"))
+    }
+
+    @Test fun changingToAnUnknownShapeInvalidatesAPendingApiLookup() {
+        val queued = mutableListOf<Runnable>()
+        listener.apiWorker = Executor { queued += it }
+        val summary = source("summary", true)
+        post(summary)
+        val pending = binding("summary")!!
+        assertEquals(1, queued.size)
+        listener.resolveApi = { error("the old lookup must expire when the filter changes") }
+        post(source("summary", true, group = null))
+        val readOnly = binding("summary")!!
+        assertNotEquals(pending.token, readOnly.token)
+        queued.single().run()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(readOnly, binding("summary"))
+        assertFalse(readOnly.canReply)
+    }
+
+    @Test fun regroupingTheSameMessageStaysQuietAndKeepsAConsumedReplyConsumed() {
+        val before = BridgeState.forwarded
+        post(source("summary", true, group = "first-group"))
+        val original = binding("summary")!!
+        assertTrue(BridgeState.registry.consume(original.token, "Invented reply") is ConsumeResult.Dispatch)
+        post(source("summary", true, group = "second-group"))
+        val regrouped = binding("summary")!!
+        assertEquals(original.carNotificationId, regrouped.carNotificationId)
+        assertEquals(before + 1, BridgeState.forwarded)
+        assertTrue(BridgeState.registry.consume(regrouped.token, "Duplicate reply") is ConsumeResult.Rejected)
+        assertTrue(manager.allNotifications.single().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        post(source("old-group-child", false, group = "first-group"))
+        assertEquals(regrouped, binding("summary"))
+        assertNull(binding("old-group-child"))
+        assertEquals(1, manager.size())
     }
 
     @Test fun identicalTextInDifferentConversationsOrGroupsIsNotDeduplicated() {

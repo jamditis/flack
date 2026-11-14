@@ -20,6 +20,8 @@ class ParsedNotification(
     /** Identifier-bearing fields for the route field probe. Memory only. */
     val routeFields: RouteFields = RouteFields(),
     val hasMessagingMessages: Boolean = false,
+    /** Android grouping affects the filter. It is separate from message content identity. */
+    val groupKey: String? = null,
 ) {
     /** Cross-key identity for a summary and child. Exact observed fields, memory only. */
     data class MessageIdentity(
@@ -80,7 +82,8 @@ object SlackNotificationParser {
         )
         val hasMessages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
             ?.messages?.any { !it.text.isNullOrBlank() } == true
-        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn), hasMessages)
+        val group = sbn.groupKey.takeIf { notification.group != null || sbn.overrideGroupKey != null }
+        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn), hasMessages, group)
     }
 
     private fun routeFields(sbn: StatusBarNotification): RouteFields {

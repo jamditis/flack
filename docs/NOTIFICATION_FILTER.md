@@ -36,6 +36,9 @@ the summary cannot remove the child's copy. A different message still alerts.
 Source action-sharing checks continue to disable ambiguous original reply actions.
 Empty or rejected children cannot withdraw a readable summary. Other summaries
 in the group are withdrawn only after the child is published successfully.
+Grouping and style changes expire pending reply lookups through a new generation.
+The message-content fingerprint stays separate, so those changes neither alert
+again nor reset a consumed reply. A child cannot take over a different group's copy.
 
 On listener connection, existing notifications establish the baseline. Paused or
 disconnected-car arrivals also establish a baseline. A summary's existing message

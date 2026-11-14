@@ -36,22 +36,22 @@ class SlackListenerService : NotificationListenerService() {
     private var carSession: CarSession? = null
     internal var apiWorker: Executor = API_LOOKUP_WORKER
     internal var resolveApi: (ParsedNotification) -> ApiRoute = ::apiRoute
-    internal var activeSources: () -> Array<StatusBarNotification> = { activeNotifications.orEmpty() }
+    internal var activeSources: () -> Array<out StatusBarNotification> = { activeNotifications.orEmpty() }
     private val main = Handler(Looper.getMainLooper())
     private data class Source(
         val group: String?, val summary: Boolean, val actions: List<PendingIntent>,
-        val readable: Boolean, val identity: ParsedNotification.MessageIdentity?,
+        val readable: Boolean, val identity: ParsedNotification.MessageIdentity?, val messaging: Boolean,
     )
     private data class GroupMessage(val group: String, val identity: ParsedNotification.MessageIdentity)
     private val sources = HashMap<String, Source>()
     // Bounded session history also prevents a removed child being replayed as a summary.
     private val seenMessages = LinkedHashMap<GroupMessage, String>()
 
-    private fun source(sbn: StatusBarNotification, parsed: ParsedNotification) = Source(
-        sbn.groupKey.takeIf { sbn.notification.group != null || sbn.overrideGroupKey != null },
+    private fun source(parsed: ParsedNotification) = Source(
+        parsed.groupKey,
         parsed.facts.isGroupSummary, parsed.actionIntents.filterNotNull(),
         CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages) !is Capability.Rejected,
-        parsed.newestMessageIdentity,
+        parsed.newestMessageIdentity, parsed.hasMessagingMessages,
     )
 
     private fun groupMessage(source: Source, parsed: ParsedNotification): GroupMessage? =
@@ -74,7 +74,7 @@ class SlackListenerService : NotificationListenerService() {
         // notification's actions are recorded so no forwarded reply can share them.
         activeSources().filter(::isOwnProfileSource).forEach { sbn ->
             val parsed = SlackNotificationParser.parse(sbn)
-            val source = source(sbn, parsed)
+            val source = source(parsed)
             sources[sbn.key] = source
             rememberMessage(groupMessage(source, parsed), sbn.key)
             recordWithoutForwarding(sbn, parsed)
@@ -108,12 +108,15 @@ class SlackListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!isOwnProfileSource(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
-        val source = source(sbn, parsed)
-        sources[sbn.key] = source
+        val source = source(parsed)
+        val previousSource = sources.put(sbn.key, source)
+        val structureChanged = previousSource != null && (previousSource.group != source.group ||
+            previousSource.summary != source.summary || previousSource.messaging != source.messaging)
         val message = groupMessage(source, parsed)
         val previousKey = message?.let { seenMessages[it] }?.takeIf { it != sbn.key }
         val replacesKey = previousKey?.takeIf {
             !source.summary && sources[it]?.summary == true &&
+                sources[it]?.group == source.group &&
                 sources[it]?.identity == parsed.newestMessageIdentity &&
                 BridgeState.registry.findBinding { binding -> binding.notificationKey == it } != null
         }
@@ -169,10 +172,10 @@ class SlackListenerService : NotificationListenerService() {
             // Route order: Slack's original action, then the Slack API, then read-only.
             is Capability.ReadOnly -> {
                 if (decision.readOnly) {
-                    forward(sbn, parsed, null, capability, replacesKey, allowApiLookup = false)
-                } else forward(sbn, parsed, null, capability, replacesKey)
+                    forward(sbn, parsed, null, capability, replacesKey, allowApiLookup = false, structureChanged = structureChanged)
+                } else forward(sbn, parsed, null, capability, replacesKey, structureChanged = structureChanged)
             }
-            is Capability.Eligible -> forward(sbn, parsed, capability, replacesKey = replacesKey)
+            is Capability.Eligible -> forward(sbn, parsed, capability, replacesKey = replacesKey, structureChanged = structureChanged)
         }
     }
 
@@ -205,6 +208,7 @@ class SlackListenerService : NotificationListenerService() {
         readOnly: Capability.ReadOnly? = null,
         replacesKey: String? = null,
         allowApiLookup: Boolean = true,
+        structureChanged: Boolean = false,
     ) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
         val original = parsed.facts.conversation ?: return
@@ -215,13 +219,14 @@ class SlackListenerService : NotificationListenerService() {
         } else original
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf,
-            parsed.actionIntents.filterNotNull(), apiLookupPending = readOnly != null && allowApiLookup, replacesKey = replacesKey)) {
+            parsed.actionIntents.filterNotNull(), apiLookupPending = readOnly != null && allowApiLookup,
+            replacesKey = replacesKey, forceGeneration = structureChanged)) {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)
                 val posted = publish(result.binding, conversation, result.alert)
                 if (posted) {
-                    val source = source(sbn, parsed)
+                    val source = source(parsed)
                     rememberMessage(groupMessage(source, parsed), sbn.key)
                     // Withdraw a summary only after a readable child has taken its place.
                     if (!source.summary && source.group != null) {
