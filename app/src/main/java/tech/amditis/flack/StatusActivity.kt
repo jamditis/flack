@@ -109,12 +109,14 @@ class StatusActivity : Activity() {
     override fun onResume() {
         super.onResume()
         SlackSession.onChange = ::refreshSignIn
+        BridgeState.onPostChange = { runOnUiThread { refreshPostFailure() } }
         refresh()
         refreshSignIn()
     }
 
     override fun onPause() {
         SlackSession.onChange = null
+        BridgeState.onPostChange = null
         super.onPause()
     }
 
@@ -165,6 +167,22 @@ class StatusActivity : Activity() {
             BridgeState.lastHandoff.label,
         )
         findViewById<TextView>(R.id.diagnostics).text = BridgeState.diagnostics().trim()
+        refreshPostFailure()
+    }
+
+    private fun refreshPostFailure() {
+        val message = when (BridgeState.lastPostOutcome) {
+            CopyPostOutcome.NOTIFICATIONS_DISABLED -> R.string.post_disabled
+            CopyPostOutcome.CHANNEL_BLOCKED -> R.string.post_channel_blocked
+            CopyPostOutcome.CHANNEL_GROUP_BLOCKED -> R.string.post_group_blocked
+            CopyPostOutcome.CHANNEL_MISSING -> R.string.post_channel_missing
+            CopyPostOutcome.SECURITY_EXCEPTION -> R.string.post_rejected
+            CopyPostOutcome.POSTED, null -> null
+        }
+        findViewById<TextView>(R.id.post_failure).apply {
+            text = message?.let { getString(it) }.orEmpty()
+            visibility = if (message == null) View.GONE else View.VISIBLE
+        }
     }
 
     /** Lists signed-in workspaces. Names show on the phone only, never in the test report. */

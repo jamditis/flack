@@ -49,10 +49,16 @@ object CapabilityCheck {
         if (conversation.isGroup == null) return readOnly(RejectReason.UNKNOWN_CONVERSATION)
         if (conversation.isGroup && conversation.title.isNullOrBlank()) return readOnly(RejectReason.NO_CONTEXT)
 
-        // Joe accepted the phone notification's inline reply route for every
-        // conversation type on 2026-11-12 (#23). Labels never select a destination.
-        val candidates = facts.replyActions.withIndex().filter {
-            it.value.freeFormResultKeys.isNotEmpty() && it.value.semanticAction == SEMANTIC_ACTION_REPLY
+        // Prefer Android's explicit reply semantic. Slack also ships actions with
+        // no semantic: use the plain input action, keeping "Reply in thread" separate.
+        // The original PendingIntent supplies the destination in either case.
+        val inputs = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
+        val semanticReplies = inputs.filter { it.value.semanticAction == SEMANTIC_ACTION_REPLY }
+        val candidates = semanticReplies.ifEmpty {
+            inputs.filter {
+                it.value.semanticAction == SEMANTIC_ACTION_NONE &&
+                    it.value.title?.contains("in thread", ignoreCase = true) != true
+            }
         }
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
         if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
@@ -82,4 +88,5 @@ object CapabilityCheck {
 
     // Android's Notification.Action.SEMANTIC_ACTION_REPLY. Core has no Android dependency.
     private const val SEMANTIC_ACTION_REPLY = 1
+    private const val SEMANTIC_ACTION_NONE = 0
 }

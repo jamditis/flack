@@ -4,6 +4,13 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- Slack's plain Reply action can be used when Slack omits Android's reply
+  semantic, including beside Reply in thread. The original action and its input
+  key are preserved; unsafe or ambiguous actions remain read-only.
+- The phone names failed car notification posts. The test report keeps the last
+  20 posting outcomes with notification/channel blocks and exception classes,
+  without message content or exception messages. A physical car retest is needed
+  to identify the zero-copy failure reported on 0.3.3.
 - The phone shows when no Slack workspace is signed in, beside the existing
   Add a Slack workspace action. The cue follows your current sign-in state;
   an unreadable sign-in store shows an error instead.

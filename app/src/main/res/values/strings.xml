@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="post_disabled">Car notifications are turned off for Flack. Allow notifications in Android settings, then receive a new Slack message.</string>
+    <string name="post_channel_blocked">Flack’s car notification channel is blocked. Allow it in Android notification settings, then receive a new Slack message.</string>
+    <string name="post_group_blocked">Flack’s notification channel group is blocked. Allow it in Android notification settings, then receive a new Slack message.</string>
+    <string name="post_channel_missing">Android did not create Flack’s car notification channel. Copy the test report while parked.</string>
+    <string name="post_rejected">Android refused a car notification from Flack. Check notification settings and copy the test report while parked.</string>
     <string name="app_name">Flack</string>
     <string name="listener_label">Flack</string>
     <string name="tagline">Hear Slack messages in Android Auto and reply when available</string>
