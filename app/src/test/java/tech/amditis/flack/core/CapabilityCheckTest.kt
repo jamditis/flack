@@ -54,8 +54,10 @@ class CapabilityCheckTest {
         assertEquals(rejected(RejectReason.NOT_SLACK), CapabilityCheck.evaluate(dm(packageName = "com.example.chat")))
     }
 
-    @Test fun groupSummariesAreNotForwarded() {
-        assertEquals(rejected(RejectReason.GROUP_SUMMARY), CapabilityCheck.evaluate(dm(summary = true)))
+    @Test fun summaryContentUsesTheSameReplySafetyChecksAsAChild() {
+        assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(summary = true)))
+        assertEquals(readOnly(RejectReason.REPLY_OPENS_APP),
+            CapabilityCheck.evaluate(dm(summary = true, actions = listOf(replyAction(showsUi = true)))))
     }
 
     @Test fun notificationWithoutMessagingStyleIsRejected() {

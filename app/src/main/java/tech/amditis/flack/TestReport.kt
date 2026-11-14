@@ -41,6 +41,7 @@ object TestReport {
             appendLine()
             append(BridgeState.diagnostics().trim())
             appendLine()
+            append(BridgeState.filterDiagnostics())
             append(BridgeState.copyDiagnostics())
         }.let { head ->
             // The route field probe comes first, with its field summary, and the action

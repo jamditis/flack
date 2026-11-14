@@ -11,6 +11,9 @@ import tech.amditis.flack.core.ReplyActionDiagnostics
 import tech.amditis.flack.core.RouteFieldProbe
 import tech.amditis.flack.core.SLACK_PACKAGE
 import tech.amditis.flack.core.SessionRegistry
+import tech.amditis.flack.core.FilterDecision
+import tech.amditis.flack.core.FilterRow
+import tech.amditis.flack.core.NotificationFeatures
 import java.security.SecureRandom
 import java.util.EnumMap
 
@@ -59,6 +62,8 @@ object BridgeState {
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val replyRejections = EnumMap<ConsumeRejection, Int>(ConsumeRejection::class.java)
     private val apiReadOnlyReasons = EnumMap<ApiReadOnlyReason, Int>(ApiReadOnlyReason::class.java)
+    private val filterCounts = EnumMap<FilterRow, Int>(FilterRow::class.java)
+    private val filterCases = ArrayDeque<String>()
     val replyActionDiagnostics = ReplyActionDiagnostics()
     val routeFieldProbe = RouteFieldProbe()
     private data class CopyRecord(val id: Int, val channel: String, var opened: Boolean = false)
@@ -144,6 +149,21 @@ object BridgeState {
 
     @Synchronized fun countRejection(reason: RejectReason) {
         rejections[reason] = (rejections[reason] ?: 0) + 1
+    }
+
+    @Synchronized fun recordFilter(decision: FilterDecision, features: NotificationFeatures) {
+        filterCounts[decision.row] = (filterCounts[decision.row] ?: 0) + 1
+        if (filterCases.size == 20) filterCases.removeFirst()
+        filterCases.addLast("row=${decision.row}; action=${decision.action}; ${features.report()}")
+    }
+
+    /** Detailed structure belongs in the exported test report, not the status screen. */
+    @Synchronized fun filterDiagnostics(): String = buildString {
+        if (filterCounts.isEmpty()) return@buildString
+        appendLine("Slack notification filter rules:")
+        filterCounts.forEach { (row, count) -> appendLine("  ${row.name}: $count") }
+        appendLine("Observed notification features (last 20):")
+        filterCases.forEachIndexed { index, case -> appendLine("  Case ${index + 1}: $case") }
     }
 
     @Synchronized fun countReadOnly(reason: RejectReason) {

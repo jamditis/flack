@@ -25,7 +25,7 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 ## How it works
 
 1. Flack reads notifications from the official Slack app only. It ignores every other app before reading anything.
-2. While Android Auto is connected, it posts a readable copy of each eligible text notification. Group summaries are suppressed to avoid duplicate announcements.
+2. While Android Auto is connected, it posts a readable copy of each eligible text notification. A message-bearing group summary can forward when no readable child in its group is active. A child takes over its matching summary quietly; empty summaries are dropped. [The feature rules](docs/NOTIFICATION_FILTER.md) describe supported and read-only formats.
 3. When you confirm a reply in the car, Flack checks a one-time token and passes your text to Slack's reply action. Slack sends the message.
 
 If Flack cannot tell where a reply would go, it keeps a read-only phone copy.

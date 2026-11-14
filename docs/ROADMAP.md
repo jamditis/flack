@@ -14,7 +14,8 @@ The implementation supports all text notification types below. Invented fixtures
 | DM, group DM, channel or thread with exactly one free-form REPLY semantic action | Yes | Uses the phone notification's original action after UI, creator, mutability and input-key checks | Synthetic channel-first contract and per-type dispatch tests; real Slack action shapes and car test pending |
 | Ambiguous text actions, multiple keys, missing group title, unknown flag, plain message-category title/text | Phone copy, with text and context; Android Auto can hide it because reply is missing | No reply action; reason counted in diagnostics | Synthetic read-only/lifecycle tests; first car test reported no car entry |
 | Shared action across notifications, including suppressed sources | Yes for readable children | Disable every conflicting reply; old tokens expire | Synthetic collision/held-action tests |
-| Group summary, empty or context-free notification, other app/profile, plain non-message or ongoing/service notification | No | No reply action | Source, status-filter and duplicate-suppression checks |
+| Message-bearing group summary without a readable active child in its group | Yes; a matching child takes over quietly | Same original-action/API checks as a child; unfamiliar readable shapes stay read-only | Report-shaped summary/child contracts; see [filter rules](NOTIFICATION_FILTER.md); physical retest pending |
+| Summary with a readable active child, empty or context-free notification, other app/profile, plain non-message or ongoing/service notification | No additional copy | No additional reply action | Source, status-filter and duplicate-suppression checks |
 
 The emulator check runs on GitHub-hosted CI. It exercises Android PendingIntents but has neither real Slack nor Android Auto. Phone/car results remain in [DEVICE_TEST_RECORD.md](DEVICE_TEST_RECORD.md).
 

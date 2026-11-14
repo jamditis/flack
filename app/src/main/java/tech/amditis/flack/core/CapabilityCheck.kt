@@ -6,7 +6,9 @@ const val SLACK_PACKAGE = "com.Slack"
 /** Content-free reasons a notification or its reply is unavailable. */
 enum class RejectReason {
     NOT_SLACK,
-    GROUP_SUMMARY,
+    EMPTY_SUMMARY,
+    SUMMARY_WITH_CHILD,
+    UNKNOWN_FORMAT,
     NO_CONVERSATION,
     NO_MESSAGES,
     UNKNOWN_CONVERSATION,
@@ -39,7 +41,6 @@ object CapabilityCheck {
      */
     fun evaluate(facts: SourceFacts, allowedSources: Set<String> = setOf(SLACK_PACKAGE)): Capability {
         if (facts.packageName !in allowedSources) return reject(RejectReason.NOT_SLACK)
-        if (facts.isGroupSummary) return reject(RejectReason.GROUP_SUMMARY)
         val conversation = facts.conversation ?: return reject(RejectReason.NO_CONVERSATION)
         if (conversation.messages.isEmpty()) return reject(RejectReason.NO_MESSAGES)
         if (contextLabel(conversation) == null) return reject(RejectReason.NO_CONTEXT)
