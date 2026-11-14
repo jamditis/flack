@@ -100,8 +100,9 @@ object BridgeState {
         if (!shouldForward(context)) CarNotificationPublisher.cancel(context, registry.withdrawAll())
     }
 
+    /** Phone quieting can also suppress car alerts; prefer the field-tested alerting mode. */
     fun hidesPhoneCopies(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HIDE_COPIES, true)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HIDE_COPIES, false)
 
     fun setHidePhoneCopies(context: Context, hide: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_HIDE_COPIES, hide) }

@@ -35,7 +35,7 @@ object TestReport {
             appendLine("Android Auto unknown sources confirmed: ${yesNo(BridgeState.isAndroidAutoConfirmed(context))}")
             appendLine("Forwarding: ${yesNo(BridgeState.isEnabled(context))}")
             appendLine("Only while Android Auto is connected: ${yesNo(BridgeState.isCarOnly(context))}")
-            appendLine("Hide Flack copies on the phone: ${yesNo(BridgeState.hidesPhoneCopies(context))}")
+            appendLine("Quiet Flack copies on the phone: ${yesNo(BridgeState.hidesPhoneCopies(context))}")
             appendLine("Listener connected: ${yesNo(BridgeState.listenerConnected)}")
             appendLine("Android Auto connected: ${yesNo(BridgeState.carConnected)}")
             appendLine()

@@ -3,6 +3,7 @@ package tech.amditis.flack
 import android.Manifest
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.RemoteInput
 import android.content.Intent
@@ -301,23 +302,79 @@ class CarPathTest {
         assertEquals(before + 1, BridgeState.acknowledged)
     }
 
-    @Test fun quietPhoneCopiesAreTheDefaultAndTheReportDoesNotClaimCarDisplay() {
-        assertTrue(BridgeState.hidesPhoneCopies(app))
+    @Test fun alertingCopiesAreTheDefaultAndTheReportDoesNotClaimCarDisplay() {
+        assertFalse(BridgeState.hidesPhoneCopies(app))
         post(SyntheticSlack.dm(app))
-        assertEquals("car_messages_quiet", carCopy().channelId)
+        assertEquals("car_messages", carCopy().channelId)
         val channel = app.getSystemService(NotificationManager::class.java).getNotificationChannel(carCopy().channelId)
-        assertEquals(NotificationManager.IMPORTANCE_MIN, channel.importance)
-        assertNull(channel.sound)
-        assertFalse(channel.shouldVibrate())
-        assertFalse(channel.canShowBadge())
-        assertTrue(TestReport.build(app).contains("channel=car_messages_quiet"))
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+        assertEquals(0, carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE)
+        assertEquals(Notification.GROUP_ALERT_ALL, carCopy().groupAlertBehavior)
+        assertTrue(TestReport.build(app).contains("Quiet Flack copies on the phone: no"))
+        assertTrue(TestReport.build(app).contains("channel=car_messages"))
         assertTrue(TestReport.build(app).contains("Android Auto display: Not reported by the host"))
         val read = NotificationCompat.getInvisibleActions(carCopy()).single()
         CarActionReceiver().onReceive(app, shadowOf(read.actionIntent).savedIntent)
         assertTrue(TestReport.build(app).contains("opened in Android Auto=true"))
     }
 
+    @Test fun aSavedQuietChoiceUsesANewHighImportanceChannelAfterUpgrade() {
+        val nm = app.getSystemService(NotificationManager::class.java)
+        // Model an installed 0.3.2 channel and an explicitly saved on choice.
+        nm.createNotificationChannel(NotificationChannel("car_messages_quiet", "Quiet copies", NotificationManager.IMPORTANCE_MIN))
+        app.getSharedPreferences("bridge", Application.MODE_PRIVATE).edit().putBoolean("hide_phone_copies", true).commit()
+        assertTrue(BridgeState.hidesPhoneCopies(app))
+        val source = SyntheticSlack.dm(app)
+        val sourceFlags = source.notification.flags
+        post(source)
+        assertEquals("car_messages_quiet_v2", carCopy().channelId)
+        val channel = nm.getNotificationChannel(carCopy().channelId)
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+        assertNull(nm.getNotificationChannel("car_messages_quiet"))
+        assertNull(channel.sound)
+        assertFalse(channel.shouldVibrate())
+        assertFalse(channel.canShowBadge())
+        assertNull(carCopy().sound)
+        assertNull(carCopy().vibrate)
+        assertEquals(0, carCopy().defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
+        assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals(Notification.GROUP_ALERT_SUMMARY, carCopy().groupAlertBehavior)
+        assertEquals(sourceFlags, source.notification.flags)
+        assertTrue(TestReport.build(app).contains("channel=car_messages_quiet_v2"))
+        CarNotificationPublisher.ensureChannel(app)
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, nm.getNotificationChannel(channel.id).importance)
+    }
+
+    @Test fun anUpgradePreservesAnOldQuietChannelBlock() {
+        val nm = app.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel("car_messages_quiet", "Quiet copies", NotificationManager.IMPORTANCE_NONE))
+        app.getSharedPreferences("bridge", Application.MODE_PRIVATE).edit().putBoolean("hide_phone_copies", true).commit()
+        val before = BridgeState.forwarded
+        post(SyntheticSlack.dm(app))
+        assertNull(nm.getNotificationChannel("car_messages_quiet"))
+        assertEquals(NotificationManager.IMPORTANCE_NONE, nm.getNotificationChannel("car_messages_quiet_v2").importance)
+        assertEquals(before, BridgeState.forwarded)
+        assertEquals(0, manager.size())
+        CarNotificationPublisher.ensureChannel(app)
+        assertEquals(NotificationManager.IMPORTANCE_NONE, nm.getNotificationChannel("car_messages_quiet_v2").importance)
+    }
+
+    @Test fun aBlockedNewQuietChannelStaysBlockedAndIsNotCountedAsForwarded() {
+        BridgeState.setHidePhoneCopies(app, true)
+        CarNotificationPublisher.ensureChannel(app)
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val channel = nm.getNotificationChannel("car_messages_quiet_v2")
+        channel.importance = NotificationManager.IMPORTANCE_NONE
+        nm.createNotificationChannel(channel)
+        val before = BridgeState.forwarded
+        post(SyntheticSlack.dm(app))
+        assertEquals(NotificationManager.IMPORTANCE_NONE, nm.getNotificationChannel(channel.id).importance)
+        assertEquals(before, BridgeState.forwarded)
+        assertEquals(0, manager.size())
+    }
+
     @Test fun switchingPhoneCopyModeClearsOldTokensAndUsesTheAlertChannelForNewMessages() {
+        BridgeState.setHidePhoneCopies(app, true)
         post(SyntheticSlack.dm(app))
         val held = replyAction()
         val activity = Robolectric.buildActivity(StatusActivity::class.java).setup().get()

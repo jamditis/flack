@@ -20,14 +20,20 @@ applicable, confirmation, cancel and one dispatch to the same destination as the
 phone notification's inline reply. Repeat for DMs, group DMs and threads.
 Joe accepted this original-action routing on November 12, 2026 (#23).
 
-Test with Hide Flack copies on the phone on first. Copies use the silent channel
-with minimum importance. If the car stays empty, turn the switch off and receive
-a new Slack message. Switching clears existing copies and tokens. The report
-names each copy's channel and whether its mark-as-read action ran; the host
-does not provide a display receipt. In alerting mode, new copies can alert on the
-phone. Verify that updates and own replies stay quiet, and that source removal
-and car disconnection remove Flack's copies. Android Auto controls its launcher
-notice; Flack does not post it.
+Test with Quiet Flack copies on the phone off first, the default. Receive two new
+messages in the same conversation and verify that each alerts in the car. Then
+turn the switch on and receive two more messages. Both modes use high-importance
+channels; quiet mode suppresses phone sound, vibration and pop-ups, but copies
+remain in the phone shade. Android Auto may miss quiet copies or alerts too. If
+that happens, turn the switch off and receive a new Slack message. Switching
+clears existing copies and tokens. On an upgrade from 0.3.2, also test a saved
+on choice: new copies must use car_messages_quiet_v2, rather than the installed
+minimum-importance channel. Installs without a saved choice use the new off
+default. The report names each copy's channel and whether its mark-as-read
+action ran; the host does not provide a display receipt. In alerting mode, new
+copies can alert on the phone. Verify that own replies and other non-alerting
+updates stay quiet, and that source removal and car disconnection remove
+Flack's copies. Android Auto controls its launcher notice; Flack does not post it.
 
 ## G0: Test the native route
 

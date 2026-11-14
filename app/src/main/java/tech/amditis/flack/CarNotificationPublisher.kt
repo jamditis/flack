@@ -21,25 +21,31 @@ import tech.amditis.flack.core.Conversation
  */
 object CarNotificationPublisher {
     private const val CHANNEL_ID = "car_messages"
-    private const val QUIET_CHANNEL_ID = "car_messages_quiet"
+    // A new ID is required: Android keeps an installed channel's importance.
+    private const val QUIET_CHANNEL_ID = "car_messages_quiet_v2"
     const val REPLY_KEY = "bridge_reply"
     const val EXTRA_TOKEN = "token"
     const val ACTION_REPLY = "tech.amditis.flack.REPLY"
     const val ACTION_MARK_READ = "tech.amditis.flack.MARK_READ"
 
     fun ensureChannel(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
         channel.description = context.getString(R.string.channel_description)
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        // This driveway-test option reduces duplicate phone alerts. Android Auto
-        // may hide MIN-importance notifications; turn it off and receive a new
-        // Slack message if the car list stays empty (#23).
-        val quiet = NotificationChannel(QUIET_CHANNEL_ID, context.getString(R.string.quiet_channel_name), NotificationManager.IMPORTANCE_MIN)
+        manager.createNotificationChannel(channel)
+        // Keep car copies eligible for alerts in either mode. Phone-side quieting
+        // belongs on the notification; it must not lower the channel importance.
+        // Carry an old channel block forward only when creating its replacement.
+        val quietImportance = if (manager.getNotificationChannel(QUIET_CHANNEL_ID) == null &&
+            manager.getNotificationChannel("car_messages_quiet")?.importance == NotificationManager.IMPORTANCE_NONE
+        ) NotificationManager.IMPORTANCE_NONE else NotificationManager.IMPORTANCE_HIGH
+        val quiet = NotificationChannel(QUIET_CHANNEL_ID, context.getString(R.string.quiet_channel_name), quietImportance)
         quiet.description = context.getString(R.string.quiet_channel_description)
         quiet.setSound(null, null)
         quiet.enableVibration(false)
         quiet.setShowBadge(false)
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(quiet)
+        manager.createNotificationChannel(quiet)
+        manager.deleteNotificationChannel("car_messages_quiet")
     }
 
     /**

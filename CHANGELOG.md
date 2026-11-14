@@ -4,6 +4,13 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
+- Car copies use high-importance channels in both phone modes. Quiet mode uses
+  a new channel so upgrades do not keep the old minimum importance. Phone
+  quieting is now off by default so the car can alert; a saved switch choice is
+  kept. The switch is called Quiet Flack copies on the phone and warns that
+  Android Auto may miss quiet copies or alerts. Android still shows copies in
+  the phone shade. A physical car retest is needed for quiet mode.
+
 ## 0.3.2
 
 - Car replies can use Slack sign-in when the phone's notification has no usable
