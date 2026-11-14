@@ -42,12 +42,14 @@ Flack follows your Slack mobile notification settings. Whatever Slack notifies
 you about on your phone can reach the car. For channel messages, Slack must be
 set to notify you about mentions or All new messages.
 
-The status screen's **Hide Flack copies on the phone** switch is on by default.
-It puts copies in a silent channel with minimum importance; Android cannot
-remove them from the phone shade completely. Android Auto may also hide these
-quiet copies. If the car stays empty, turn the switch off and receive a new
-Slack message. Switching clears current copies and their reply tokens. The
-alerting mode can produce a duplicate phone alert.
+The status screen's **Quiet Flack copies on the phone** switch is off by default
+so the car can alert. Turning it on silences phone sound, vibration and pop-ups;
+copies remain in the phone shade. Both modes use high-importance channels, but
+Android Auto may still miss quiet copies or their alerts. If that happens, turn
+the switch off and receive a new Slack message. Switching clears current copies
+and their reply tokens. The alerting mode can produce a duplicate phone alert.
+Upgrading keeps a saved switch choice; installs without a saved choice use the
+new default.
 
 ## Privacy
 
