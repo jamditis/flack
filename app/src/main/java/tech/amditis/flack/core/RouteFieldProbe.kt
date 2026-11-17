@@ -36,9 +36,8 @@ data class ProbeContext(
  * within one conversation and differ between conversations, and whether a
  * timestamp equals this message's time or an earlier message's time (a thread
  * parent). It never exports a value, title, name or message text, so the report
- * stays safe to paste into a public issue. The one name it shows is an extras
- * key that exactly matches a fixed list of common ID key names (see
- * [knownKeyName]), so a mapping can name the key.
+ * stays safe to paste into a public issue. Extras key names come only from fixed
+ * lists (see [knownKeyName]). Known thread-marker keys are also shown by presence.
  */
 class RouteFieldProbe {
     /**
@@ -131,7 +130,7 @@ class RouteFieldProbe {
         val head = buildString {
             appendLine("Route field probe (last $MAX_CASES Slack notifications, shapes and yes/no relations only):")
             appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
-            appendLine("An extras key name is shown only when its value has one of these shapes and it is exactly on Flack's list of common ID key names.")
+            appendLine("Field key names require a listed ID/timestamp shape and a fixed known key. threadMarkerKeys lists fixed known thread keys by presence alone.")
             appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
             appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
             appendLine("Field summary (${cases.size} cases; yes and no count the cases where a relation was checked):")
