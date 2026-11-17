@@ -52,8 +52,11 @@ class ReportedSlackCarTest {
         BridgeState.registry.clear()
     }
 
-    private fun reportedMessage(key: String, group: Boolean = true, withMarkRead: Boolean = true): android.service.notification.StatusBarNotification {
+    private fun reportedMessage(
+        key: String, group: Boolean = true, withMarkRead: Boolean = true, text: String = "Lunch at noon?",
+    ): android.service.notification.StatusBarNotification {
         val source = SyntheticSlack.dm(app, key = key, title = if (group) "#paper-kites" else null,
+            text = text,
             isGroup = group, shortcutId = if (group) "C12345678" else "D12345678",
             extraReply = SyntheticSlack.replyIntent(app, "$key-thread"),
             replySemanticAction = 0, extraReplySemanticAction = 0, replyShowsUserInterface = true)
@@ -70,7 +73,7 @@ class ReportedSlackCarTest {
         val cases = listOf(true to true, true to false, false to true, false to false)
         cases.forEach { (group, withMarkRead) ->
             val key = "${if (group) "channel" else "dm"}-$withMarkRead"
-            val source = reportedMessage(key, group, withMarkRead)
+            val source = reportedMessage(key, group, withMarkRead, text = "Synthetic message $key")
             listener.onNotificationPosted(source)
             val copy = manager.allNotifications.single()
             assertEquals("car_messages", copy.channelId)

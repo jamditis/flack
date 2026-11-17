@@ -101,12 +101,21 @@ class CarPathTest {
     }
 
     @Test fun theTestReportIncludesAmbiguousActionShapesWithoutConversationContent() {
+        // A full field-probe history must not crowd out the actual reply action shapes.
+        repeat(20) { n ->
+            BridgeState.routeFieldProbe.record("ELIGIBLE", true,
+                tech.amditis.flack.core.RouteFields(extras = (1..30).map { key ->
+                    "synthetic_field_$key" to "C0PAPER00$n 1700000000.123456"
+                }), tech.amditis.flack.core.ProbeContext("Synthetic room", "Synthetic sender", n.toLong()))
+        }
         post(SyntheticSlack.dm(app, sender = "Secret Example", text = "Private meeting at six",
             extraReply = SyntheticSlack.replyIntent(app, "secret-thread")))
         val report = TestReport.build(app)
         assertTrue(report.contains("Multiple reply action diagnostics"))
         assertTrue(report.contains("title=Reply in thread"))
         assertTrue(report.contains("resultKeys=[thread_text]"))
+        assertTrue(report.contains("launchesActivity=false"))
+        assertTrue(report.length <= tech.amditis.flack.core.REPORT_LIMIT)
         listOf("Secret Example", "Private meeting", "secret-thread", "com.Slack|42").forEach {
             assertFalse(report.contains(it))
         }
