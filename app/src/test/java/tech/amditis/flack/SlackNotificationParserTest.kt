@@ -77,13 +77,22 @@ class SlackNotificationParserTest {
         assertEquals(listOf("thread_text"), action.freeFormResultKeys)
     }
 
-    @Test fun anActionThatOpensAnActivityShowsUserInterface() {
+    @Test fun anActivityCannotReplyEvenWhenTheUiHintIsFalse() {
         val activityIntent = PendingIntent.getActivity(context, 7, Intent(Intent.ACTION_VIEW), PendingIntent.FLAG_MUTABLE)
         shadowOf(activityIntent).setCreatorPackage(SLACK_PACKAGE)
         shadowOf(activityIntent).setCreatorUid(SyntheticSlack.SLACK_UID)
         val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context, reply = activityIntent))
-        assertTrue(parsed.facts.replyActions.single().showsUserInterface)
+        assertTrue(parsed.facts.replyActions.single().launchesActivity)
+        assertFalse(parsed.facts.replyActions.single().showsUserInterface)
         assertEquals(Capability.ReadOnly(RejectReason.REPLY_OPENS_APP), CapabilityCheck.evaluate(parsed.facts))
+    }
+
+    @Test fun aSlackRemoteInputBroadcastCanKeepTheDefaultTrueUiHint() {
+        val parsed = SlackNotificationParser.parse(SyntheticSlack.dm(context,
+            replySemanticAction = 0, replyShowsUserInterface = true))
+        assertTrue(parsed.facts.replyActions.single().showsUserInterface)
+        assertFalse(parsed.facts.replyActions.single().launchesActivity)
+        assertEquals(Capability.Eligible(0, SyntheticSlack.REPLY_KEY), CapabilityCheck.evaluate(parsed.facts))
     }
 
     @Test fun anImmutableActionIsMarked() {

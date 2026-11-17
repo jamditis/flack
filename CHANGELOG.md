@@ -2,6 +2,17 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
+## Unreleased
+
+- Slack's exact Reply action with a free-form input can use the native route
+  when its reply semantic is unset and its UI hint is true. An actual activity
+  launch is still blocked. Creator, mutability, single-input and one-use checks
+  remain. Reply in thread without a reply semantic stays unselected until a
+  structured thread marker is verified.
+- The content-free report separates the UI hint from actual activity launches
+  and lists known thread-marker string keys by presence only. Native Slack
+  handoff still needs a car retest; the confirmed 0.3.4 reply used the API.
+
 ## 0.3.4
 
 - Slack's plain Reply action can be used when Slack omits Android's reply

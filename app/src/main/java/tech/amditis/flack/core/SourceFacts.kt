@@ -48,4 +48,6 @@ data class ReplyActionFacts(
     val allowGeneratedReplies: Boolean = false,
     /** All input names, including choice-only inputs. Kept out of reports unless known static values. */
     val resultKeys: List<String> = freeFormResultKeys,
+    /** Actual PendingIntent kind, kept separate from the action's default-true UI hint. */
+    val launchesActivity: Boolean = showsUserInterface,
 )

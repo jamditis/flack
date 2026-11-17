@@ -14,7 +14,7 @@ class ReplyActionDiagnostics {
                 it.takeIf { key -> key in SAFE_KEYS } ?: "[key omitted]"
             }
             "  Action ${index + 1}: title=$title; semanticAction=${action.semanticAction}; " +
-                "resultKeys=$keys; showsUserInterface=${action.showsUserInterface}; " +
+                "resultKeys=$keys; showsUserInterface=${action.showsUserInterface}; launchesActivity=${action.launchesActivity}; " +
                 "allowGeneratedReplies=${action.allowGeneratedReplies}"
         }.joinToString("\n")
         if (cases.size == 20) cases.removeFirst()

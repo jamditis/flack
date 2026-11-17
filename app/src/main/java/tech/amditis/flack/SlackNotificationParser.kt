@@ -160,7 +160,8 @@ object SlackNotificationParser {
         val freeFormKeys = action.remoteInputs.orEmpty()
             .filter { it.allowFreeFormInput }
             .map { it.resultKey }
-        // An action that starts an activity opens the app, which the driver cannot use.
+        // AndroidX defaults this hint to true, even on a RemoteInput broadcast.
+        // Keep the actual PendingIntent kind separate so an activity is always refused.
         val explicitUi = action.extras.containsKey(EXTRA_SHOWS_USER_INTERFACE) &&
             action.extras.getBoolean(EXTRA_SHOWS_USER_INTERFACE)
         return ReplyActionFacts(
@@ -168,12 +169,13 @@ object SlackNotificationParser {
             creatorUid = intent?.creatorUid,
             sourceUid = sourceUid,
             freeFormResultKeys = freeFormKeys,
-            showsUserInterface = intent == null || intent.isActivity || explicitUi,
+            showsUserInterface = explicitUi,
             isImmutable = intent == null || intent.isImmutable,
             title = action.title?.toString(),
             semanticAction = action.semanticAction,
             allowGeneratedReplies = action.allowGeneratedReplies,
             resultKeys = action.remoteInputs.orEmpty().map { it.resultKey },
+            launchesActivity = intent == null || intent.isActivity,
         )
     }
 }
