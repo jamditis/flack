@@ -32,9 +32,12 @@ If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
 Android Auto requires both reply and mark-as-read actions, so it may hide these
 read-only copies. For every conversation type, Flack uses the phone notification's
 single free-form action with the REPLY semantic action. When Slack leaves that
-semantic unset, Flack selects the single plain input action and excludes
-"Reply in thread". It checks the original action's creator, mutability and
-background behavior before offering a reply. Ambiguous reply choices,
+semantic unset, Flack selects only the single action labelled "Reply" with a
+free-form input. "Reply in thread" without that semantic stays unselected
+until a structured thread marker is verified. Slack's default-true UI hint
+does not block this plain reply when its PendingIntent starts no activity.
+Flack checks the original action's creator, mutability and actual intent kind
+before offering a reply. Ambiguous reply choices,
 unknown conversation shape, missing group context, or a shared source action
 disable replying. Flack never chooses a destination from a sender or channel
 name. The [capability table](docs/ROADMAP.md#notification-capabilities) records
@@ -69,7 +72,7 @@ The full [privacy page](https://jamditis.github.io/flack/privacy.html) covers wh
 
 ## Supported phones
 
-The intended test phones are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21. Neither has been tested yet; results and exact versions go in the [device test record](docs/DEVICE_TEST_RECORD.md). Flack needs Android 12 or later.
+The intended test phones are a Samsung Galaxy S24 Ultra and a Samsung Galaxy S21. One car reply through the API is confirmed on the S24 Ultra; native handoff and the full safety matrix remain unverified. Results and exact versions are in the [device test record](docs/DEVICE_TEST_RECORD.md). Flack needs Android 12 or later.
 
 ## Documentation
 

@@ -158,7 +158,7 @@ class RouteFieldProbeTest {
         assertTrue(report.length < full.length)
         assertTrue(report.contains("Case 1: route=READ_ONLY(NO_REPLY_ACTION)"))
         assertTrue(report.contains("Cases ${(2..20).joinToString(", ")} (19 cases): route=READ_ONLY(NO_REPLY_ACTION), fields as in the summary"))
-        assertTrue(report.contains("  Case 5: isGroup=true; same conversation label as cases: 1, 9, 13, 17; same sender name as cases: "))
+        assertTrue(report.contains("  Case 5: isGroup=true; threadMarkerKeys=none; same conversation label as cases: 1, 9, 13, 17; same sender name as cases: "))
         assertTrue(report.contains("tag: present in 20 of 20 cases; ID prefixes: C; channel (group: same conversation label) agrees within group: yes 20, no 0"))
         assertFalse(report.contains("Truncated"))
     }
@@ -166,5 +166,20 @@ class RouteFieldProbeTest {
     @Test fun parsesSlackTimestamps() {
         assertEquals(1_700_000_000_123L, RouteFieldProbe.timestampMillis("1700000000.123456"))
         assertEquals(null, RouteFieldProbe.timestampMillis("not a time"))
+    }
+
+    @Test fun threadMarkerKeysStayContentFreeAndSurviveReportCompaction() {
+        repeat(20) { n ->
+            probe.record("ELIGIBLE", true, RouteFields(extras = listOf(
+                "com.Slack.thread_ts" to "1700000000.123456",
+                "private_thread_name" to "Private message text",
+            )), ProbeContext("#paper-kites", "Riley Example", n.toLong()))
+        }
+        val report = probe.report(probe.report().length - 1)
+        assertTrue(report.contains("Thread marker keys: present in 20 of 20 cases"))
+        assertTrue(report.contains("threadMarkerKeys=com.Slack.thread_ts"))
+        assertFalse(report.contains("private_thread_name"))
+        assertFalse(report.contains("Private message text"))
+        assertFalse(report.contains("1700000000.123456"))
     }
 }

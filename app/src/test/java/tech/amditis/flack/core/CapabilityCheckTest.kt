@@ -114,8 +114,8 @@ class CapabilityCheckTest {
 
     @Test fun theReportedSlackActionsSelectThePlainReplyInEveryOrder() {
         val read = replyAction(keys = emptyList()).copy(semanticAction = 2)
-        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0)
-        val direct = replyAction().copy(title = "Reply", semanticAction = 0)
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
+        val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
         val actions = listOf(read, thread, direct)
         actions.indices.forEach { first ->
             actions.indices.filter { it != first }.forEach { second ->
@@ -131,11 +131,10 @@ class CapabilityCheckTest {
     @Test fun anUnspecifiedSemanticRequiresOnePlainInputAndTheSameSafetyChecks() {
         val direct = replyAction().copy(title = "Reply", semanticAction = 0)
         assertEquals(Capability.Eligible(0, "reply_text"), CapabilityCheck.evaluate(dm(actions = listOf(direct))))
-        // A unique input need not have an English title. Non-reply semantics never qualify.
-        assertEquals(Capability.Eligible(0, "reply_text"),
+        // Without an explicit reply semantic, only the observed Slack label qualifies.
+        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION),
             CapabilityCheck.evaluate(dm(actions = listOf(direct.copy(title = null)))))
         listOf(
-            direct.copy(showsUserInterface = true) to RejectReason.REPLY_OPENS_APP,
             direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,
             direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
             direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
@@ -144,8 +143,40 @@ class CapabilityCheckTest {
         ).forEach { (action, reason) ->
             assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(action))))
         }
-        assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+        assertEquals(Capability.Eligible(0, "reply_text"),
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct.copy(title = "Other input")))))
+        assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+            CapabilityCheck.evaluate(dm(actions = listOf(direct, direct))))
+    }
+
+    @Test fun theReportedTwoActionShapeUsesThePlainReplyWithItsUiHintSet() {
+        val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
+        val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
+        listOf(false, true).forEach { group ->
+            assertEquals(Capability.Eligible(1, "reply_text"),
+                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(thread, direct))))
+            assertEquals(Capability.Eligible(0, "reply_text"),
+                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, thread))))
+        }
+    }
+
+    @Test fun theSlackUiHintExceptionStillRejectsActivityImmutableForeignAndAmbiguousInputs() {
+        val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
+        listOf(
+            direct.copy(launchesActivity = true) to RejectReason.REPLY_OPENS_APP,
+            direct.copy(launchesActivity = true, showsUserInterface = false) to RejectReason.REPLY_OPENS_APP,
+            direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
+            direct.copy(creatorPackage = "com.example.other") to RejectReason.CREATOR_MISMATCH,
+            direct.copy(creatorUid = null) to RejectReason.CREATOR_MISMATCH,
+            direct.copy(creatorUid = 999) to RejectReason.CREATOR_MISMATCH,
+            direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
+            direct.copy(freeFormResultKeys = emptyList()) to RejectReason.NO_REPLY_ACTION,
+        ).forEach { (action, reason) ->
+            assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(action))))
+        }
+        val fixture = "tech.amditis.flack.fixture"
+        assertEquals(readOnly(RejectReason.NO_REPLY_ACTION), CapabilityCheck.evaluate(
+            dm(packageName = fixture, actions = listOf(direct.copy(creatorPackage = fixture))), setOf(SLACK_PACKAGE, fixture)))
     }
 
     @Test fun aUniqueSemanticThreadReplyKeepsItsOriginalActionAndKey() {

@@ -72,7 +72,7 @@ class GroupSummaryContractTest {
         if (reply) {
             builder.addAction(NotificationCompat.Action.Builder(0, "Mark read", SyntheticSlack.replyIntent(app, "$key-read"))
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build())
-            // Slack 26.11.20.0's actions have semanticAction=0 and open UI, so only the API may reply.
+            // Slack's observed actions have semanticAction=0 and the default-true UI hint.
             listOf("Reply in thread", "Reply").forEachIndexed { index, title ->
                 builder.addAction(NotificationCompat.Action.Builder(0, title, SyntheticSlack.replyIntent(app, "$key-$index"))
                     .addRemoteInput(RemoteInput.Builder("reply_$index").build())
@@ -99,11 +99,15 @@ class GroupSummaryContractTest {
             val summary = source("summary-$id", true, id, group = "group-$id")
             post(summary)
             post(summary)
-            assertNotNull(binding(summary.key)?.apiRoute)
+            val native = binding(summary.key)!!
+            assertTrue(native.canReply)
+            assertNull(native.apiRoute)
+            assertEquals(summary.notification.actions.last().actionIntent, native.action)
+            assertEquals("reply_1", native.resultKey)
         }
         assertEquals(4, manager.size())
         assertEquals(before + 4, BridgeState.forwarded)
-        assertEquals(apiBefore + 4, BridgeState.apiRouted)
+        assertEquals(apiBefore, BridgeState.apiRouted)
         val report = TestReport.build(app)
         assertTrue(report.contains("row=SUMMARY_MESSAGE; action=FORWARD; messagingMessages=true; replyInput=true; groupKey=true; summary=true; activeChild=false"))
         assertTrue(report.contains("conversationId=DM"))
@@ -207,12 +211,12 @@ class GroupSummaryContractTest {
     @Test fun changingToAnUnknownShapeInvalidatesAPendingApiLookup() {
         val queued = mutableListOf<Runnable>()
         listener.apiWorker = Executor { queued += it }
-        val summary = source("summary", true)
+        val summary = source("summary", true, reply = false)
         post(summary)
         val pending = binding("summary")!!
         assertEquals(1, queued.size)
         listener.resolveApi = { error("the old lookup must expire when the filter changes") }
-        post(source("summary", true, group = null))
+        post(source("summary", true, group = null, reply = false))
         val readOnly = binding("summary")!!
         assertNotEquals(pending.token, readOnly.token)
         queued.single().run()

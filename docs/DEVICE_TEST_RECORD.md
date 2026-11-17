@@ -1,6 +1,19 @@
 # Device test record
 
-Status: not run. Complete with observed results; do not mark a planned step as a pass.
+Status: Partial physical evidence. One API car reply is confirmed; native handoff and the full safety matrix remain unverified. Do not mark a planned step as a pass.
+
+## November 17, 2026 car test
+
+Flack 0.3.4 (10, release), Samsung SM-S928U, Android 17 (API 37), security patch 2026-10-05, Slack 26.11.20.0, Android Auto 18.0.664264-release. Head-unit version, connection mode, lock state and assistant version were not reported.
+
+- Forwarded: 11. API reply offers: 12. A car reply reached Slack and the report recorded Posted to Slack (Slack confirmed).
+- Recent post attempts: 20/20 POSTED, car_messages, importance 4, notification/channel/group blocking false, no exception. Quiet phone copies were off.
+- The recent feature ring has 10 MESSAGE rows that forward and 10 SUMMARY_WITH_CHILD rows that dedupe with an active child. Summary-only and exact end-to-end dedupe counts remain unverified.
+- All reported probe cases selected a read-only native route. The API carried the confirmed reply. Both observed action lists have Reply and Reply in thread with RemoteInput, semantic action 0 and UI hint true. Native intent kind and handoff remain unverified.
+- Opened in the car: 0. Android Auto provides no display receipt; this counts its mark-as-read callback only. The count is not evidence of display failure.
+- DM round trip, readback, cancel, one dispatch, locked-phone behavior, quiet-mode alerts and concurrent thread/workspace routing remain unverified.
+
+The public [#47 evidence comment](https://github.com/jamditis/flack/issues/47#issuecomment-6951898349) contains counts and yes/no facts only. Message content, identities, identifiers and the private screenshot are excluded.
 
 ## Environment
 

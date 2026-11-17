@@ -36,9 +36,8 @@ data class ProbeContext(
  * within one conversation and differ between conversations, and whether a
  * timestamp equals this message's time or an earlier message's time (a thread
  * parent). It never exports a value, title, name or message text, so the report
- * stays safe to paste into a public issue. The one name it shows is an extras
- * key that exactly matches a fixed list of common ID key names (see
- * [knownKeyName]), so a mapping can name the key.
+ * stays safe to paste into a public issue. Extras key names come only from fixed
+ * lists (see [knownKeyName]). Known thread-marker keys are also shown by presence.
  */
 class RouteFieldProbe {
     /**
@@ -69,6 +68,8 @@ class RouteFieldProbe {
         val stringExtras: Int,
         val otherExtras: Int,
         val hasSubText: Boolean,
+        /** Fixed allowlisted key names only; presence is evidence, never a routing decision. */
+        val threadMarkerKeys: List<String>,
         /** Null when the conversation cannot be told apart; such cases are left out of comparisons. */
         val conversation: String?,
         val sender: String?,
@@ -108,6 +109,7 @@ class RouteFieldProbe {
         cases.addLast(
             Case(
                 route, isGroup, list, fields.extras.size, fields.otherExtras, fields.hasSubText,
+                threadMarkerKeys = fields.extras.take(MAX_EXTRAS).map { it.first }.filter { it in THREAD_KEYS }.distinct().sorted(),
                 conversation = conversation,
                 sender = sender?.let { hash(it) },
                 messageTimeMillis = context.messageTimeMillis,
@@ -128,10 +130,11 @@ class RouteFieldProbe {
         val head = buildString {
             appendLine("Route field probe (last $MAX_CASES Slack notifications, shapes and yes/no relations only):")
             appendLine("Shapes: channel (C, G, D), workspace (T, E) and user (U, W) IDs, and message timestamps.")
-            appendLine("An extras key name is shown only when its value has one of these shapes and it is exactly on Flack's list of common ID key names.")
+            appendLine("Field key names require a listed ID/timestamp shape and a fixed known key. threadMarkerKeys lists fixed known thread keys by presence alone.")
             appendLine("Groups use the conversation title and sender name shown, which can repeat across workspaces or people; use distinct test names.")
             appendLine("Relations compare hashed values in memory only. No values are kept in this report.")
             appendLine("Field summary (${cases.size} cases; yes and no count the cases where a relation was checked):")
+            appendLine("  Thread marker keys: present in ${cases.count { it.threadMarkerKeys.isNotEmpty() }} of ${cases.size} cases")
             summaryLines().forEach { appendLine("  $it") }
         }
         val full = cases.indices.map { ReportEntry(fullCase(it), 1) }
@@ -142,6 +145,7 @@ class RouteFieldProbe {
     private fun fullCase(index: Int): String = buildString {
         val case = cases[index]
         appendLine("Case ${index + 1}: route=${case.route}; isGroup=${case.isGroup ?: "unknown"}; subtext=${if (case.hasSubText) "present" else "absent"}")
+        appendLine("  threadMarkerKeys=${case.threadMarkerKeys.ifEmpty { null }?.joinToString(", ") ?: "none"}")
         appendLine("  same conversation label as cases: ${sameConversation(index)}")
         appendLine("  same sender name as cases: ${sameSender(index)}")
         appendLine("  extras: ${case.stringExtras} string, ${case.otherExtras} other")
@@ -160,7 +164,7 @@ class RouteFieldProbe {
                     val case = cases[index]
                     val prefixes = case.fields.mapNotNull { field -> field.shape?.prefixes?.ifEmpty { null }?.let { "${field.label} $it" } }
                     appendLine(
-                        "  Case ${index + 1}: isGroup=${case.isGroup ?: "unknown"}; same conversation label as cases: ${sameConversation(index)}; " +
+                        "  Case ${index + 1}: isGroup=${case.isGroup ?: "unknown"}; threadMarkerKeys=${case.threadMarkerKeys.ifEmpty { null }?.joinToString(", ") ?: "none"}; same conversation label as cases: ${sameConversation(index)}; " +
                             "same sender name as cases: ${sameSender(index)}; ID prefixes: ${prefixes.ifEmpty { null }?.joinToString(", ") ?: "none"}",
                     )
                 }
@@ -319,6 +323,8 @@ class RouteFieldProbe {
             "message_id", "messageId", "msg_id", "msgId",
         ).toSet()
         private val KNOWN_PREFIXES = listOf("", "$SLACK_PACKAGE.", "$SLACK_PACKAGE.extra.", "slack.", "slack_")
+        private val THREAD_KEYS = setOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts", "rootTs", "thread_id", "threadId")
+            .flatMap { key -> KNOWN_PREFIXES.map { prefix -> "$prefix$key" } }.toSet()
 
         /** The key itself when it is a [KNOWN_KEYS] entry, alone or after a [KNOWN_PREFIXES] entry. */
         private fun knownKeyName(key: String): String? =

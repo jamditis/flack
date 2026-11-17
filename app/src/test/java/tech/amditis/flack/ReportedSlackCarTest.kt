@@ -27,7 +27,7 @@ import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowNotificationManager
 import org.robolectric.util.ReflectionHelpers
 
-/** Synthetic equivalents of the content-free 0.3.3 car report; no device dump. */
+/** Synthetic equivalents of the content-free car reports; no device dump. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class ReportedSlackCarTest {
@@ -52,24 +52,28 @@ class ReportedSlackCarTest {
         BridgeState.registry.clear()
     }
 
-    private fun reportedMessage(key: String, group: Boolean = true): android.service.notification.StatusBarNotification {
+    private fun reportedMessage(
+        key: String, group: Boolean = true, withMarkRead: Boolean = true, text: String = "Lunch at noon?",
+    ): android.service.notification.StatusBarNotification {
         val source = SyntheticSlack.dm(app, key = key, title = if (group) "#paper-kites" else null,
+            text = text,
             isGroup = group, shortcutId = if (group) "C12345678" else "D12345678",
             extraReply = SyntheticSlack.replyIntent(app, "$key-thread"),
-            replySemanticAction = 0, extraReplySemanticAction = 0)
+            replySemanticAction = 0, extraReplySemanticAction = 0, replyShowsUserInterface = true)
         val actions = source.notification.actions
         val read = Notification.Action.Builder(null, "Mark as read", SyntheticSlack.replyIntent(app, "$key-read"))
             .setSemanticAction(2).build()
         val notification = Notification.Builder.recoverBuilder(app, source.notification).setGroup("synthetic-slack").build()
-        notification.actions = arrayOf(read, actions[1], actions[0])
+        notification.actions = if (withMarkRead) arrayOf(read, actions[1], actions[0]) else arrayOf(actions[1], actions[0])
         return SyntheticSlack.statusBar(notification, key)
     }
 
     @Test fun reportedChannelAndDmShapesPostAndDispatchOnlyTheirPlainReplyOnce() {
         val before = BridgeState.forwarded
-        listOf(true, false).forEach { group ->
-            val key = if (group) "channel" else "dm"
-            val source = reportedMessage(key, group)
+        val cases = listOf(true to true, true to false, false to true, false to false)
+        cases.forEach { (group, withMarkRead) ->
+            val key = "${if (group) "channel" else "dm"}-$withMarkRead"
+            val source = reportedMessage(key, group, withMarkRead, text = "Synthetic message $key")
             listener.onNotificationPosted(source)
             val copy = manager.allNotifications.single()
             assertEquals("car_messages", copy.channelId)
@@ -90,7 +94,7 @@ class ReportedSlackCarTest {
                 .getCharSequence(SyntheticSlack.REPLY_KEY).toString())
             listener.onNotificationRemoved(source)
         }
-        assertEquals(before + 2, BridgeState.forwarded)
+        assertEquals(before + cases.size, BridgeState.forwarded)
         assertTrue(BridgeState.copyDiagnostics().contains("outcome=POSTED; channel=car_messages"))
     }
 

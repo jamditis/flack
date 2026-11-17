@@ -15,7 +15,7 @@ class ReplyActionDiagnosticsTest {
         val diagnostics = ReplyActionDiagnostics()
         diagnostics.record(listOf(action("Reply", "reply_text"), action("Reply in thread", "thread_text")))
         val report = diagnostics.report()
-        assertTrue(report.contains("Action 1: title=Reply; semanticAction=1; resultKeys=[reply_text]; showsUserInterface=false; allowGeneratedReplies=true"))
+        assertTrue(report.contains("Action 1: title=Reply; semanticAction=1; resultKeys=[reply_text]; showsUserInterface=false; launchesActivity=false; allowGeneratedReplies=true"))
         assertTrue(report.contains("Action 2: title=Reply in thread; semanticAction=1; resultKeys=[thread_text]"))
         assertFalse(report.contains(SLACK_PACKAGE))
         assertFalse(report.contains("10123"))

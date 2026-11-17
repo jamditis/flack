@@ -50,21 +50,26 @@ object CapabilityCheck {
         if (conversation.isGroup && conversation.title.isNullOrBlank()) return readOnly(RejectReason.NO_CONTEXT)
 
         // Prefer Android's explicit reply semantic. Slack also ships actions with
-        // no semantic: use the plain input action, keeping "Reply in thread" separate.
+        // no semantic: accept the observed plain Reply label. A thread action needs
+        // an explicit reply semantic; the probe has not verified a thread marker.
         // The original PendingIntent supplies the destination in either case.
         val inputs = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
         val semanticReplies = inputs.filter { it.value.semanticAction == SEMANTIC_ACTION_REPLY }
         val candidates = semanticReplies.ifEmpty {
             inputs.filter {
-                it.value.semanticAction == SEMANTIC_ACTION_NONE &&
-                    it.value.title?.contains("in thread", ignoreCase = true) != true
+                facts.packageName == SLACK_PACKAGE && isSlackPlainReply(it.value)
             }
         }
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
         if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
         val (index, action) = candidates.single()
         if (action.freeFormResultKeys.size > 1) return readOnly(RejectReason.MULTIPLE_RESULT_KEYS)
-        if (action.showsUserInterface) return readOnly(RejectReason.REPLY_OPENS_APP)
+        // Slack's observed Reply has RemoteInput and the default-true UI hint.
+        // That hint alone does not turn a broadcast/service action into an activity.
+        val slackPlainReply = facts.packageName == SLACK_PACKAGE && isSlackPlainReply(action)
+        if (action.launchesActivity || (action.showsUserInterface && !slackPlainReply)) {
+            return readOnly(RejectReason.REPLY_OPENS_APP)
+        }
         if (action.isImmutable) return readOnly(RejectReason.REPLY_ACTION_IMMUTABLE)
         if (action.creatorPackage != facts.packageName ||
             action.creatorUid == null ||
@@ -85,6 +90,9 @@ object CapabilityCheck {
 
     private fun reject(reason: RejectReason) = Capability.Rejected(reason)
     private fun readOnly(reason: RejectReason) = Capability.ReadOnly(reason)
+
+    private fun isSlackPlainReply(action: ReplyActionFacts): Boolean =
+        action.semanticAction == SEMANTIC_ACTION_NONE && action.title?.trim().equals("Reply", ignoreCase = true)
 
     // Android's Notification.Action.SEMANTIC_ACTION_REPLY. Core has no Android dependency.
     private const val SEMANTIC_ACTION_REPLY = 1

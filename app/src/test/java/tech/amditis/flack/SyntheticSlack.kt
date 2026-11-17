@@ -61,6 +61,7 @@ object SyntheticSlack {
         replySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
         extraReplySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
         shortcutId: String? = null,
+        replyShowsUserInterface: Boolean = false,
     ): StatusBarNotification {
         val me = Person.Builder().setName("Me").build()
         val style = NotificationCompat.MessagingStyle(me).setConversationTitle(title)
@@ -81,7 +82,7 @@ object SyntheticSlack {
                 NotificationCompat.Action.Builder(0, "Reply", reply)
                     .addRemoteInput(input.build())
                     .setSemanticAction(replySemanticAction)
-                    .setShowsUserInterface(false)
+                    .setShowsUserInterface(replyShowsUserInterface)
                     .build(),
             )
         }
@@ -90,7 +91,7 @@ object SyntheticSlack {
                 NotificationCompat.Action.Builder(0, "Reply in thread", extraReply)
                     .addRemoteInput(RemoteInput.Builder("thread_text").build())
                     .setSemanticAction(extraReplySemanticAction)
-                    .setShowsUserInterface(false)
+                    .setShowsUserInterface(replyShowsUserInterface)
                     .build(),
             )
         }

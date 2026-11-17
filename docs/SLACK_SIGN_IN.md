@@ -1,6 +1,6 @@
 # Slack sign-in reply route
 
-Design updated November 13, 2026. Sign-in is merged. The first API reply experiment sends a top-level reply to the notification's conversation. Physical phone/car delivery remains unverified.
+The API reply experiment sends a top-level reply to the notification's conversation. One car reply was confirmed by Slack on 0.3.4 on November 17, 2026. The full physical routing and cancel matrix remains unverified.
 
 ## Goal
 
@@ -19,6 +19,8 @@ The v0.2.1 car test showed why this is needed. Two channel messages arrived with
 ## Evidence for the first reply
 
 The November 13 field report on [#29](https://github.com/jamditis/flack/issues/29#issuecomment-6865459623) shows a conversation ID in `shortcutId`: D for DMs and G for groups, present in all 11 cases, agreeing within a conversation and differing between conversations. Workspace IDs appear as whole string extras values and agree within a conversation. Their key names remain unknown. No observed timestamp identifies this message or its thread parent.
+
+The [November 17 probe](https://github.com/jamditis/flack/issues/29#issuecomment-6951898333) supports C/G conversation IDs in shortcutId (13/13) and T-shaped workspace values. Partial timestamp matches do not establish a thread parent, and numbered extras are not stable field names. The same car test recorded 12 API reply offers and one Slack-confirmed car reply. It does not prove native handoff, concurrent-destination safety or cancel behavior. The [device record](DEVICE_TEST_RECORD.md) keeps these limits separate.
 
 The maintainer approved top-level replies for this experiment on November 13: "We don't necessarily need to be able to reply in a specific thread. I'm more interested in confirming that we can send replies to begin with at all." No observed field reliably distinguishes thread messages. API replies to those notifications also go to the conversation's top level, never into a specific thread. The coordinator approved checking `auth.test` against an exact workspace ID in the notification extras, with no new scopes. A refusal from `chat.postMessage` ends that attempt; Flack never tries another conversation or workspace.
 
