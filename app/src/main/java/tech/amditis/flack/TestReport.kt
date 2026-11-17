@@ -46,7 +46,7 @@ object TestReport {
             // Keep the bounded action evidence when route history is full. Reserve
             // its actual size, up to half the report, then give routes the remainder.
             val actionReserve = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT / 2).length
-            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 1 - actionReserve)
+            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 2 - actionReserve)
             val actions = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT - head.length - routes.length - 2)
             listOf(head, routes, actions).filter { it.isNotEmpty() }.joinToString("\n")
         }
