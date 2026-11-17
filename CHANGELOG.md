@@ -2,7 +2,7 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.5
 
 - Slack's exact Reply action with a free-form input can use the native route
   when its reply semantic is unset and its UI hint is true. An actual activity
