@@ -129,7 +129,6 @@ class CarActionReceiver : BroadcastReceiver() {
             else -> null
         }
         if (message != null) CarNotificationPublisher.postReplyStatus(context, message)
-        else CarNotificationPublisher.dismissReplyStatus(context)
     }
 
     /**
