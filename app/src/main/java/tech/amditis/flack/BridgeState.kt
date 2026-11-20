@@ -77,7 +77,8 @@ object BridgeState {
     private val copyRecords = LinkedHashMap<String, CopyRecord>()
     private var nextCopyRecord = 1
     private val postOutcomes = ArrayDeque<CopyPostAttempt>()
-    @Volatile internal var onPostChange: (() -> Unit)? = null
+    @Volatile internal var onStatusChange: (() -> Unit)? = null
+    internal val updateHealth = PlatformUpdateHealth { onStatusChange?.invoke() }
     val lastPostOutcome: CopyPostOutcome?
         @Synchronized get() = postOutcomes.lastOrNull()?.outcome
 
@@ -158,7 +159,7 @@ object BridgeState {
             if (postOutcomes.size == 20) postOutcomes.removeFirst()
             postOutcomes.addLast(attempt)
         }
-        onPostChange?.invoke()
+        onStatusChange?.invoke()
     }
 
     /** Forward new messages only when switched on and, unless the user opted out, in the car. */

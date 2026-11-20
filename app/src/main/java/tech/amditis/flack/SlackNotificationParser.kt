@@ -23,6 +23,8 @@ class ParsedNotification(
     val hasMessagingMessages: Boolean = false,
     /** Android grouping affects the filter. It is separate from message content identity. */
     val groupKey: String? = null,
+    /** Android gave a message signal, even if its payload was unreadable. */
+    val hasMessageSignal: Boolean = false,
 ) {
     /** Cross-key identity for a summary and child. Exact observed fields, memory only. */
     data class MessageIdentity(
@@ -78,19 +80,20 @@ object SlackNotificationParser {
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
         val messaging = style?.let { conversation(notification, it) }
         val hasMessages = messaging?.messages?.isNotEmpty() == true
+        val plainMessage = !hasMessages && canReadPlainText(notification,
+            style != null || replyActions.any { it.freeFormResultKeys.isNotEmpty() })
         val facts = SourceFacts(
             packageName = sbn.packageName,
             userId = sbn.user.hashCode(),
             notificationKey = sbn.key,
             isGroupSummary = notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
-            conversation = if (hasMessages) messaging else plainConversation(
-                notification, style != null || replyActions.any { it.freeFormResultKeys.isNotEmpty() },
-            ),
+            conversation = if (plainMessage) plainConversation(notification) else messaging?.takeIf { hasMessages },
             replyActions = replyActions,
             hasThreadMarker = notification.extras.keySet().any { RouteFieldProbe.isThreadMarkerKey(it) },
         )
         val group = sbn.groupKey.takeIf { notification.group != null || sbn.overrideGroupKey != null }
-        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn, style), hasMessages, group)
+        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn, style), hasMessages, group,
+            hasMessageSignal = hasMessages || plainMessage)
     }
 
     private fun routeFields(sbn: StatusBarNotification, style: NotificationCompat.MessagingStyle?): RouteFields {
@@ -145,15 +148,19 @@ object SlackNotificationParser {
         return Conversation(title, isGroup, messages)
     }
 
-    private fun plainConversation(notification: Notification, hasMessageSignal: Boolean): Conversation? {
+    private fun canReadPlainText(notification: Notification, hasMessageSignal: Boolean): Boolean {
         // A title and text can describe a call or upload, not a chat message.
         // Trust Android's message category/style or a free-form input, then keep the copy read-only.
-        if (!hasMessageSignal && notification.category != Notification.CATEGORY_MESSAGE) return null
-        if (notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0) return null
-        when (notification.category) {
+        if (!hasMessageSignal && notification.category != Notification.CATEGORY_MESSAGE) return false
+        if (notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0) return false
+        return when (notification.category) {
             Notification.CATEGORY_CALL, Notification.CATEGORY_MISSED_CALL, Notification.CATEGORY_PROGRESS,
-            Notification.CATEGORY_SERVICE -> return null
+            Notification.CATEGORY_SERVICE -> false
+            else -> true
         }
+    }
+
+    private fun plainConversation(notification: Notification): Conversation? {
         val extras = notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }

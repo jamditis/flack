@@ -1,7 +1,7 @@
 package tech.amditis.flack
 
 import android.content.Context
-import android.content.pm.PackageManager
+import android.content.pm.PackageInfo
 import android.os.Build
 import tech.amditis.flack.core.REPORT_LIMIT
 import tech.amditis.flack.core.SLACK_PACKAGE
@@ -25,8 +25,8 @@ object TestReport {
             appendLine("Flack: ${self.versionName} (${self.longVersionCode}, $buildType)")
             appendLine("Phone: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), security patch ${Build.VERSION.SECURITY_PATCH}")
-            appendLine("Slack: ${versionOf(pm, SLACK_PACKAGE)}")
-            appendLine("Android Auto: ${if (androidAuto == null) "not installed" else androidAuto.versionName ?: "installed, version unknown"}")
+            appendLine("Slack: ${versionLabel(SetupChecks.packageInfo(context, SLACK_PACKAGE))}")
+            appendLine("Android Auto: ${versionLabel(androidAuto)}")
             appendLine()
             appendLine("Notifications allowed: ${yesNo(SetupChecks.canPost(context))}")
             appendLine("Notification access: ${yesNo(SetupChecks.hasAccess(context))}")
@@ -40,6 +40,7 @@ object TestReport {
             appendLine()
             append(BridgeState.diagnostics().trim())
             appendLine()
+            append(BridgeState.updateHealth.report())
             append(BridgeState.filterDiagnostics())
             append(BridgeState.copyDiagnostics())
         }.let { head ->
@@ -52,9 +53,6 @@ object TestReport {
         }
     }
 
-    private fun versionOf(pm: PackageManager, pkg: String): String = try {
-        pm.getPackageInfo(pkg, 0).versionName ?: "installed, version unknown"
-    } catch (_: PackageManager.NameNotFoundException) {
-        "not installed"
-    }
+    private fun versionLabel(info: PackageInfo?): String =
+        if (info == null) "not installed" else "${info.versionName ?: "installed, version unknown"} (${info.longVersionCode})"
 }

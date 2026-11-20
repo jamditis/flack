@@ -198,6 +198,7 @@ object CarNotificationPublisher {
         bindings.forEach {
             manager.cancel(it.carNotificationId)
             BridgeState.forgetConversation(it.carNotificationId)
+            BridgeState.updateHealth.forgetCopy(it.carNotificationId)
         }
     }
 

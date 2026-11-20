@@ -49,6 +49,11 @@ report keeps the last 20 posting outcomes, including notification permission
 state, channel importance, channel-group blocks and exception class names.
 It retains no exception messages or notification content.
 
+After a Slack, Android Auto or Android build change, Flack asks you to recheck
+setup and notes the first notification shapes. After three new attempts with no
+copies, or three evaluated copies with no reply offers, the phone names the
+problem and points to **Copy test report**. Check display and readout in the car.
+
 Flack follows your Slack mobile notification settings. Whatever Slack notifies
 you about on your phone can reach the car. For channel messages, Slack must be
 set to notify you about mentions or All new messages.

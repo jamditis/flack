@@ -12,8 +12,10 @@ internal const val ANDROID_AUTO_PACKAGE = "com.google.android.projection.gearhea
 
 /** The live setup state, shared by the setup screen and the test report. */
 object SetupChecks {
-    fun androidAutoPackage(context: Context): PackageInfo? = try {
-        context.packageManager.getPackageInfo(ANDROID_AUTO_PACKAGE, 0)
+    fun androidAutoPackage(context: Context): PackageInfo? = packageInfo(context, ANDROID_AUTO_PACKAGE)
+
+    internal fun packageInfo(context: Context, name: String): PackageInfo? = try {
+        context.packageManager.getPackageInfo(name, 0)
     } catch (_: PackageManager.NameNotFoundException) {
         null
     }

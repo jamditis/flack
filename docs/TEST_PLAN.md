@@ -53,6 +53,21 @@ with reordered actions, a DM, a channel and two existing threads. Check that
 neither the native nor API route is offered. Test a unique explicit reply action
 separately, including a thread action and an expired or shared action.
 
+## Recheck after a software update
+
+Open Flack once to record the installed versions. After updating Slack, Android
+Auto or Android, check Flack's setup and receive a fresh Slack message while
+parked. The phone should name the changed component and keep forwarding enabled.
+Android Auto's **Unknown sources** check still follows its installed version.
+
+Use **Copy test report** to distinguish local copies posted from replies offered.
+Three new message notifications with zero local copies trigger a phone warning.
+Three posted copies evaluated for replies with zero offers trigger a different
+warning. Pending sign-in lookups count after they resolve. A successful reply
+offer clears the recheck. The report retains the first five distinct shapes in
+memory and keeps the changed-component notice across an app restart until Flack
+offers a reply. Check actual display and spoken readout on the car.
+
 ## G0: Test the native route
 
 1. For each target phone, record the model, Android/One UI, Slack, Google/Gemini, Android Auto, car/head unit, and wired/wireless connection.

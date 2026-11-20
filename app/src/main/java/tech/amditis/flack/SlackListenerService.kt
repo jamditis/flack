@@ -1,14 +1,20 @@
 package tech.amditis.flack
 
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
+import android.os.PatternMatcher
 import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import tech.amditis.flack.core.ApiReadOnlyReason
 import tech.amditis.flack.core.ApiRoute
 import tech.amditis.flack.core.ApiRouteResolver
@@ -22,6 +28,7 @@ import tech.amditis.flack.core.FilterRow
 import tech.amditis.flack.core.NotificationFeatures
 import tech.amditis.flack.core.NotificationFilter
 import tech.amditis.flack.core.RejectReason
+import tech.amditis.flack.core.SLACK_PACKAGE
 import tech.amditis.flack.core.DEFAULT_MAX_BINDINGS
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -47,6 +54,29 @@ class SlackListenerService : NotificationListenerService() {
     private val sources = HashMap<String, Source>()
     // Bounded session history also prevents a removed child being replayed as a summary.
     private val seenMessages = LinkedHashMap<GroupMessage, String>()
+
+    private val packageChanges = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            BridgeState.updateHealth.refresh(context)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        val filter = IntentFilter(Intent.ACTION_PACKAGE_REPLACED).apply {
+            addDataScheme("package")
+            addDataSchemeSpecificPart(SLACK_PACKAGE, PatternMatcher.PATTERN_LITERAL)
+            addDataSchemeSpecificPart(ANDROID_AUTO_PACKAGE, PatternMatcher.PATTERN_LITERAL)
+        }
+        // This protected system broadcast is observed only while the existing listener runs.
+        ContextCompat.registerReceiver(this, packageChanges, filter, ContextCompat.RECEIVER_EXPORTED)
+        BridgeState.updateHealth.refresh(this)
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(packageChanges)
+        super.onDestroy()
+    }
 
     private fun describeSource(parsed: ParsedNotification) = Source(
         parsed.groupKey,
@@ -147,8 +177,9 @@ class SlackListenerService : NotificationListenerService() {
                         coversSummary(describeSource(SlackNotificationParser.parse(other)), source)
                 }
             )
+        val textActions = parsed.facts.replyActions.count { it.freeFormResultKeys.isNotEmpty() }
         val features = NotificationFeatures(
-            parsed.hasMessagingMessages, parsed.facts.replyActions.any { it.freeFormResultKeys.isNotEmpty() },
+            parsed.hasMessagingMessages, textActions > 0,
             source.group != null, source.summary, activeChild,
             NotificationFilter.conversationIdShape(parsed.routeFields.shortcutId),
             parsed.facts.conversation?.isGroup, parsed.facts.conversation?.messages?.isNotEmpty() == true,
@@ -156,9 +187,12 @@ class SlackListenerService : NotificationListenerService() {
         )
         val decision = NotificationFilter.decide(features)
         BridgeState.recordFilter(decision, features)
+        if (sbn.packageName == SLACK_PACKAGE) {
+            BridgeState.updateHealth.recordShape(features, decision, parsed.facts.replyActions, textActions)
+        }
         // Capture multi-action facts even when the selector can safely choose one,
         // so the driveway test still reveals Slack's actual action shape.
-        if (parsed.facts.replyActions.count { it.freeFormResultKeys.isNotEmpty() } > 1) {
+        if (textActions > 1) {
             BridgeState.replyActionDiagnostics.record(parsed.facts.replyActions)
         }
         if (!BridgeState.shouldForward(this)) {
@@ -186,6 +220,9 @@ class SlackListenerService : NotificationListenerService() {
         when (capability) {
             is Capability.Rejected -> {
                 BridgeState.countRejection(capability.reason)
+                if (sbn.packageName == SLACK_PACKAGE && !source.summary && parsed.hasMessageSignal && previousSource != source) {
+                    BridgeState.updateHealth.recordAttempt(this, posted = false)
+                }
                 refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
             }
             // Route order: Slack's original action, then the Slack API, then read-only.
@@ -207,6 +244,7 @@ class SlackListenerService : NotificationListenerService() {
      */
     fun onCarConnectionChanged(connected: Boolean) {
         BridgeState.carConnected = connected
+        if (connected) BridgeState.updateHealth.refresh(this)
         if (!connected || !BridgeState.shouldForward(this)) CarNotificationPublisher.cancel(this, BridgeState.registry.withdrawAll())
     }
 
@@ -252,6 +290,16 @@ class SlackListenerService : NotificationListenerService() {
                     else -> readOnly?.reason
                 }
                 val posted = publish(result.binding, conversation, result.alert, replyProblem)
+                val updateAttempt = if (sbn.packageName == SLACK_PACKAGE) {
+                    val replyOffered = result.binding.canReply.takeUnless { allowApiLookup }
+                    val id = result.binding.carNotificationId
+                    when {
+                        replacesKey != null -> BridgeState.updateHealth.recordReplacement(this, id, posted, replyOffered)
+                        result.alert -> BridgeState.updateHealth.recordAttempt(this, posted, replyOffered,
+                            summaryCopyId = id.takeIf { parsed.facts.isGroupSummary })
+                        else -> null
+                    }
+                } else null
                 if (posted) {
                     if (sharedAction) BridgeState.countAmbiguous()
                     if (!allowApiLookup) replyProblem?.let(BridgeState::countReadOnly)
@@ -263,7 +311,9 @@ class SlackListenerService : NotificationListenerService() {
                             .forEach { (key, other) -> refreshBindings(BridgeState.registry.recordOther(key, other.actions)) }
                     }
                 }
-                if (posted && readOnly != null && allowApiLookup) resolveBeforePublishing(sbn, parsed, readOnly, result)
+                if (posted && readOnly != null && allowApiLookup) {
+                    resolveBeforePublishing(sbn, parsed, readOnly, result, updateAttempt)
+                }
             }
             is Observation.Unchanged, is Observation.Baseline -> Unit
         }
@@ -275,6 +325,7 @@ class SlackListenerService : NotificationListenerService() {
         parsed: ParsedNotification,
         readOnly: Capability.ReadOnly,
         pending: Observation.Publish<PendingIntent>,
+        updateAttempt: PlatformUpdateHealth.Attempt?,
     ) {
         fun complete(route: ApiRoute) {
             if (!BridgeState.registry.isCurrent(pending.binding) || !BridgeState.shouldForward(this)) return
@@ -286,13 +337,15 @@ class SlackListenerService : NotificationListenerService() {
                     if (updated is Observation.Publish) {
                         BridgeState.countApiRouted()
                         // Readout was already offered. Add the confirmed reply quietly.
-                        publish(updated.binding, conversation, alert = false)
+                        val offered = publish(updated.binding, conversation, alert = false)
+                        BridgeState.updateHealth.recordApiReply(this, updateAttempt, offered)
                     }
                 }
                 is ApiRoute.ReadOnly -> {
                     BridgeState.countReadOnly(readOnly.reason)
                     BridgeState.countApiReadOnly(route.reason)
                     publish(pending.binding, conversation, alert = false, replyProblem = readOnly.reason)
+                    BridgeState.updateHealth.recordApiReply(this, updateAttempt, offered = false)
                 }
             }
         }
