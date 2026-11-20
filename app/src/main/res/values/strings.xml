@@ -39,10 +39,13 @@
     <string name="step_auto_title">Allow Flack in Android Auto</string>
     <string name="step_auto_body">Flack is not from Google Play, so Android Auto hides it until you turn on \"Unknown sources\".</string>
     <string name="step_auto_action">Show me how</string>
-    <string name="step_auto_dialog_title">Turn on Unknown sources</string>
-    <string name="step_auto_dialog_body">This is Android Auto\'s own developer mode, separate from your phone\'s developer options.\n\n1. Open Settings, then Connected devices, then Android Auto. On Samsung, if App info opens, tap Configure in Android Auto.\n2. Scroll down and tap the Version row 10 times, until it asks to allow development settings. Accept the prompt.\n3. Open the menu (three dots), then Developer settings.\n4. Turn on Unknown sources.\n\nIf Android Auto or Gemini offers a setting to send replies automatically, turn it off, so you hear every reply before it is sent.</string>
+    <string name="step_auto_recheck">Check Android Auto settings</string>
+    <string name="step_auto_checked">You checked Unknown sources for this version. If Flack disappears from the car, check Unknown sources and Customize launcher again.</string>
+    <string name="step_auto_changed">Your Android Auto version changed. Check that Unknown sources is on and Flack is selected under Customize launcher.</string>
+    <string name="step_auto_dialog_title">Check Android Auto settings</string>
+    <string name="step_auto_dialog_body">1. Open phone Settings and search for Android Auto. If App info opens, tap Configure in Android Auto.\n2. Open the three-dot menu and tap Developer settings. If it is missing, scroll to Version, tap to expand it, then tap the expanded version information 10 times and tap OK. Return to Developer settings.\n3. Check that Unknown sources is on.\n4. Go back and tap Customize launcher. If Flack is listed, make sure it is selected. Disconnect and reconnect Android Auto to see launcher changes.\n\nIf Android Auto or Gemini offers a setting to send replies automatically, turn it off, so you hear every reply before it is sent.</string>
     <string name="step_auto_open">Open Android Auto</string>
-    <string name="step_auto_confirm">I\'ve done this</string>
+    <string name="step_auto_confirm">I checked Unknown sources</string>
     <string name="step_auto_unavailable">Android Auto is not installed on this phone.</string>
     <string name="enable_switch">Forward Slack messages to Android Auto</string>
     <string name="car_only_switch">Only while Android Auto is connected</string>

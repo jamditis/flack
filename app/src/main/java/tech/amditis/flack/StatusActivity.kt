@@ -33,11 +33,13 @@ import tech.amditis.flack.core.WorkspaceToken
  */
 class StatusActivity : Activity() {
 
+    private data class StepState(val done: Boolean, val body: Int)
+
     private class Step(
         val title: Int,
-        val body: Int,
         val action: Int,
-        val isDone: () -> Boolean,
+        val state: () -> StepState,
+        val recheckAction: Int? = null,
         val help: Int? = null,
         val onHelp: () -> Unit = {},
         val onAction: () -> Unit,
@@ -56,21 +58,21 @@ class StatusActivity : Activity() {
         applyInsets()
 
         steps = listOf(
-            Step(R.string.step_post_title, R.string.step_post_body, R.string.step_post_action, ::canPost) {
+            Step(R.string.step_post_title, R.string.step_post_action, { StepState(canPost(), R.string.step_post_body) }) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_POST)
                 }
             },
             Step(
-                R.string.step_access_title, R.string.step_access_body, R.string.step_access_action, ::hasAccess,
+                R.string.step_access_title, R.string.step_access_action, { StepState(hasAccess(), R.string.step_access_body) },
                 help = R.string.step_access_help, onHelp = ::showRestrictedSettingsHelp,
             ) {
                 open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             },
-            Step(R.string.step_battery_title, R.string.step_battery_body, R.string.step_battery_action, ::runsInBackground) {
+            Step(R.string.step_battery_title, R.string.step_battery_action, { StepState(runsInBackground(), R.string.step_battery_body) }) {
                 open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
             },
-            Step(R.string.step_auto_title, R.string.step_auto_body, R.string.step_auto_action, { BridgeState.isAndroidAutoConfirmed(this) }) {
+            Step(R.string.step_auto_title, R.string.step_auto_action, ::androidAutoStep, recheckAction = R.string.step_auto_recheck) {
                 showAndroidAutoHelp()
             },
         )
@@ -80,9 +82,7 @@ class StatusActivity : Activity() {
         stepViews = steps.map { step ->
             inflater.inflate(R.layout.item_setup_step, container, false).also { view ->
                 view.findViewById<TextView>(R.id.step_title).setText(step.title)
-                view.findViewById<TextView>(R.id.step_body).setText(step.body)
                 view.findViewById<MaterialButton>(R.id.step_action).apply {
-                    setText(step.action)
                     setOnClickListener { step.onAction() }
                 }
                 step.help?.let { help ->
@@ -128,12 +128,16 @@ class StatusActivity : Activity() {
     private fun refresh() {
         var done = 0
         steps.zip(stepViews).forEach { (step, view) ->
-            val isDone = step.isDone()
+            val (isDone, body) = step.state()
             if (isDone) done++
             view.findViewById<ImageView>(R.id.step_state).apply {
                 setImageResource(if (isDone) R.drawable.ic_step_done else R.drawable.ic_step_todo)
             }
-            view.findViewById<View>(R.id.step_action).visibility = if (isDone) View.GONE else View.VISIBLE
+            view.findViewById<TextView>(R.id.step_body).setText(body)
+            view.findViewById<MaterialButton>(R.id.step_action).apply {
+                setText(if (isDone) step.recheckAction ?: step.action else step.action)
+                visibility = if (isDone && step.recheckAction == null) View.GONE else View.VISIBLE
+            }
             view.findViewById<View>(R.id.step_help).visibility = if (isDone || step.help == null) View.GONE else View.VISIBLE
             val state = getString(if (isDone) R.string.step_state_done else R.string.step_state_todo)
             view.contentDescription = "${getString(step.title)}. $state."
@@ -268,16 +272,30 @@ class StatusActivity : Activity() {
             .show()
     }
 
+    private fun androidAutoStep(): StepState {
+        val setup = BridgeState.androidAutoSetup(this, SetupChecks.androidAutoPackage(this)?.longVersionCode)
+        val body = when (setup) {
+            AndroidAutoSetup.UNAVAILABLE -> R.string.step_auto_unavailable
+            AndroidAutoSetup.UNCONFIRMED -> R.string.step_auto_body
+            AndroidAutoSetup.CONFIRMED -> R.string.step_auto_checked
+            AndroidAutoSetup.VERSION_CHANGED -> R.string.step_auto_changed
+        }
+        return StepState(setup == AndroidAutoSetup.CONFIRMED, body)
+    }
+
     private fun showAndroidAutoHelp() {
-        MaterialAlertDialogBuilder(this)
+        val version = SetupChecks.androidAutoPackage(this)?.longVersionCode
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.step_auto_dialog_title)
             .setMessage(R.string.step_auto_dialog_body)
-            .setPositiveButton(R.string.step_auto_confirm) { _, _ ->
-                BridgeState.confirmAndroidAuto(this)
+            .setNeutralButton(R.string.step_auto_open) { _, _ -> openAndroidAuto() }
+        if (version != null) {
+            dialog.setPositiveButton(R.string.step_auto_confirm) { _, _ ->
+                BridgeState.confirmAndroidAuto(this, version)
                 refresh()
             }
-            .setNeutralButton(R.string.step_auto_open) { _, _ -> openAndroidAuto() }
-            .show()
+        }
+        dialog.show()
     }
 
     private fun openAndroidAuto() {
@@ -308,6 +326,5 @@ class StatusActivity : Activity() {
 
     private companion object {
         const val REQUEST_POST = 1
-        const val ANDROID_AUTO_PACKAGE = "com.google.android.projection.gearhead"
     }
 }
