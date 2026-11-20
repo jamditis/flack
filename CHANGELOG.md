@@ -2,7 +2,7 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.6
 
 - Flack keeps Android Auto setup help available after you check Unknown sources.
   When your Android Auto version changes, Flack asks you to check Unknown sources
