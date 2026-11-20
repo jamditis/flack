@@ -123,8 +123,12 @@ internal class PlatformUpdateHealth(private val onChange: () -> Unit = {}) {
         val active = check ?: return null
         return when (warning(active)) {
             Warning.CHECK_SETUP -> context.getString(R.string.update_check_setup, active.components)
-            Warning.NO_COPIES -> context.getString(R.string.update_no_copies, active.components, active.attempts)
-            Warning.NO_REPLIES -> context.getString(R.string.update_no_replies, active.components, active.repliesChecked)
+            Warning.NO_COPIES -> context.resources.getQuantityString(
+                R.plurals.update_no_copies, active.attempts, active.components, active.attempts,
+            )
+            Warning.NO_REPLIES -> context.resources.getQuantityString(
+                R.plurals.update_no_replies, active.repliesChecked, active.components, active.repliesChecked,
+            )
             null -> null
         }
     }

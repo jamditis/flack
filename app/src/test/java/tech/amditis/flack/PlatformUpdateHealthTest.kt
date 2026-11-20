@@ -61,7 +61,7 @@ class PlatformUpdateHealthTest {
         health.refresh(app, updated)
         repeat(3) { health.recordAttempt(app, posted = false) }
         health.refresh(app, updated)
-        assertEquals(app.getString(R.string.update_no_copies, "Slack", 3), health.phoneMessage(app))
+        assertEquals(app.resources.getQuantityString(R.plurals.update_no_copies, 3, "Slack", 3), health.phoneMessage(app))
 
         val restarted = PlatformUpdateHealth()
         restarted.refresh(app, updated)
@@ -82,7 +82,7 @@ class PlatformUpdateHealthTest {
         val pending = List(4) { health.recordAttempt(app, posted = true) }
         assertEquals(app.getString(R.string.update_check_setup, "Slack"), health.phoneMessage(app))
         pending.take(3).forEach { health.recordApiReply(app, it, offered = false) }
-        assertEquals(app.getString(R.string.update_no_replies, "Slack", 3), health.phoneMessage(app))
+        assertEquals(app.resources.getQuantityString(R.plurals.update_no_replies, 3, "Slack", 3), health.phoneMessage(app))
         health.recordApiReply(app, pending.last(), offered = true)
         assertNull(health.phoneMessage(app))
 
@@ -124,14 +124,14 @@ class PlatformUpdateHealthTest {
             listener.get().onNotificationPosted(SyntheticSlack.dm(app, key = "blocked-2"))
             val unreadable = Notification.Builder(app, "synthetic").setCategory(Notification.CATEGORY_MESSAGE).build()
             listener.get().onNotificationPosted(SyntheticSlack.statusBar(unreadable, "unreadable"))
-            assertEquals(app.getString(R.string.update_no_copies, "Slack", 3), notice.text)
+            assertEquals(app.resources.getQuantityString(R.plurals.update_no_copies, 3, "Slack", 3), notice.text)
 
             notifications.setNotificationsEnabled(true)
             repeat(3) { index ->
                 listener.get().onNotificationPosted(SyntheticSlack.dm(app, key = "mixed-$index", text = "Synthetic paper message",
                     extraReply = SyntheticSlack.replyIntent(app, "thread-$index")))
             }
-            assertEquals(app.getString(R.string.update_no_replies, "Slack", 3), notice.text)
+            assertEquals(app.resources.getQuantityString(R.plurals.update_no_replies, 3, "Slack", 3), notice.text)
             val report = TestReport.build(app)
             assertTrue(report.contains("First distinct Slack notification shapes after the update"))
             assertTrue(report.contains("textActions=2"))
@@ -144,7 +144,7 @@ class PlatformUpdateHealthTest {
             val summary = Notification.Builder.recoverBuilder(app, summarySource.notification)
                 .setGroup("paper-updates").setGroupSummary(true).build()
             listener.get().onNotificationPosted(SyntheticSlack.statusBar(summary, "summary"))
-            assertEquals(app.getString(R.string.update_no_replies, "Slack", 4), notice.text)
+            assertEquals(app.resources.getQuantityString(R.plurals.update_no_replies, 4, "Slack", 4), notice.text)
             val childSource = SyntheticSlack.dm(app, key = "child", text = "Later paper update")
             val child = Notification.Builder.recoverBuilder(app, childSource.notification).setGroup("paper-updates").build()
             listener.get().onNotificationPosted(SyntheticSlack.statusBar(child, "child"))
