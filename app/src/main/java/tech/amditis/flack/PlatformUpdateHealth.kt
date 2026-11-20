@@ -22,8 +22,14 @@ internal data class PlatformVersions(val slack: Long?, val androidAuto: Long?, v
 internal class PlatformUpdateHealth(private val onChange: () -> Unit = {}) {
     private enum class Warning { CHECK_SETUP, NO_COPIES, NO_REPLIES }
 
+    internal class Attempt internal constructor(internal val generation: Long) {
+        internal var posted = false
+        internal var replyOffered: Boolean? = null
+    }
+
     private class Check(val generation: Long, val components: String) {
         val firstShapes = linkedSetOf<String>()
+        val summaryAttempts = HashMap<Int, Attempt>()
         var attempts = 0
         var posted = 0
         var repliesChecked = 0
@@ -66,25 +72,47 @@ internal class PlatformUpdateHealth(private val onChange: () -> Unit = {}) {
         }
     }
 
-    /** Returns a generation only for a posted copy whose API confirmation is still pending. */
-    fun recordAttempt(context: Context, posted: Boolean, replyOffered: Boolean? = null): Long? {
+    fun recordAttempt(context: Context, posted: Boolean, replyOffered: Boolean? = null, summaryCopyId: Int? = null): Attempt? {
         val active = check ?: return null
         active.attempts++
-        if (posted) active.posted++
-        if (posted && replyOffered != null) recordReply(context, active, replyOffered)
+        val attempt = Attempt(active.generation)
+        if (summaryCopyId != null) active.summaryAttempts[summaryCopyId] = attempt
+        recordOutcome(context, active, attempt, posted, replyOffered)
         onChange()
-        return active.generation.takeIf { posted && replyOffered == null }
+        return attempt.takeIf { posted && replyOffered == null }
     }
 
-    fun recordApiReply(context: Context, generation: Long?, offered: Boolean) {
-        val active = check?.takeIf { it.generation == generation } ?: return
-        recordReply(context, active, offered)
+    /** A child can improve the outcome of an already counted summary. */
+    fun recordReplacement(context: Context, copyId: Int, posted: Boolean, replyOffered: Boolean?): Attempt? {
+        val active = check ?: return null
+        val attempt = active.summaryAttempts.remove(copyId) ?: return null
+        recordOutcome(context, active, attempt, posted, replyOffered)
+        onChange()
+        return attempt.takeIf { posted && replyOffered == null }
+    }
+
+    fun forgetCopy(copyId: Int) {
+        check?.summaryAttempts?.remove(copyId)
+    }
+
+    fun recordApiReply(context: Context, attempt: Attempt?, offered: Boolean) {
+        if (attempt == null) return
+        val active = check?.takeIf { it.generation == attempt.generation } ?: return
+        recordOutcome(context, active, attempt, posted = true, replyOffered = offered)
         onChange()
     }
 
-    private fun recordReply(context: Context, active: Check, offered: Boolean) {
-        active.repliesChecked++
-        if (!offered) return
+    private fun recordOutcome(context: Context, active: Check, attempt: Attempt, posted: Boolean, replyOffered: Boolean?) {
+        if (!posted) return
+        if (!attempt.posted) {
+            active.posted++
+            attempt.posted = true
+        }
+        // Count whether this message ever offered a reply during the check.
+        if (replyOffered == null || attempt.replyOffered == true) return
+        if (attempt.replyOffered == null) active.repliesChecked++
+        attempt.replyOffered = replyOffered
+        if (!replyOffered) return
         active.repliesOffered++
         if (active.repliesOffered == 1) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { remove(PENDING) }

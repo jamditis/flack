@@ -290,8 +290,15 @@ class SlackListenerService : NotificationListenerService() {
                     else -> readOnly?.reason
                 }
                 val posted = publish(result.binding, conversation, result.alert, replyProblem)
-                val updateGeneration = if (result.alert && sbn.packageName == SLACK_PACKAGE) {
-                    BridgeState.updateHealth.recordAttempt(this, posted, result.binding.canReply.takeUnless { allowApiLookup })
+                val updateAttempt = if (sbn.packageName == SLACK_PACKAGE) {
+                    val replyOffered = result.binding.canReply.takeUnless { allowApiLookup }
+                    val id = result.binding.carNotificationId
+                    when {
+                        replacesKey != null -> BridgeState.updateHealth.recordReplacement(this, id, posted, replyOffered)
+                        result.alert -> BridgeState.updateHealth.recordAttempt(this, posted, replyOffered,
+                            summaryCopyId = id.takeIf { parsed.facts.isGroupSummary })
+                        else -> null
+                    }
                 } else null
                 if (posted) {
                     if (sharedAction) BridgeState.countAmbiguous()
@@ -305,7 +312,7 @@ class SlackListenerService : NotificationListenerService() {
                     }
                 }
                 if (posted && readOnly != null && allowApiLookup) {
-                    resolveBeforePublishing(sbn, parsed, readOnly, result, updateGeneration)
+                    resolveBeforePublishing(sbn, parsed, readOnly, result, updateAttempt)
                 }
             }
             is Observation.Unchanged, is Observation.Baseline -> Unit
@@ -318,7 +325,7 @@ class SlackListenerService : NotificationListenerService() {
         parsed: ParsedNotification,
         readOnly: Capability.ReadOnly,
         pending: Observation.Publish<PendingIntent>,
-        updateGeneration: Long?,
+        updateAttempt: PlatformUpdateHealth.Attempt?,
     ) {
         fun complete(route: ApiRoute) {
             if (!BridgeState.registry.isCurrent(pending.binding) || !BridgeState.shouldForward(this)) return
@@ -331,14 +338,14 @@ class SlackListenerService : NotificationListenerService() {
                         BridgeState.countApiRouted()
                         // Readout was already offered. Add the confirmed reply quietly.
                         val offered = publish(updated.binding, conversation, alert = false)
-                        BridgeState.updateHealth.recordApiReply(this, updateGeneration, offered)
+                        BridgeState.updateHealth.recordApiReply(this, updateAttempt, offered)
                     }
                 }
                 is ApiRoute.ReadOnly -> {
                     BridgeState.countReadOnly(readOnly.reason)
                     BridgeState.countApiReadOnly(route.reason)
                     publish(pending.binding, conversation, alert = false, replyProblem = readOnly.reason)
-                    BridgeState.updateHealth.recordApiReply(this, updateGeneration, offered = false)
+                    BridgeState.updateHealth.recordApiReply(this, updateAttempt, offered = false)
                 }
             }
         }

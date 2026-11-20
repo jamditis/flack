@@ -99,6 +99,7 @@ class PlatformUpdateHealthTest {
         BridgeState.setEnabled(app, true)
         BridgeState.setCarOnly(app, true)
         val listener = Robolectric.buildService(SlackListenerService::class.java).create()
+        listener.get().activeSources = { emptyArray() }
         listener.get().onCarConnectionChanged(false)
         val status = Robolectric.buildActivity(StatusActivity::class.java).setup()
         val notice = status.get().findViewById<TextView>(R.id.platform_update)
@@ -139,8 +140,18 @@ class PlatformUpdateHealthTest {
             assertFalse(report.contains("Synthetic paper message"))
             assertFalse(report.contains("mixed-0"))
 
-            listener.get().onNotificationPosted(SyntheticSlack.dm(app, key = "known-safe"))
+            val summarySource = SyntheticSlack.dm(app, key = "summary", text = "Later paper update", reply = null)
+            val summary = Notification.Builder.recoverBuilder(app, summarySource.notification)
+                .setGroup("paper-updates").setGroupSummary(true).build()
+            listener.get().onNotificationPosted(SyntheticSlack.statusBar(summary, "summary"))
+            assertEquals(app.getString(R.string.update_no_replies, "Slack", 4), notice.text)
+            val childSource = SyntheticSlack.dm(app, key = "child", text = "Later paper update")
+            val child = Notification.Builder.recoverBuilder(app, childSource.notification).setGroup("paper-updates").build()
+            listener.get().onNotificationPosted(SyntheticSlack.statusBar(child, "child"))
             assertEquals(View.GONE, notice.visibility)
+            val recovered = TestReport.build(app)
+            assertTrue(recovered.contains("Post-update local copies: 4 of 7"))
+            assertTrue(recovered.contains("Post-update replies offered: 1 of 4"))
         } finally {
             status.pause().stop().destroy()
             listener.destroy()
