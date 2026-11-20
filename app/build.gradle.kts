@@ -72,6 +72,8 @@ android {
         // Reads Maven Central on every run, so an outside release fails unrelated PRs
         // (#26, #34, #35). Dependabot (.github/dependabot.yml) tracks versions weekly.
         disable += "NewerVersionAvailable"
+        // Keep tool-version notices visible. Warnings are promoted to errors above.
+        informational += "AndroidGradlePluginVersion"
     }
 }
 
