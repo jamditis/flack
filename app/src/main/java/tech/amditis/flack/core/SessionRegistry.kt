@@ -11,7 +11,7 @@ data class Binding<A : Any>(
     val notificationKey: String,
     val generation: Long,
     val token: String,
-    /** Stable per source key, so updates replace the same car notification. */
+    /** Stable for a message; a new arrival gets a new Android notification. */
     val carNotificationId: Int,
     /** Slack's original reply action. Null when the copy uses the API route or is read-only. */
     val action: A?,
@@ -24,7 +24,7 @@ data class Binding<A : Any>(
 }
 
 sealed interface Observation<A : Any> {
-    /** A new generation to publish. [alert] is false when the newest message is the user's own. */
+    /** A new generation to publish. [alert] identifies a distinct incoming message. */
     data class Publish<A : Any>(
         val binding: Binding<A>,
         val alert: Boolean,
@@ -69,13 +69,12 @@ class SessionRegistry<A : Any>(
     // Insertion order is update order, so the first entry is the oldest.
     private val entries = LinkedHashMap<String, Entry<A>>()
     private val baseline = HashMap<String, String>()
-    private val conflicted = HashSet<String>()
-    private val carIds = HashMap<String, Int>()
+    private val conflicted = HashMap<String, MutableSet<A>>()
 
     /**
      * The actions last seen on every live Slack notification, forwarded or not.
-     * A reply whose action also appears on any other notification is disabled
-     * until that source notification goes away.
+     * A shared action stays disabled for the life of its source notification.
+     * A different action must pass the same checks before it can be used.
      */
     private val knownActions = HashMap<String, Set<A>>()
     private var nextGeneration = 1L
@@ -119,21 +118,19 @@ class SessionRegistry<A : Any>(
         replacesKey: String? = null,
         // A format change expires pending API lookups; unchanged content stays quiet and consumed.
         forceGeneration: Boolean = false,
+        // Changes to action metadata or older history aren't new incoming messages.
+        sameNewestMessage: Boolean = false,
     ): Observation<A> {
         // The original action comes first; the API route is only for messages without one.
         require(action == null || apiRoute == null) { "one reply route per binding" }
         val previousTarget = entries[notificationKey]
         val replaced = replacesKey?.let { entries.remove(it) }
-        if (replaced != null) {
-            carIds.remove(replacesKey)
-            carIds[notificationKey] = replaced.binding.carNotificationId
-        }
         val previousActions = knownActions[notificationKey]
         knownActions[notificationKey] = actions.toSet()
         val clashes = clashingKeys(notificationKey, listOfNotNull(action))
         val disabled = disableReplies(replyOwners(notificationKey, actions))
-        if (clashes.isNotEmpty()) conflicted.add(notificationKey)
-        val safeAction = action.takeUnless { notificationKey in conflicted }
+        if (action != null && clashes.isNotEmpty()) conflicted.getOrPut(notificationKey) { mutableSetOf() }.add(action)
+        val safeAction = action.takeUnless { it in conflicted[notificationKey].orEmpty() }
         val safeKey = resultKey.takeIf { safeAction != null }
         val existing = replaced ?: previousTarget
         // Same content and the same reply capability: a repeated callback.
@@ -155,11 +152,13 @@ class SessionRegistry<A : Any>(
             }
         }
 
+        val alert = replaced == null && !newestFromSelf && existing?.fingerprint != fingerprint &&
+            (existing == null || !sameNewestMessage)
         val binding = Binding(
             notificationKey = notificationKey,
             generation = nextGeneration++,
             token = newToken(),
-            carNotificationId = carIds.getOrPut(notificationKey) { nextCarId++ },
+            carNotificationId = if (alert) nextCarId++ else existing?.binding?.carNotificationId ?: nextCarId++,
             action = safeAction,
             resultKey = safeKey,
             apiRoute = apiRoute,
@@ -169,21 +168,20 @@ class SessionRegistry<A : Any>(
             consumed = replaced?.consumed ?: existing?.takeIf { it.fingerprint == fingerprint }?.consumed ?: false)
 
         val evicted = mutableListOf<Binding<A>>()
-        if (replaced != null && previousTarget != null && previousTarget.binding.carNotificationId != binding.carNotificationId) {
+        if (previousTarget != null && previousTarget.binding.carNotificationId != binding.carNotificationId) {
             evicted.add(previousTarget.binding)
         }
         while (entries.size > maxBindings) {
             val oldestKey = entries.keys.first()
             evicted.add(entries.remove(oldestKey)!!.binding)
-            carIds.remove(oldestKey)
         }
-        return Observation.Publish(binding, alert = replaced == null && !newestFromSelf && existing?.fingerprint != fingerprint, evicted = evicted, replyDisabled = disabled)
+        return Observation.Publish(binding, alert, evicted, disabled)
     }
 
     private fun disableReplies(keys: List<String>): List<Binding<A>> = keys.mapNotNull { key ->
-        conflicted.add(key)
         val entry = entries[key] ?: return@mapNotNull null
-        if (entry.binding.action == null) return@mapNotNull null
+        val action = entry.binding.action ?: return@mapNotNull null
+        conflicted.getOrPut(key) { mutableSetOf() }.add(action)
         val readOnly = entry.binding.copy(generation = nextGeneration++, token = newToken(), action = null, resultKey = null)
         entries[key] = Entry(readOnly, entry.fingerprint, consumed = false)
         readOnly
@@ -194,7 +192,6 @@ class SessionRegistry<A : Any>(
     fun remove(notificationKey: String): Binding<A>? {
         baseline.remove(notificationKey)
         conflicted.remove(notificationKey)
-        carIds.remove(notificationKey)
         knownActions.remove(notificationKey)
         return entries.remove(notificationKey)?.binding
     }
@@ -221,7 +218,6 @@ class SessionRegistry<A : Any>(
         entries.clear()
         baseline.clear()
         conflicted.clear()
-        carIds.clear()
         knownActions.clear()
         return all
     }

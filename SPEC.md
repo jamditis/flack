@@ -131,6 +131,8 @@ Suppress group-summary duplicates when actionable child notifications represent 
 
 A changed source snapshot creates a new generation and invalidates all outstanding reply tokens for the previous generation, including content-only changes during dictation. Equivalent duplicate callbacks do not create a new generation. The mirrored message can update, but a new reply interaction needs a new token. Later support for preserving a reply across content-only updates requires evidence of stable routing and additional race tests. Source removal, permission revocation, pause, session disconnect, or process restart clears affected content and tokens. Newly reconstructed state receives new tokens; old callbacks cannot recover an expired route.
 
+A distinct incoming message gets a fresh Android notification ID. Flack retires the previous copy for that source after attempting the new post. A matching child can take over a summary copy without alerting again. Changes to the displayed history or reply action for the same newest message update the copy quietly.
+
 Provisional memory limits are 50 active conversation bindings and 10 displayed messages per binding. Evict oldest inactive bindings and invalidate their actions together. These limits are product choices to validate in burst tests, not Android platform limits.
 
 ## 8. Reply transaction
@@ -142,7 +144,7 @@ Provisional memory limits are 50 active conversation bindings and 10 displayed m
 5. It checks that the original source and action still match the selected destination.
 6. It atomically consumes the token before invoking the source action.
 7. It supplies the text under the original RemoteInput key and invokes the original Slack PendingIntent once for that token. [S5]
-8. It records an accurate local result without retaining the reply body.
+8. It records an accurate local result without retaining the reply body. A failed, refused, or uncertain reply also posts a content-free status notification for the phone shade and car. This notification can appear after the original message has been removed. Verify its presentation on the target host in G4.
 
 Do not reconstruct Slack's internal intent, launch a guessed deep link, choose the first available Reply action, or silently substitute a fresh destination after validation fails. Keep a thread-reply action distinct from a channel-level action. Never silently shorten an outgoing reply; reject input that cannot be handled and explain the limit.
 

@@ -25,6 +25,7 @@ import tech.amditis.flack.core.Observation
 import tech.amditis.flack.core.ProbeContext
 import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.FilterRow
+import tech.amditis.flack.core.Message
 import tech.amditis.flack.core.NotificationFeatures
 import tech.amditis.flack.core.NotificationFilter
 import tech.amditis.flack.core.RejectReason
@@ -49,6 +50,7 @@ class SlackListenerService : NotificationListenerService() {
     private data class Source(
         val group: String?, val summary: Boolean, val actions: List<PendingIntent>,
         val readable: Boolean, val identity: ParsedNotification.MessageIdentity?, val messaging: Boolean,
+        val latestIncoming: Message?,
     )
     private data class GroupMessage(val group: String, val identity: ParsedNotification.MessageIdentity)
     private val sources = HashMap<String, Source>()
@@ -83,6 +85,7 @@ class SlackListenerService : NotificationListenerService() {
         parsed.facts.isGroupSummary, parsed.actionIntents.filterNotNull(),
         CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages) !is Capability.Rejected,
         parsed.newestMessageIdentity, parsed.hasMessagingMessages,
+        parsed.facts.conversation?.messages?.lastOrNull { !it.fromSelf },
     )
 
     private fun groupMessage(source: Source, parsed: ParsedNotification): GroupMessage? =
@@ -163,6 +166,7 @@ class SlackListenerService : NotificationListenerService() {
         val previousSource = sources.put(sbn.key, source)
         val structureChanged = previousSource != null && (previousSource.group != source.group ||
             previousSource.summary != source.summary || previousSource.messaging != source.messaging)
+        val sameNewestMessage = previousSource?.latestIncoming == source.latestIncoming
         val message = groupMessage(source, parsed)
         val previousKey = message?.let { seenMessages[it] }?.takeIf { it != sbn.key }
         val replacesKey = if (source.summary || source.group == null) null else sources.entries.firstOrNull { (key, summary) ->
@@ -232,9 +236,10 @@ class SlackListenerService : NotificationListenerService() {
                 }
                 val allowApiLookup = noReplyAction && parsed.facts.conversation?.isGroup == false &&
                     parsed.routeFields.shortcutId != null
-                forward(sbn, parsed, null, capability, replacesKey, allowApiLookup, structureChanged)
+                forward(sbn, parsed, null, capability, replacesKey, allowApiLookup, structureChanged, sameNewestMessage)
             }
-            is Capability.Eligible -> forward(sbn, parsed, capability, replacesKey = replacesKey, structureChanged = structureChanged)
+            is Capability.Eligible -> forward(sbn, parsed, capability, replacesKey = replacesKey,
+                structureChanged = structureChanged, sameNewestMessage = sameNewestMessage)
         }
     }
 
@@ -269,6 +274,7 @@ class SlackListenerService : NotificationListenerService() {
         replacesKey: String? = null,
         allowApiLookup: Boolean = false,
         structureChanged: Boolean = false,
+        sameNewestMessage: Boolean = false,
     ) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
         val original = parsed.facts.conversation ?: return
@@ -279,9 +285,8 @@ class SlackListenerService : NotificationListenerService() {
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf,
             parsed.actionIntents.filterNotNull(), apiLookupPending = readOnly != null && allowApiLookup,
-            replacesKey = replacesKey, forceGeneration = structureChanged)) {
+            replacesKey = replacesKey, forceGeneration = structureChanged, sameNewestMessage = sameNewestMessage)) {
             is Observation.Publish -> {
-                CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)
                 val sharedAction = action != null && !result.binding.canReply
                 val replyProblem = when {
@@ -290,6 +295,7 @@ class SlackListenerService : NotificationListenerService() {
                     else -> readOnly?.reason
                 }
                 val posted = publish(result.binding, conversation, result.alert, replyProblem)
+                CarNotificationPublisher.cancel(this, result.evicted)
                 val updateAttempt = if (sbn.packageName == SLACK_PACKAGE) {
                     val replyOffered = result.binding.canReply.takeUnless { allowApiLookup }
                     val id = result.binding.carNotificationId

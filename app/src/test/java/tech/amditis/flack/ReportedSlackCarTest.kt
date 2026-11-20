@@ -55,10 +55,11 @@ class ReportedSlackCarTest {
 
     private fun reportedMessage(
         key: String, shortcut: String = "C12345678", withMarkRead: Boolean = true, text: String = "Lunch at noon?",
+        history: List<Pair<String?, String>> = emptyList(),
     ): StatusBarNotification {
         val group = !shortcut.startsWith("D")
         val source = SyntheticSlack.dm(app, key = key, title = if (group) "Paper room" else null,
-            text = text, isGroup = group, shortcutId = shortcut,
+            text = text, isGroup = group, shortcutId = shortcut, extraMessages = history,
             extraReply = SyntheticSlack.replyIntent(app, "$key-thread"),
             replySemanticAction = 0, extraReplySemanticAction = 0, replyShowsUserInterface = true)
         val actions = source.notification.actions
@@ -93,6 +94,30 @@ class ReportedSlackCarTest {
         assertEquals(before + 6, BridgeState.forwarded)
         assertTrue(shadowOf(app).broadcastIntents.none { it.action == "test.slack.REPLY" })
         assertTrue(BridgeState.copyDiagnostics().contains("outcome=POSTED; channel=car_messages"))
+    }
+
+    @Test fun laterMessagesUnderTheSameSlackKeyPostFreshEntriesWhileTheirSummariesDeduplicate() {
+        val before = BridgeState.forwarded
+        val messages = listOf("First test message", "Second test message", "Third test message")
+        val postedIds = messages.mapIndexed { index, text ->
+            val child = reportedMessage("channel-child", text = text,
+                history = messages.take(index).map { "Riley Example" to it })
+            val summary = Notification.Builder.recoverBuilder(app, child.notification)
+                .setGroupSummary(true).setShortcutId(null).build()
+            listener.onNotificationPosted(child)
+            val copy = nm.activeNotifications.single()
+            assertEquals(0, copy.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+            val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy.notification)!!
+            assertEquals(messages.take(index), style.messages.dropLast(1).map { it.text.toString() })
+            assertTrue(style.messages.last().text.toString().startsWith(text))
+            assertTrue(copy.notification.actions.orEmpty().isEmpty())
+            listener.onNotificationPosted(SyntheticSlack.statusBar(summary, "channel-summary"))
+            listener.onNotificationPosted(child)
+            assertEquals(copy.id, nm.activeNotifications.single().id)
+            copy.id
+        }
+        assertEquals(messages.size, postedIds.toSet().size)
+        assertEquals(before + messages.size, BridgeState.forwarded)
     }
 
     @Test fun anUnknownAndroidFormatStillForwardsReadableTextWithoutAnAction() {

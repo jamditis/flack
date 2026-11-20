@@ -2,6 +2,11 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
+## Unreleased
+
+- A new incoming Slack message gets a fresh Android Auto notification, even when Slack updates the same notification. Matching summaries and repeated callbacks stay quiet.
+- If Slack replaces a shared reply action with a new action that Flack can verify, you can reply from the latest message. An expired or failed reply produces a Flack status notification with the next step.
+
 ## 0.3.7
 
 - **Quiet Flack copies on the phone** silences Flack's sound, vibration and

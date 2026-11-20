@@ -35,7 +35,6 @@ class SessionRegistryTest {
         val second = reg.publish("dm-riley", "f2").binding
         assertNotEquals(first.token, second.token)
         assertTrue(second.generation > first.generation)
-        assertEquals(first.carNotificationId, second.carNotificationId)
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(first.token, "Yes") as ConsumeResult.Rejected).reason)
     }
 
@@ -81,8 +80,8 @@ class SessionRegistryTest {
         assertNull(published.replyDisabled.single().action)
         assertEquals(2, reg.bindingCount())
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(riley.token, "Hi") as ConsumeResult.Rejected).reason)
-        // Both stay read-only on later updates until the source notification goes away.
-        assertNull((reg.observe("dm-riley", "f2", FakeAction("riley-op"), "reply_text", false) as Observation.Publish).binding.action)
+        // The shared action stays blocked on later updates.
+        assertNull((reg.observe("dm-riley", "f2", FakeAction("shared-op"), "reply_text", false) as Observation.Publish).binding.action)
         reg.remove("dm-riley")
         assertTrue(reg.observe("dm-riley", "f3", FakeAction("riley-op"), "reply_text", false) is Observation.Publish)
     }

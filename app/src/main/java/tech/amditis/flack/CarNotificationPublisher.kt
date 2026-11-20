@@ -6,8 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.annotation.RequiresPermission
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -42,6 +44,8 @@ object CarNotificationPublisher {
     const val EXTRA_TOKEN = "token"
     const val ACTION_REPLY = "tech.amditis.flack.REPLY"
     const val ACTION_MARK_READ = "tech.amditis.flack.MARK_READ"
+    const val ACTION_DISMISS_REPLY_STATUS = "tech.amditis.flack.DISMISS_REPLY_STATUS"
+    private const val REPLY_STATUS_ID = 0
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -181,8 +185,7 @@ object CarNotificationPublisher {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
             .setSilent(quiet || !alert)
-            // The source key keeps one notification ID across new messages.
-            // Suppress repeats, but let each new incoming message alert in alerting mode.
+            // Only a distinct incoming message gets a new alerting post.
             .setOnlyAlertOnce(quiet || !alert)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
@@ -191,6 +194,45 @@ object CarNotificationPublisher {
             if (quiet) builder.addInvisibleAction(reply) else builder.addAction(reply)
         }
         manager.notify(binding.carNotificationId, builder.build())
+    }
+
+    /** Reply feedback can outlive its Slack copy. It contains no Slack or dictated text. */
+    fun postReplyStatus(context: Context, @StringRes message: Int) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val manager = NotificationManagerCompat.from(context)
+        val quiet = BridgeState.hidesPhoneCopies(context)
+        val channel = if (quiet) QUIET_CHANNEL_ID else CHANNEL_ID
+        val text = context.getString(message)
+        val title = context.getString(R.string.car_reply_status_title)
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName(context.getString(R.string.you)).build())
+            .setConversationTitle(title)
+            .setGroupConversation(false)
+            .addMessage(text, System.currentTimeMillis(), Person.Builder().setName(context.getString(R.string.app_name)).build())
+        val dismiss = PendingIntent.getBroadcast(context, REPLY_STATUS_ID,
+            Intent(context, CarActionReceiver::class.java).setAction(ACTION_DISMISS_REPLY_STATUS), PendingIntent.FLAG_IMMUTABLE)
+        val markRead = NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(R.string.mark_read), dismiss)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+            .setShowsUserInterface(false)
+            .build()
+        val notice = NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(style)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setSilent(quiet)
+            .addInvisibleAction(markRead)
+            .build()
+        try {
+            ensureChannel(context)
+            manager.notify(REPLY_STATUS_ID, notice)
+        } catch (_: SecurityException) {
+            // Permission can change between the check and the post. The phone report retains the result.
+        }
+    }
+
+    fun dismissReplyStatus(context: Context) {
+        NotificationManagerCompat.from(context).cancel(REPLY_STATUS_ID)
     }
 
     fun cancel(context: Context, bindings: Collection<Binding<PendingIntent>>) {
