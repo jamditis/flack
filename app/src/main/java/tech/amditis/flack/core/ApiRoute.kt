@@ -6,7 +6,7 @@ data class ApiDestination(val teamId: String, val channelId: String)
 /** Content-free reasons the API route is not offered. */
 enum class ApiReadOnlyReason {
     NO_FIELD_MAPPING,
-    UNTITLED_GROUP,
+    GROUP_PLACEMENT_UNVERIFIED,
     NOT_SIGNED_IN,
     SIGN_IN_EXPIRED,
     ACCOUNTS_UNREADABLE,
@@ -22,15 +22,12 @@ sealed interface ApiRoute {
 }
 
 /**
- * #29, November 13 field report: shortcutId names a D conversation for DMs or a G
- * conversation for groups. Workspace extras have no known key; their whole value
- * must equal the signed-in workspace ID, confirmed with auth.test. The coordinator
- * also permits C-shaped group destinations. Multiple matching workspaces fail closed.
- * No notification timestamp is used: this route always posts at the top level.
+ * #29 identifies D-shaped DM shortcuts and exact workspace values, verified with
+ * auth.test. An ID can identify a group or channel but cannot prove top-level
+ * placement there. The fallback posts only to the main view of a one-to-one DM.
  */
 object ApiRouteResolver {
     private val DM_ID = Regex("D[A-Z0-9]{8,}")
-    private val GROUP_ID = Regex("[CG][A-Z0-9]{8,}")
     private val WORKSPACE_ID = Regex("T[A-Z0-9]{8,}")
 
     /** Exact extra values only: never pick a numbered key or an ID inside another value. */
@@ -43,13 +40,12 @@ object ApiRouteResolver {
         workspaces: () -> List<WorkspaceToken>,
         confirm: (teamId: String) -> Boolean,
     ): ApiRoute {
-        val shape = when (conversation.isGroup) {
-            false -> DM_ID
-            true -> GROUP_ID
+        when (conversation.isGroup) {
+            false -> Unit
+            true -> return readOnly(ApiReadOnlyReason.GROUP_PLACEMENT_UNVERIFIED)
             null -> return readOnly(ApiReadOnlyReason.NO_FIELD_MAPPING)
         }
-        if (conversation.isGroup == true && conversation.title.isNullOrBlank()) return readOnly(ApiReadOnlyReason.UNTITLED_GROUP)
-        val channelId = fields.shortcutId?.takeIf(shape::matches) ?: return readOnly(ApiReadOnlyReason.NO_CONVERSATION_ID)
+        val channelId = fields.shortcutId?.takeIf(DM_ID::matches) ?: return readOnly(ApiReadOnlyReason.NO_CONVERSATION_ID)
         val teams = workspaceIds(fields)
         if (teams.isEmpty()) return readOnly(ApiReadOnlyReason.WORKSPACE_UNKNOWN)
         if (teams.size != 1) return readOnly(ApiReadOnlyReason.WORKSPACE_AMBIGUOUS)

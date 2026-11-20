@@ -57,26 +57,28 @@ class GroupSummaryContractTest {
     }
 
     private fun source(
-        key: String, summary: Boolean, conversationId: String = "D0PAPER001",
+        key: String, summary: Boolean, conversationId: String? = "D0PAPER001",
         group: String? = "invented-slack-group", text: String = "Paper boats at noon",
-        messaging: Boolean = true, reply: Boolean = true,
+        messaging: Boolean = true, reply: Boolean = true, ambiguous: Boolean = false,
     ): StatusBarNotification {
         val builder = NotificationCompat.Builder(app, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setGroup(group).setGroupSummary(summary).setShortcutId(conversationId).setCategory(Notification.CATEGORY_MESSAGE)
         if (messaging) {
+            val groupConversation = conversationId?.startsWith("D") == false
             builder.setStyle(NotificationCompat.MessagingStyle(Person.Builder().setName("Me").build())
-                .setGroupConversation(!conversationId.startsWith("D"))
-                .setConversationTitle(if (conversationId.startsWith("D")) null else "#paper-kites")
+                .setGroupConversation(groupConversation)
+                .setConversationTitle(if (groupConversation) "#paper-kites" else null)
                 .addMessage(text, 1_000L, Person.Builder().setName("Riley Example").setKey("U0PAPER001").build()))
         } else builder.setContentTitle("Paper room").setContentText(text)
         if (reply) {
             builder.addAction(NotificationCompat.Action.Builder(0, "Mark read", SyntheticSlack.replyIntent(app, "$key-read"))
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build())
-            // Slack's observed actions have semanticAction=0 and the default-true UI hint.
-            listOf("Reply in thread", "Reply").forEachIndexed { index, title ->
+            val titles = if (ambiguous) listOf("Reply in thread", "Reply") else listOf("Reply")
+            titles.forEachIndexed { index, title ->
                 builder.addAction(NotificationCompat.Action.Builder(0, title, SyntheticSlack.replyIntent(app, "$key-$index"))
                     .addRemoteInput(RemoteInput.Builder("reply_$index").build())
-                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_NONE).setShowsUserInterface(true).build())
+                    .setSemanticAction(if (ambiguous) NotificationCompat.Action.SEMANTIC_ACTION_NONE else NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                    .setShowsUserInterface(ambiguous).build())
             }
         }
         val notification = builder.build()
@@ -96,14 +98,10 @@ class GroupSummaryContractTest {
         val before = BridgeState.forwarded
         val apiBefore = BridgeState.apiRouted
         listOf("D0PAPER001", "D0PAPER002", "C0PAPER001", "C0PAPER002").forEach { id ->
-            val summary = source("summary-$id", true, id, group = "group-$id")
+            val summary = source("summary-$id", true, id, group = "group-$id", ambiguous = true)
             post(summary)
             post(summary)
-            val native = binding(summary.key)!!
-            assertTrue(native.canReply)
-            assertNull(native.apiRoute)
-            assertEquals(summary.notification.actions.last().actionIntent, native.action)
-            assertEquals("reply_1", native.resultKey)
+            assertFalse(binding(summary.key)!!.canReply)
         }
         assertEquals(4, manager.size())
         assertEquals(before + 4, BridgeState.forwarded)
@@ -118,8 +116,9 @@ class GroupSummaryContractTest {
     }
 
     @Test fun android16ChildWinsEvenBeforeItsCallbackWhenItIsAlreadyActive() {
-        val summary = source("summary", true)
-        val child = source("child", false)
+        val summary = source("summary", true, conversationId = null)
+        summary.notification.extras.remove("test.workspace")
+        val child = source("child", false, conversationId = "C0PAPER001")
         listener.activeSources = { arrayOf(summary, child) }
         val before = BridgeState.forwarded
         post(summary)
@@ -135,7 +134,8 @@ class GroupSummaryContractTest {
     }
 
     @Test fun aLateChildReplacesTheSummaryInPlaceWithoutAnotherAlertOrReplyAttempt() {
-        val summary = source("summary", true)
+        val summary = source("summary", true, conversationId = null)
+        summary.notification.extras.remove("test.workspace")
         val child = source("child", false)
         val before = BridgeState.forwarded
         post(summary)
@@ -247,8 +247,19 @@ class GroupSummaryContractTest {
         post(source("summary", true))
         post(source("other-conversation", false, conversationId = "D0PAPER002"))
         post(source("other-group", false, group = "another-group"))
-        assertEquals(2, manager.size()) // The first group's child withdraws its older summary.
+        assertEquals(3, manager.size())
         assertEquals(before + 3, BridgeState.forwarded)
+    }
+
+    @Test fun anUnfamiliarSummaryWithDifferentContentSurvivesAnActiveChildInItsGroup() {
+        val child = source("child", false)
+        val summary = source("summary", true, conversationId = "invented-new-id", text = "Another paper boat")
+        listener.activeSources = { arrayOf(child, summary) }
+        post(child)
+        post(summary)
+        assertEquals(2, manager.size())
+        assertFalse(binding("summary")!!.canReply)
+        assertTrue(TestReport.build(app).contains("row=UNKNOWN_READ_ONLY; action=FORWARD"))
     }
 
     @Test fun aPausedSummaryIsNotReplayedAsAChildOnResume() {

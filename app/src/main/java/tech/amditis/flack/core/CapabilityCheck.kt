@@ -15,6 +15,8 @@ enum class RejectReason {
     NO_CONTEXT,
     NO_REPLY_ACTION,
     MULTIPLE_REPLY_ACTIONS,
+    THREAD_ROUTE_UNKNOWN,
+    SHARED_REPLY_ACTION,
     MULTIPLE_RESULT_KEYS,
     REPLY_OPENS_APP,
     REPLY_ACTION_IMMUTABLE,
@@ -49,12 +51,14 @@ object CapabilityCheck {
         if (conversation.isGroup == null) return readOnly(RejectReason.UNKNOWN_CONVERSATION)
         if (conversation.isGroup && conversation.title.isNullOrBlank()) return readOnly(RejectReason.NO_CONTEXT)
 
-        // Prefer Android's explicit reply semantic. Slack also ships actions with
-        // no semantic: accept the observed plain Reply label. A thread action needs
-        // an explicit reply semantic; the probe has not verified a thread marker.
-        // The original PendingIntent supplies the destination in either case.
+        // Prefer Android's explicit reply semantic. Without it, the observed plain Reply
+        // can be used only when Slack offers one text action and no thread evidence.
+        // A D, C or G conversation ID never distinguishes a top-level message from a thread.
         val inputs = facts.replyActions.withIndex().filter { it.value.freeFormResultKeys.isNotEmpty() }
         val semanticReplies = inputs.filter { it.value.semanticAction == SEMANTIC_ACTION_REPLY }
+        if (semanticReplies.isEmpty() && facts.packageName == SLACK_PACKAGE &&
+            (facts.hasThreadMarker || inputs.size > 1 || facts.replyActions.any(::isThreadReply))
+        ) return readOnly(RejectReason.THREAD_ROUTE_UNKNOWN)
         val candidates = semanticReplies.ifEmpty {
             inputs.filter {
                 facts.packageName == SLACK_PACKAGE && isSlackPlainReply(it.value)
@@ -63,6 +67,7 @@ object CapabilityCheck {
         if (candidates.isEmpty()) return readOnly(RejectReason.NO_REPLY_ACTION)
         if (candidates.size > 1) return readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS)
         val (index, action) = candidates.single()
+        if (facts.hasThreadMarker && !isThreadReply(action)) return readOnly(RejectReason.THREAD_ROUTE_UNKNOWN)
         if (action.freeFormResultKeys.size > 1) return readOnly(RejectReason.MULTIPLE_RESULT_KEYS)
         // Slack's observed Reply has RemoteInput and the default-true UI hint.
         // That hint alone does not turn a broadcast/service action into an activity.
@@ -93,6 +98,11 @@ object CapabilityCheck {
 
     private fun isSlackPlainReply(action: ReplyActionFacts): Boolean =
         action.semanticAction == SEMANTIC_ACTION_NONE && action.title?.trim().equals("Reply", ignoreCase = true)
+
+    fun isThreadReply(action: ReplyActionFacts): Boolean {
+        val title = action.title?.trim()
+        return title.equals("Reply in thread", ignoreCase = true) || title.equals("Reply to thread", ignoreCase = true)
+    }
 
     // Android's Notification.Action.SEMANTIC_ACTION_REPLY. Core has no Android dependency.
     private const val SEMANTIC_ACTION_REPLY = 1

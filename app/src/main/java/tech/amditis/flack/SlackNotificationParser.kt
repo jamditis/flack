@@ -8,6 +8,7 @@ import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.ApiRouteResolver
 import tech.amditis.flack.core.Message
 import tech.amditis.flack.core.ReplyActionFacts
+import tech.amditis.flack.core.RouteFieldProbe
 import tech.amditis.flack.core.RouteFields
 import tech.amditis.flack.core.SourceFacts
 import java.security.MessageDigest
@@ -53,6 +54,7 @@ class ParsedNotification(
         // This field now chooses the API conversation; a change expires the old reply.
         add(routeFields.shortcutId)
         add(ApiRouteResolver.workspaceIds(routeFields).sorted())
+        add(facts.hasThreadMarker)
         conversation?.messages?.forEach {
             add(it.senderName); add(it.fromSelf); add(it.text); add(it.timestampMillis)
         }
@@ -72,21 +74,26 @@ object SlackNotificationParser {
     fun parse(sbn: StatusBarNotification): ParsedNotification {
         val notification = sbn.notification
         val actions = notification.actions.orEmpty().toList()
+        val replyActions = actions.map { replyFacts(it, sbn.uid) }
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+        val messaging = style?.let { conversation(notification, it) }
+        val hasMessages = messaging?.messages?.isNotEmpty() == true
         val facts = SourceFacts(
             packageName = sbn.packageName,
             userId = sbn.user.hashCode(),
             notificationKey = sbn.key,
             isGroupSummary = notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
-            conversation = conversation(notification),
-            replyActions = actions.map { replyFacts(it, sbn.uid) },
+            conversation = if (hasMessages) messaging else plainConversation(
+                notification, style != null || replyActions.any { it.freeFormResultKeys.isNotEmpty() },
+            ),
+            replyActions = replyActions,
+            hasThreadMarker = notification.extras.keySet().any { RouteFieldProbe.isThreadMarkerKey(it) },
         )
-        val hasMessages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
-            ?.messages?.any { !it.text.isNullOrBlank() } == true
         val group = sbn.groupKey.takeIf { notification.group != null || sbn.overrideGroupKey != null }
-        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn), hasMessages, group)
+        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn, style), hasMessages, group)
     }
 
-    private fun routeFields(sbn: StatusBarNotification): RouteFields {
+    private fun routeFields(sbn: StatusBarNotification, style: NotificationCompat.MessagingStyle?): RouteFields {
         val notification = sbn.notification
         val extras = notification.extras
         val strings = mutableListOf<Pair<String, String>>()
@@ -102,8 +109,7 @@ object SlackNotificationParser {
         }
         // The newest incoming sender's Person key and URI may carry a Slack user ID. Same
         // message as the probe's context: the newest incoming one with text, as conversation() keeps.
-        val sender = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
-            ?.messages?.lastOrNull { it.person != null && !it.text.isNullOrBlank() }?.person
+        val sender = style?.messages?.lastOrNull { it.person != null && !it.text.isNullOrBlank() }?.person
         return RouteFields(
             senderKey = sender?.key,
             senderUri = sender?.uri,
@@ -116,9 +122,7 @@ object SlackNotificationParser {
         )
     }
 
-    private fun conversation(notification: Notification): Conversation? {
-        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
-            ?: return plainConversation(notification)
+    private fun conversation(notification: Notification, style: NotificationCompat.MessagingStyle): Conversation {
         val title = style.conversationTitle?.toString()
         val extras = notification.extras
         // Without the flag the destination shape is unknown: read-only.
@@ -141,12 +145,14 @@ object SlackNotificationParser {
         return Conversation(title, isGroup, messages)
     }
 
-    private fun plainConversation(notification: Notification): Conversation? {
+    private fun plainConversation(notification: Notification, hasMessageSignal: Boolean): Conversation? {
         // A title and text can describe a call or upload, not a chat message.
-        // Only standard message notifications qualify for this read-only fallback.
-        if (notification.category != Notification.CATEGORY_MESSAGE ||
-            notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0
-        ) return null
+        // Trust Android's message category/style or a free-form input, then keep the copy read-only.
+        if (!hasMessageSignal && notification.category != Notification.CATEGORY_MESSAGE) return null
+        if (notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0) return null
+        when (notification.category) {
+            Notification.CATEGORY_CALL, Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE -> return null
+        }
         val extras = notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }

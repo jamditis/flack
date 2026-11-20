@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.CapabilityCheck
 import tech.amditis.flack.core.Conversation
+import tech.amditis.flack.core.RejectReason
 
 /** Fixed labels only; exception messages can contain private source data. */
 enum class CopyPostOutcome { POSTED, NOTIFICATIONS_DISABLED, CHANNEL_BLOCKED, CHANNEL_GROUP_BLOCKED, CHANNEL_MISSING, SECURITY_EXCEPTION }
@@ -74,6 +75,7 @@ object CarNotificationPublisher {
         alert: Boolean,
         replyEnabled: Boolean = binding.canReply,
         sentText: String? = null,
+        replyProblem: RejectReason? = null,
     ): Boolean {
         val channelId = if (BridgeState.hidesPhoneCopies(context)) QUIET_CHANNEL_ID else CHANNEL_ID
         var enabled: Boolean? = null
@@ -93,7 +95,7 @@ object CarNotificationPublisher {
                 importance == NotificationManager.IMPORTANCE_NONE -> CopyPostOutcome.CHANNEL_BLOCKED
                 groupBlocked == true -> CopyPostOutcome.CHANNEL_GROUP_BLOCKED
                 else -> {
-                    postCopy(context, binding, conversation, alert, replyEnabled, sentText, channelId)
+                    postCopy(context, binding, conversation, alert, replyEnabled, sentText, channelId, replyProblem)
                     CopyPostOutcome.POSTED
                 }
             }
@@ -117,18 +119,32 @@ object CarNotificationPublisher {
         replyEnabled: Boolean,
         sentText: String?,
         channelId: String,
+        replyProblem: RejectReason?,
     ) {
         val manager = NotificationManagerCompat.from(context)
-        val hide = BridgeState.hidesPhoneCopies(context)
+        val quiet = channelId == QUIET_CHANNEL_ID
 
         val me = Person.Builder().setName(context.getString(R.string.you)).setKey("self").build()
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle(conversation.title)
             .setGroupConversation(conversation.isGroup == true)
-        conversation.messages.takeLast(MAX_MESSAGES).forEach { message ->
+        val notice = when {
+            replyEnabled && binding.apiRoute != null -> R.string.car_reply_main_dm
+            replyProblem == RejectReason.THREAD_ROUTE_UNKNOWN -> R.string.car_reply_thread_unknown
+            replyProblem == RejectReason.SHARED_REPLY_ACTION -> R.string.car_reply_shared_action
+            replyProblem != null -> R.string.car_reply_route_unknown
+            else -> null
+        }
+        val messages = conversation.messages.takeLast(MAX_MESSAGES)
+        val latestIncoming = messages.indexOfLast { !it.fromSelf }
+        messages.forEachIndexed { index, message ->
             // Keys keep senders apart within this one conversation. They are never routing keys.
             val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).setKey("sender:${message.senderName}").build()
-            style.addMessage(message.text, message.timestampMillis, sender)
+            // The host reads MessagingStyle text. Label the cue so it is distinguishable from Slack's message.
+            val text = if (notice != null && index == latestIncoming) {
+                context.getString(R.string.car_message_with_flack_notice, message.text, context.getString(notice))
+            } else message.text
+            style.addMessage(text, message.timestampMillis, sender)
         }
         // A local copy of what was handed to Slack, not proof of delivery.
         sentText?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
@@ -164,13 +180,16 @@ object CarNotificationPublisher {
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setColor(ContextCompat.getColor(context, R.color.flack_amber))
-            .setSilent(hide || !alert)
+            .setSilent(quiet || !alert)
             // The source key keeps one notification ID across new messages.
             // Suppress repeats, but let each new incoming message alert in alerting mode.
-            .setOnlyAlertOnce(hide || !alert)
+            .setOnlyAlertOnce(quiet || !alert)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
-        if (replyEnabled && binding.canReply) builder.addAction(reply)
+        if (replyEnabled && binding.canReply) {
+            // Android Auto accepts invisible actions. Keep the duplicate phone copy free of reply buttons.
+            if (quiet) builder.addInvisibleAction(reply) else builder.addAction(reply)
+        }
         manager.notify(binding.carNotificationId, builder.build())
     }
 

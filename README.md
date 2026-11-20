@@ -7,7 +7,7 @@
 [![Latest release](https://img.shields.io/github/v/release/jamditis/flack?label=release)](https://github.com/jamditis/flack/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-Flack copies new Slack messages into the format Android Auto reads aloud: DMs, group DMs, public and private channels, and thread replies. When a notification provides one safe reply action, you can dictate and confirm a reply. Flack hands your words to that original Slack action, once. With optional Slack sign-in, notifications without a usable reply action can receive a top-level API reply when their conversation and workspace identifiers pass the checks in [the sign-in design](docs/SLACK_SIGN_IN.md).
+Flack copies new Slack messages into the format Android Auto reads aloud: DMs, group DMs, public and private channels, and thread replies. When a notification provides one safe reply action, you can dictate and confirm a reply. Flack hands your words to that original Slack action, once. With optional Slack sign-in, eligible one-to-one DM notifications without a reply action can receive a reply in the main DM. [Slack sign-in](docs/SLACK_SIGN_IN.md)
 
 **Status:** experimental support for these notification types, with synthetic routing tests. Real Slack and car behavior, including readout without a reply action, still need device tests. See the [device test record](docs/DEVICE_TEST_RECORD.md).
 
@@ -25,16 +25,17 @@ Flack is not on Google Play. You install it yourself, and you turn on Android Au
 ## How it works
 
 1. Flack reads notifications from the official Slack app only. It ignores every other app before reading anything.
-2. While Android Auto is connected, it posts a readable copy of each eligible text notification. A message-bearing group summary can forward when no readable child in its group is active. A child takes over its matching summary quietly; empty summaries are dropped. [The feature rules](docs/NOTIFICATION_FILTER.md) describe supported and read-only formats.
+2. While Android Auto is connected, it posts a readable copy of each eligible text notification. A child can take over a matching group summary quietly. A summary with its own readable message can still forward. [Notification filtering](docs/NOTIFICATION_FILTER.md)
 3. When you confirm a reply in the car, Flack checks a one-time token and passes your text to Slack's reply action. Slack sends the message.
 
 If Flack cannot tell where a reply would go, it keeps a read-only phone copy.
 Android Auto requires both reply and mark-as-read actions, so it may hide these
 read-only copies. For every conversation type, Flack uses the phone notification's
 single free-form action with the REPLY semantic action. When Slack leaves that
-semantic unset, Flack selects only the single action labelled "Reply" with a
-free-form input. "Reply in thread" without that semantic stays unselected
-until a structured thread marker is verified. Slack's default-true UI hint
+semantic unset, Flack accepts an exact "Reply" label only when it is the sole
+text action and the notification carries no known thread signal. Copies with
+both "Reply" and "Reply in thread" and no reply semantic stay read-only and
+carry a reply-availability explanation. Slack's default-true UI hint
 does not block this plain reply when its PendingIntent starts no activity.
 Flack checks the original action's creator, mutability and actual intent kind
 before offering a reply. Ambiguous reply choices,
@@ -53,13 +54,13 @@ you about on your phone can reach the car. For channel messages, Slack must be
 set to notify you about mentions or All new messages.
 
 The status screen's **Quiet Flack copies on the phone** switch is off by default
-so the car can alert. Turning it on silences phone sound, vibration and pop-ups;
-copies remain in the phone shade. Both modes use high-importance channels, but
-Android Auto may still miss quiet copies or their alerts. If that happens, turn
-the switch off and receive a new Slack message. Switching clears current copies
-and their reply tokens. The alerting mode can produce a duplicate phone alert.
-Upgrading keeps a saved switch choice; installs without a saved choice use the
-new default.
+so the car can alert. Turning it on silences phone sound, vibration and pop-ups
+and keeps Flack's reply button off the phone copy. Android Auto uses the posted
+phone notification. The copy stays in the phone shade and can have a status bar
+icon. Both modes use high-importance channels. If the car misses quiet copies
+or alerts, turn the switch off and receive a new Slack message. Changing the
+switch clears current copies and their reply tokens. Upgrading keeps a saved
+switch choice.
 
 ## Privacy
 

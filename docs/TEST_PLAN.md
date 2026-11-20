@@ -23,8 +23,10 @@ Joe accepted this original-action routing on November 12, 2026 (#23).
 Test with Quiet Flack copies on the phone off first, the default. Receive two new
 messages in the same conversation and verify that each alerts in the car. Then
 turn the switch on and receive two more messages. Both modes use high-importance
-channels; quiet mode suppresses phone sound, vibration and pop-ups, but copies
-remain in the phone shade. Android Auto may miss quiet copies or alerts too. If
+channels. Quiet mode suppresses phone sound, vibration, pop-ups and the phone
+copy's reply button. The copy stays in the shade and can have a status bar icon.
+Check the car pop-up, notification list and spoken readout separately, including
+with the phone locked. Android Auto may miss quiet copies or alerts too. If
 that happens, turn the switch off and receive a new Slack message. Switching
 clears existing copies and tokens. On an upgrade from 0.3.2, also test a saved
 on choice: new copies must use car_messages_quiet_v2, rather than the installed
@@ -45,10 +47,11 @@ allowed in Android settings before receiving a new message. Flack preserves
 Android's blocks and does not replay the old notification.
 
 For the Slack shape with mark-as-read (semantic 2, no input), Reply in thread
-(semantic 0, input) and Reply (semantic 0, input), verify that the plain Reply is
-offered and sends once through its original action. Repeat with reordered
-actions, a DM and a channel. A unique explicit REPLY semantic still takes
-priority. Multiple indistinguishable inputs remain read-only.
+(semantic 0, input) and Reply (semantic 0, input), verify that Flack posts the
+readable copy and explains that it cannot identify thread placement. Repeat
+with reordered actions, a DM, a channel and two existing threads. Check that
+neither the native nor API route is offered. Test a unique explicit reply action
+separately, including a thread action and an expired or shared action.
 
 ## G0: Test the native route
 
@@ -161,7 +164,7 @@ These come from Android documentation and AOSP behavior that could not be verifi
 
 These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels and invented message text.
 
-- **Native action selection (#47):** test both observed lists: Reply in thread plus Reply, with and without mark-as-read. Both reply actions have semantic 0 and a free-form input; the UI hint can be true. The native route must select plain Reply, retain its original key, and dispatch once after confirmation. The report's launchesActivity fact must be false. An activity, immutable action, foreign creator, multiple inputs or duplicate plain Reply choices must not offer a native reply. Verify readback, cancel and a locked-phone repeat on the car. A local native handoff says Handed to Slack; API server confirmation is a separate result.
+- **Native action selection (#47, #58)**. Both observed mixed action lists stay read-only. Test a sole validated native reply separately. Preserve its original input key and dispatch once after confirmation. An activity, immutable action, foreign creator, multiple input keys or duplicate reply choices must not offer a native reply. Verify readback, cancel and a locked-phone repeat on the car. A local native handoff says Handed to Slack. The API result records Slack's server confirmation separately.
 - **Thread marker (#50):** use the ordered parent/child steps below in two concurrent threads, more than two seconds apart. The report lists threadMarkerKeys only for fixed allowlisted string-extra names, plus their existing timestamp relations. Compare top-level messages, DMs and thread notifications. A none value means no known string key was seen, not that Slack has no marker. Never select semantic-0 Reply in thread from this diagnostic alone. Follow [the issue's exact capture and acceptance steps](https://github.com/jamditis/flack/issues/50).
 
 - **Route field probe (#29):** the November 13 field evidence is summarized in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md#evidence-for-the-first-reply). Use a release with the ID prefixes and key names in the probe. On the S24 Ultra, with Flack forwarding, use three test accounts with distinct invented names (Riley Example and Sam Example in workspace 1, Alex Example in workspace 2), test channels and group DM names used for nothing else, and invented text. Send these in order, a few seconds apart, and write down the step for each message:
@@ -175,8 +178,8 @@ These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels
 - **Coverage:** with the person signed in, a valid shortcut conversation ID and one exact matching workspace ID can offer an API reply after auth.test confirms it. Missing or conflicting IDs stay read-only. Record the test report's route counts and each read-only reason.
 - **Wrong channel:** two test channels with similar names, and the same text sent in both within a minute. Each reply must appear in its own channel or stay read-only. Any reply in the other channel blocks the pilot.
 - **Wrong workspace:** with two workspaces signed in, a channel with the same name in both. Each reply must land in its own workspace or stay read-only.
-- **Thread or channel:** reply to a thread notification and to a channel notification through the API route. Both replies must land at the top level of the correct conversation, never in a thread. This is the maintainer's approved first-reply experiment. Original-action replies still follow the phone action's destination.
-- **Same text, two threads:** one test account posts the same text in two threads of one channel within 10 seconds. API replies go to that channel's top level or stay read-only. Original-action replies must stay in their selected thread.
+- **Thread or channel (#60)**. Verify that Slack sign-in offers no API reply to channel, group DM, or known thread notifications. Verify the main DM explanation and one successful API post for an eligible one-to-one DM.
+- **Same text, two threads**. One test account posts the same text in two threads of one channel within 10 seconds. An original-action reply must stay in its selected thread. Ambiguous copies stay read-only.
 - **Unsigned workspace:** with Slack on the phone signed in to a workspace that Flack is not, the same text from the same test name in both workspaces. A reply must never land in the signed-in workspace.
 - **Same workspace name:** an unsigned workspace with the same name as a signed-in one. Its messages must stay read-only; names never select a workspace.
 - **No network:** a reply with mobile data and Wi-Fi off shows "Not sent". A reply cut off after sending shows "Outcome unknown" and is not retried.

@@ -1,10 +1,10 @@
 # Slack sign-in reply route
 
-The API reply experiment sends a top-level reply to the notification's conversation. One car reply was confirmed by Slack on 0.3.4 on November 17, 2026. The full physical routing and cancel matrix remains unverified.
+The API reply experiment sends a reply to the main view of an eligible one-to-one DM. One car reply was confirmed by Slack on 0.3.4 on November 17, 2026. The full physical routing and cancel matrix remains unverified.
 
 ## Goal
 
-A person signs in to Slack once on the phone. After that, Slack notifications that person's account gets can be read and answered in the car: DMs, group DMs, public and private channels, threads and mentions. Read-only should be rare, and the test report counts each case.
+A person signs in to Slack once on the phone. Slack's original notification action can still be used when it passes the native checks. The API route covers one-to-one DM notifications that carry no reply action or known thread signal. The test report counts read-only reasons.
 
 The v0.2.1 car test showed why this is needed. Two channel messages arrived without an inline reply action in Slack's notification (`NO_REPLY_ACTION`), so Flack had nothing to send the reply through, and Android Auto did not show the copies (#23). SPEC.md section 3 requires its own authentication, permission, distribution and delivery design for a Slack API client. This document is that design.
 
@@ -12,7 +12,7 @@ The v0.2.1 car test showed why this is needed. Two channel messages arrived with
 
 - Slack's own notifications decide which messages reach the car. Each person's Slack notification settings still apply. Flack polls nothing and does not read conversations it was not notified about.
 - When the phone notification has a usable reply action, Flack uses it, as before.
-- A reply goes only to a workspace and conversation identified with certainty. If that is not possible, the copy stays read-only. This API experiment always posts at the top level, including when the incoming notification describes a thread reply.
+- A reply goes only to a verified workspace and one-to-one DM. It posts to the main DM, as the car copy explains. Notifications with an unproven channel, group or thread destination remain read-only.
 - The token rules in SPEC.md sections 6 to 8 still apply: one token per generation, consumed once, revalidated before dispatch, never retried.
 - The car reply uses Android Auto's standard messaging reply only (see [Car reply flow](#car-reply-flow)). There is no custom car interface.
 
@@ -22,7 +22,7 @@ The November 13 field report on [#29](https://github.com/jamditis/flack/issues/2
 
 The [November 17 probe](https://github.com/jamditis/flack/issues/29#issuecomment-6951898333) supports C/G conversation IDs in shortcutId (13/13) and T-shaped workspace values. Partial timestamp matches do not establish a thread parent, and numbered extras are not stable field names. The same car test recorded 12 API reply offers and one Slack-confirmed car reply. It does not prove native handoff, concurrent-destination safety or cancel behavior. The [device record](DEVICE_TEST_RECORD.md) keeps these limits separate.
 
-The maintainer approved top-level replies for this experiment on November 13: "We don't necessarily need to be able to reply in a specific thread. I'm more interested in confirming that we can send replies to begin with at all." No observed field reliably distinguishes thread messages. API replies to those notifications also go to the conversation's top level, never into a specific thread. The coordinator approved checking `auth.test` against an exact workspace ID in the notification extras, with no new scopes. A refusal from `chat.postMessage` ends that attempt; Flack never tries another conversation or workspace.
+The November 20 probe still found no verified field that distinguishes a thread from a main conversation. The coordinator restricted API replies to the main view of eligible one-to-one DMs. A refusal from `chat.postMessage` ends the attempt. See the placement evidence required for more routes. [#60](https://github.com/jamditis/flack/issues/60)
 
 ## Slack app
 
@@ -106,7 +106,7 @@ Flack refreshes a workspace's token only when it needs it: before a lookup or a 
 For each forwarded notification:
 
 1. Use Slack's original reply action when the existing capability check accepts it. No API lookup runs.
-2. Otherwise, use `shortcutId` only when its entire value is a valid conversation ID: D for a one-to-one notification, C or G for a group notification. The field report supports D/G; the coordinator also permits C-shaped group destinations. Unknown types, malformed IDs and untitled groups remain read-only.
+2. For a one-to-one DM with no reply action or known thread signal, use `shortcutId` only when its entire value is a valid D-shaped conversation ID. Unknown types, malformed IDs, groups, channels and mixed reply actions remain read-only.
 3. Match whole extras values of the form `T[A-Z0-9]{8,}` to saved workspace IDs. Extra order, key numbers, titles, subtext, sender IDs and timestamps never select a destination. A workspace ID embedded in another string is insufficient.
 4. The notification must carry exactly one distinct workspace ID, and exactly one saved workspace must match. Conflicting extra values, no matches or expired sign-in mean read-only.
 5. Fetch that workspace's current token, refreshing if needed, and call `auth.test`. Its `team_id` must equal the workspace ID from the notification. Failure or mismatch means read-only.
@@ -114,7 +114,7 @@ For each forwarded notification:
 
 Flack publishes a read-only copy immediately, then runs the lookup on a background thread. A successful check adds the reply action quietly; a slow or failed check never delays readout. The lookup reads no history and makes no search. Source removal, pause, disconnect or a changed source generation discards a pending lookup. Shortcut and workspace-ID changes invalidate held replies. Duplicate callbacks keep the same reply token, including after it is consumed.
 
-The content-free test report shows **Reply offered through the Slack API** and counts each unavailable reason: no field mapping for an unknown type, no conversation ID, untitled group, workspace unknown, workspace not signed in, expired sign-in, unreadable accounts, workspace unconfirmed or workspace ambiguous. It exports no identifiers or token values.
+The content-free test report shows **Reply offered through the Slack API** and counts unavailable reasons such as missing conversation ID, unknown workspace, missing or expired sign-in, unreadable accounts, and unconfirmed or ambiguous workspace. It exports no identifiers or token values.
 
 ## Dispatch
 
@@ -145,11 +145,11 @@ The sign-in build updates every public "no internet permission" and "no Slack lo
 Use synthetic conversations and invented text. The coordinator releases the build; this change creates no release tag.
 
 1. Park, sign in to the test workspace, enable forwarding and connect Android Auto.
-2. Receive a fresh Slack DM or titled group notification without a usable original reply action.
+2. Receive a fresh one-to-one Slack DM notification with no reply action or known thread signal.
 3. Copy the test report. **Reply offered through the Slack API** should increase; otherwise record the read-only reason.
 4. Hear the intended conversation, dictate a reply, listen to readback, and confirm once.
 5. Verify exactly one top-level message in the intended Slack conversation. Record the phone, Slack, Android Auto and head-unit versions, exact status and destination result without message content.
-   Include a notification for a thread reply: its API response must also land at the top level of that conversation. Original-action replies still follow the original action's thread destination.
+   Include a channel, group DM and mixed thread notification. Check they stay read-only without a safe original action.
 6. Cancel a second reply and confirm nothing was posted. Remove or update a notification during dictation and confirm the stale reply sends nothing.
 
 A wrong destination, duplicate or cancel-that-sends blocks the pilot. A passing hosted suite does not establish car compatibility.
@@ -157,4 +157,4 @@ A wrong destination, duplicate or cancel-that-sends blocks the pilot. A passing 
 ## Open questions
 
 - [#28](https://github.com/jamditis/flack/issues/28): Slack accepted public distribution with the custom-scheme redirect on November 13; sign-in from a second workspace remains untested.
-- [#29](https://github.com/jamditis/flack/issues/29): exact workspace extra key names and message/thread timestamps remain unknown. Targeting a specific thread through the API is outside this experiment; thread notifications receive top-level API replies.
+- Exact workspace extra key names and message/thread timestamps remain unknown. [#29](https://github.com/jamditis/flack/issues/29) · [#60](https://github.com/jamditis/flack/issues/60)

@@ -51,13 +51,11 @@ The sources and their precise limits are in docs/SOURCES.md. Requirements below 
 
 Readable notifications with unsafe or unknown reply routing remain read-only. Device testing records each type separately; synthetic support is not a claim of verified Slack or head-unit compatibility.
 
-For the first sign-in reply experiment approved November 13, API replies go to
-the top level of the notification's conversation. A valid shortcut conversation
-ID and an exact workspace ID in its extras are required; auth.test confirms that
-workspace under the signed-in token before offering and before posting. No
-thread timestamp is used, including for notifications of thread replies: their
-API responses also go to the conversation's top level. The original action
-remains first and keeps its original thread destination. See
+The sign-in experiment can offer API replies for one-to-one DMs with no reply
+action or known thread signal. The reply goes to the main DM. A valid DM shortcut
+ID and an exact workspace ID are required. `auth.test` confirms the workspace
+under the signed-in token before offering and before posting. The original
+action remains first and keeps its source destination. See
 [SLACK_SIGN_IN.md](docs/SLACK_SIGN_IN.md) for the fail-closed rules and car test.
 
 ### Later work requiring a separate design
@@ -117,13 +115,13 @@ Each reply binding includes the source package, Android user/profile, notificati
 
 The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. A one-to-one MessagingStyle conversation can use its incoming sender as context. A group DM, channel, or thread requires a nonblank conversation title. Unknown conversation flags and plain text notifications are read-only.
 
-Prefer the notification's single free-form action with the REPLY semantic action. When none has that semantic, accept only Slack's single free-form action with semantic NONE and the exact Reply label (case-insensitive, outer whitespace ignored). Reply in thread with semantic NONE is unselected: no structured thread-notification marker has been verified (#50). Multiple candidates stay read-only. Never choose by action index, conversation title or a numbered extra field.
+Prefer the notification's single free-form action with the REPLY semantic action. When none has that semantic, accept only one text action with semantic NONE and the exact Slack Reply label (case-insensitive, outer whitespace ignored), with no known thread signal. Two text actions without an explicit reply semantic stay read-only. The probe has yet to verify a thread marker that can establish a destination (#50). Never choose by action index, conversation title or a numbered extra field.
 
-An actual activity PendingIntent never qualifies. Slack's observed plain Reply action may keep AndroidX's default-true UI hint when its PendingIntent starts no activity. Other UI-hinted actions remain read-only. Validate creator, UID, mutability and one free-form input on the selected action; never substitute a different native action when validation fails. If context cannot identify the destination, retain readable content without a reply action. No label is parsed into a Slack identifier. The API route instead uses the exact shortcut conversation ID and workspace ID from the notification, confirmed with auth.test (docs/SLACK_SIGN_IN.md). It posts at the top level even for a thread notification. A selected semantic thread reply adds thread context to the car copy's conversation title. An original-action car reply goes where that phone notification's reply would go.
+An actual activity PendingIntent never qualifies. Slack's observed plain Reply action may keep AndroidX's default-true UI hint when its PendingIntent starts no activity. Other UI-hinted actions remain read-only. Validate creator, UID, mutability and one free-form input on the selected action. If context cannot identify the destination, retain readable content without a reply action and include a reply-availability explanation. The API route uses the exact DM shortcut and verified workspace ID. A selected semantic thread reply adds thread context to the car copy's conversation title. An original-action car reply uses the phone notification's action.
 
 Do not assume a PendingIntent is a frozen snapshot. Its creator may update its underlying operation. Equality checks are useful consistency checks, not proof of an immutable destination. [S6] Detect a reply capability observed across conflicting conversation bindings and reject it until its safety is established. Revalidate the latest observed source generation and action immediately before dispatch. The bridge cannot inspect or atomically freeze Slack's underlying operation; real-device race tests remain essential. An update during dictation must never retarget the dictated text to the most recent conversation.
 
-Supported notification formats are described in the capability table in docs/ROADMAP.md and synthetic fixtures. MessagingStyle supplies sender, text and group context. Standard title/text or expanded-text notifications with CATEGORY_MESSAGE can be copied read-only, except ongoing events and foreground services. Empty, context-free and non-message notifications are excluded. Message-bearing group summaries can be forwarded when no child in the same group is active; the feature rules and duplicate handling are in docs/NOTIFICATION_FILTER.md. Unrecognized readable formats stay read-only. A button labelled Reply is insufficient: require one usable free-form RemoteInput and an action compatible with background execution. A sole thread action is kept distinct by its original capability and source notification key; never replace it with a channel action. Content-free diagnostics count each read-only reason so device testers can identify missing source capabilities.
+Supported notification formats are described in the capability table in docs/ROADMAP.md and synthetic fixtures. MessagingStyle supplies sender, text and group context. A stable Android messaging signal (MessagingStyle, CATEGORY_MESSAGE or a free-form RemoteInput) can also qualify readable title/text for a read-only copy. Ongoing events, foreground services, explicit non-message categories, empty content and notifications without identifying context are excluded from that fallback. A summary can forward when it carries a message independently of its children. See docs/NOTIFICATION_FILTER.md for deduplication. Content-free diagnostics count read-only reasons so device testers can identify missing source capabilities.
 
 ## 7. Message updates and session behavior
 

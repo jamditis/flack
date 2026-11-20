@@ -112,7 +112,7 @@ class CapabilityCheckTest {
         }
     }
 
-    @Test fun theReportedSlackActionsSelectThePlainReplyInEveryOrder() {
+    @Test fun theReportedSlackActionsNeverGuessTheReplyLevelInAnyOrder() {
         val read = replyAction(keys = emptyList()).copy(semanticAction = 2)
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
         val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
@@ -121,7 +121,7 @@ class CapabilityCheckTest {
             actions.indices.filter { it != first }.forEach { second ->
                 val order = listOf(actions[first], actions[second], actions[3 - first - second])
                 listOf(false, true).forEach { group ->
-                    assertEquals(Capability.Eligible(order.indexOf(direct), "reply_text"),
+                    assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
                         CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = order)))
                 }
             }
@@ -139,23 +139,23 @@ class CapabilityCheckTest {
             direct.copy(isImmutable = true) to RejectReason.REPLY_ACTION_IMMUTABLE,
             direct.copy(freeFormResultKeys = listOf("a", "b")) to RejectReason.MULTIPLE_RESULT_KEYS,
             direct.copy(semanticAction = 2) to RejectReason.NO_REPLY_ACTION,
-            direct.copy(title = "Reply in thread") to RejectReason.NO_REPLY_ACTION,
+            direct.copy(title = "Reply in thread") to RejectReason.THREAD_ROUTE_UNKNOWN,
         ).forEach { (action, reason) ->
             assertEquals(readOnly(reason), CapabilityCheck.evaluate(dm(actions = listOf(action))))
         }
-        assertEquals(Capability.Eligible(0, "reply_text"),
+        assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct.copy(title = "Other input")))))
-        assertEquals(readOnly(RejectReason.MULTIPLE_REPLY_ACTIONS),
+        assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct))))
     }
 
-    @Test fun theReportedTwoActionShapeUsesThePlainReplyWithItsUiHintSet() {
+    @Test fun theReportedTwoActionShapeStaysReadOnlyWithItsUiHintSet() {
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
         val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
         listOf(false, true).forEach { group ->
-            assertEquals(Capability.Eligible(1, "reply_text"),
+            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
                 CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(thread, direct))))
-            assertEquals(Capability.Eligible(0, "reply_text"),
+            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
                 CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, thread))))
         }
     }
@@ -183,6 +183,17 @@ class CapabilityCheckTest {
         val channel = replyAction().copy(title = "Reply", semanticAction = 0)
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 1)
         assertEquals(Capability.Eligible(1, "thread_text"), CapabilityCheck.evaluate(dm(isGroup = true, title = "Paper room", actions = listOf(channel, thread))))
+    }
+
+    @Test fun threadEvidenceNeverEnablesAPlainOrUnspecifiedAction() {
+        val plain = replyAction().copy(title = "Reply")
+        val thread = plain.copy(title = "Reply in thread", freeFormResultKeys = listOf("thread_text"))
+        listOf(plain, plain.copy(semanticAction = 0), thread.copy(semanticAction = 0)).forEach { action ->
+            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
+                CapabilityCheck.evaluate(dm(actions = listOf(action)).copy(hasThreadMarker = true)))
+        }
+        assertEquals(Capability.Eligible(0, "thread_text"),
+            CapabilityCheck.evaluate(dm(actions = listOf(thread)).copy(hasThreadMarker = true)))
     }
 
     @Test fun selectionStillValidatesCreatorMutabilityAndResultKeys() {
