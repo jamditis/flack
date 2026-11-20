@@ -27,13 +27,13 @@ Releases are signed with one key, so a new release installs over the old one. If
 
 ## Set up Android Auto
 
-1. Open **Settings → Connected devices → Android Auto**. If a system **App info** page opens on Samsung, tap **Configure in Android Auto**.
-2. Scroll to the bottom and tap the **Version** row 10 times, until it asks to allow development settings. Tap **OK**. This is Android Auto's own developer mode, separate from the phone's developer options.
-3. Open the menu (three dots) → **Developer settings** and turn on **Unknown sources**.
-4. Check that Flack appears under **Android Auto → Customize launcher**.
+1. Search your phone's **Settings** for **Android Auto**. If a system **App info** page opens on Samsung, tap **Configure in Android Auto**.
+2. Tap the three-dot menu, then **Developer settings**. If it is missing, scroll to **Version**, tap to expand it, then tap the expanded version information ten times. Tap **OK** and return to **Developer settings**.
+3. Check that **Unknown sources** is on.
+4. Go back and open **Customize launcher**. If Flack is listed, make sure it is selected. Disconnect and reconnect Android Auto to see launcher changes.
 5. If Android Auto or Gemini offers a setting to send replies automatically, turn it off, so you hear every reply read back before it is sent.
 
-Without this, Android Auto hides notifications from apps not installed from Google Play.
+Android Auto's **Unknown sources** setting allows notification apps installed outside Google Play. It is in Android Auto's own developer settings. If Flack asks you to recheck after an Android Auto update, repeat the steps above.
 
 ## Test messages and replies
 
