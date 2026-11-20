@@ -137,7 +137,7 @@ Use Android Auto's Desktop Head Unit for early integration checks, then validate
 
 ## Emulator check in CI
 
-Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`). DMs, public/private channels, group DMs and two threads become separate car copies. Replies in reverse arrival order use the copies' real PendingIntents and reach only their original destination once, even with repeated callbacks. Mixed actions and unknown routing produce copies with no reply action. Turning Flack off removes all copies. This checks a real Android system image, but has no Android Auto or real Slack; it cannot prove host readout of read-only copies.
+Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`). The first DM runs in quiet mode and replies through the invisible action. Public/private channels, group DMs and two threads each get a copy in alerting mode. Replies in reverse arrival order use the copies' real PendingIntents and reach only their original destination once, even with repeated callbacks. Mixed actions and unknown routing produce copies with no reply action. Turning Flack off removes all copies. Android Auto readout and real Slack still need a physical test.
 
 ## Desktop Head Unit checks
 

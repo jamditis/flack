@@ -151,7 +151,8 @@ object SlackNotificationParser {
         if (!hasMessageSignal && notification.category != Notification.CATEGORY_MESSAGE) return null
         if (notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0) return null
         when (notification.category) {
-            Notification.CATEGORY_CALL, Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE -> return null
+            Notification.CATEGORY_CALL, Notification.CATEGORY_MISSED_CALL, Notification.CATEGORY_PROGRESS,
+            Notification.CATEGORY_SERVICE -> return null
         }
         val extras = notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
