@@ -2,16 +2,24 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.7
 
-- Quiet mode keeps Flack's reply button off the phone copy. Android Auto uses the
-  posted notification, so Android can still show it in the shade and status bar.
-- Flack keeps both observed Slack reply choices read-only when Slack identifies
-  neither as the reply to use. The copy explains that it cannot verify thread
-  placement. Slack sign-in offers replies only to eligible one-to-one DMs and
-  explains that they go to the main DM.
-- A readable message can still forward when Slack's action format changes or a
-  different message shares its Android notification group.
+- **Quiet Flack copies on the phone** silences Flack's sound, vibration and
+  pop-ups and keeps its reply button off the phone copy. Android Auto uses that
+  copy, so you can still see it in the phone shade or status bar. It clears when
+  Slack removes the original notification or you disconnect the car.
+- When Slack offers both **Reply** and **Reply in thread** without designating
+  one, Flack keeps the message read-only. The copy explains that Flack cannot
+  tell where the reply belongs. Some cars may hide read-only copies. Flack uses
+  a validated original reply action when available. Optional Slack sign-in can
+  offer a reply to the main view of an eligible one-to-one DM.
+- Flack can keep more messages readable when Slack changes how it formats a
+  notification or puts different messages in the same notification group.
+- After updating, park and receive a fresh test DM with quiet mode off. Turn
+  quiet mode on and receive another. Compare the phone shade and alerts with
+  the car notification list and readout. Try a channel or thread message with
+  both Slack reply choices and check that it stays read-only. If a message is
+  missing or a reply goes somewhere unexpected, use **Copy test report** in Flack.
 
 ## 0.3.6
 
