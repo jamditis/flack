@@ -13,9 +13,14 @@
     <string name="channel_name">Slack messages for the car</string>
     <string name="channel_description">Copies of Slack messages, for Android Auto to read aloud.</string>
     <string name="quiet_channel_name">Quiet Slack copies for the car</string>
-    <string name="quiet_channel_description">Car copies with phone sound, vibration and badges off.</string>
+    <string name="quiet_channel_description">Silent copies for Android Auto. Android can still show them in the phone shade and status bar.</string>
     <string name="hide_phone_copies">Quiet Flack copies on the phone</string>
-    <string name="hide_phone_copies_body">Off by default so the car can alert. Turning this on silences phone alerts, but Android Auto may miss copies or alerts too. Copies remain in the phone shade. If the car misses a message, turn this off and receive a new Slack message. Changing this clears current copies.</string>
+    <string name="hide_phone_copies_body">Silences Flack sounds, vibration and pop-ups. Android Auto uses a phone notification, so the copy stays in the shade and can have a status bar icon. If the car misses alerts, turn this off and try a new Slack message. Changing this clears current copies.</string>
+    <string name="car_message_with_flack_notice">%1$s\n\nFlack: %2$s</string>
+    <string name="car_reply_thread_unknown">Reply unavailable. Slack gave me no way to tell if your reply belongs in a thread.</string>
+    <string name="car_reply_shared_action">Reply unavailable. Slack reused this reply action, so I cannot verify where your reply would go.</string>
+    <string name="car_reply_route_unknown">Reply unavailable. I cannot verify where a Slack reply would go.</string>
+    <string name="car_reply_main_dm">Replies go to the main direct message.</string>
     <string name="reply_label">Reply</string>
     <string name="you">You</string>
     <string name="mark_read">Mark as read</string>
@@ -61,7 +66,7 @@
     <!-- Status -->
     <string name="signin_title">Slack sign-in</string>
     <string name="signin_required">No Slack workspace is signed in.</string>
-    <string name="signin_body">Optional. Sign in so Flack can post top-level car replies as you when a Slack notification has no usable reply button. Flack checks the conversation and workspace identifiers before offering a reply. Slack also grants permission to search messages and read names; this reply route uses neither. If the destination is uncertain, the message stays read-only.</string>
+    <string name="signin_body">Optional. Sign in to reply to one-to-one direct messages that arrive without a Slack reply button or a known thread signal. These replies go to the main direct message. Flack verifies the conversation and workspace. Slack also grants permission to search messages and read names. Flack uses neither permission.</string>
     <string name="signin_not_configured">Slack sign-in is not set up in this build.</string>
     <string name="signin_add">Add a Slack workspace</string>
     <string name="signin_workspace">%1$s: signed in as %2$s</string>

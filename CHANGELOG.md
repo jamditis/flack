@@ -2,6 +2,17 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
+## Unreleased
+
+- Quiet mode keeps Flack's reply button off the phone copy. Android Auto uses the
+  posted notification, so Android can still show it in the shade and status bar.
+- Flack keeps both observed Slack reply choices read-only when Slack identifies
+  neither as the reply to use. The copy explains that it cannot verify thread
+  placement. Slack sign-in offers replies only to eligible one-to-one DMs and
+  explains that they go to the main DM.
+- A readable message can still forward when Slack's action format changes or a
+  different message shares its Android notification group.
+
 ## 0.3.6
 
 - Flack keeps Android Auto setup help available after you check Unknown sources.

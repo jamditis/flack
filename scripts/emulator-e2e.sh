@@ -30,8 +30,8 @@ fixture_post() { # fixture_post <conversation> <sender> <text> <kind>
   adb shell "am broadcast -n $FIXTURE/.FixtureCommandReceiver -a $FIXTURE.POST --es conversation '$1' --es sender '$2' --es text '$3' --es kind $4" > /dev/null
 }
 
-flack_configure() { # flack_configure <enabled> <car_only>
-  adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.CONFIGURE --ez enabled $1 --ez car_only $2" > /dev/null
+flack_configure() { # flack_configure <enabled> <car_only> [quiet]
+  adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.CONFIGURE --ez enabled $1 --ez car_only $2 --ez quiet ${3:-false}" > /dev/null
 }
 
 step "Install both apps"
@@ -43,18 +43,18 @@ adb logcat -c
 
 step "Grant notification access and turn forwarding on (no car needed)"
 adb shell cmd notification allow_listener "$FLACK/$FLACK.SlackListenerService"
-flack_configure true false
+flack_configure true false true
 listener_bound() { adb shell dumpsys notification | grep -q "$FLACK/$FLACK.SlackListenerService"; }
 wait_for 30 listener_bound || fail "listener never bound"
 sleep 3
 
-step "A new DM becomes a car copy"
+step "A new DM becomes a quiet car copy"
 before=$(flack_copies)
 fixture_post dm-riley "Riley Example" "Lunch at noon?" DM
 has_new_copy() { [ "$(flack_copies)" -gt "$before" ]; }
 wait_for 30 has_new_copy || fail "no car copy appeared for the DM"
 
-step "A car reply reaches the source app once"
+step "A quiet car reply reaches the source app once"
 reply="e2e-$RANDOM-$RANDOM"
 adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation dm-riley --es text $reply" > /dev/null
 got_reply() { adb logcat -d -s FlackFixture:I | grep -q "reply conversation=dm-riley text=$reply"; }
@@ -68,6 +68,7 @@ adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FR
 sleep 3
 if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "an untargeted test reply was sent"; fi
 adb logcat -d -s FlackDebug:W | grep -q "refused" || fail "the debug hook did not report refusing the reply"
+flack_configure true false
 
 step "Group DMs, public/private channels and two threads become separate car copies"
 for item in group-project:GROUP channel-kites:CHANNEL private-paper:PRIVATE_CHANNEL thread-launch:THREAD thread-folding:THREAD; do

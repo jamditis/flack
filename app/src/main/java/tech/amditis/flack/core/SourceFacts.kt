@@ -11,9 +11,11 @@ data class SourceFacts(
     val userId: Int,
     val notificationKey: String,
     val isGroupSummary: Boolean,
-    /** Null when the notification has no MessagingStyle. */
+    /** Null when the notification has no readable message format. */
     val conversation: Conversation?,
     val replyActions: List<ReplyActionFacts>,
+    /** An allowlisted key can rule out a top-level guess but cannot identify a thread. */
+    val hasThreadMarker: Boolean = false,
 )
 
 data class Conversation(

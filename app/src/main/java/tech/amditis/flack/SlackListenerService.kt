@@ -1,12 +1,13 @@
 package tech.amditis.flack
 
-import android.content.ComponentName
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import tech.amditis.flack.core.ApiReadOnlyReason
 import tech.amditis.flack.core.ApiRoute
@@ -47,7 +48,7 @@ class SlackListenerService : NotificationListenerService() {
     // Bounded session history also prevents a removed child being replayed as a summary.
     private val seenMessages = LinkedHashMap<GroupMessage, String>()
 
-    private fun source(parsed: ParsedNotification) = Source(
+    private fun describeSource(parsed: ParsedNotification) = Source(
         parsed.groupKey,
         parsed.facts.isGroupSummary, parsed.actionIntents.filterNotNull(),
         CapabilityCheck.evaluate(parsed.facts, BridgeState.sourcePackages) !is Capability.Rejected,
@@ -56,6 +57,26 @@ class SlackListenerService : NotificationListenerService() {
 
     private fun groupMessage(source: Source, parsed: ParsedNotification): GroupMessage? =
         source.group?.let { group -> parsed.newestMessageIdentity?.let { GroupMessage(group, it) } }
+
+    /** Group membership alone cannot establish that the child carries the summary's message. */
+    private fun coversSummary(child: Source, summary: Source): Boolean {
+        if (child.summary || !child.readable || child.group == null || child.group != summary.group) return false
+        val childMessage = child.identity ?: return false
+        val summaryMessage = summary.identity ?: return false
+        // Slack summaries may have different headers or less metadata. Require the same
+        // text and timestamp and preserve both copies when known IDs disagree.
+        if (childMessage.message.text != summaryMessage.message.text ||
+            childMessage.message.timestampMillis != summaryMessage.message.timestampMillis
+        ) return false
+        if (childMessage.conversationId != null && summaryMessage.conversationId != null &&
+            childMessage.conversationId != summaryMessage.conversationId
+        ) return false
+        if (childMessage.senderKey != null && summaryMessage.senderKey != null &&
+            childMessage.senderKey != summaryMessage.senderKey
+        ) return false
+        return childMessage.workspaceIds.isEmpty() || summaryMessage.workspaceIds.isEmpty() ||
+            childMessage.workspaceIds == summaryMessage.workspaceIds
+    }
 
     private fun rememberMessage(message: GroupMessage?, key: String) {
         if (message == null) return
@@ -74,7 +95,7 @@ class SlackListenerService : NotificationListenerService() {
         // notification's actions are recorded so no forwarded reply can share them.
         activeSources().filter(::isOwnProfileSource).forEach { sbn ->
             val parsed = SlackNotificationParser.parse(sbn)
-            val source = source(parsed)
+            val source = describeSource(parsed)
             sources[sbn.key] = source
             rememberMessage(groupMessage(source, parsed), sbn.key)
             recordWithoutForwarding(sbn, parsed)
@@ -108,25 +129,23 @@ class SlackListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!isOwnProfileSource(sbn)) return
         val parsed = SlackNotificationParser.parse(sbn)
-        val source = source(parsed)
+        val source = describeSource(parsed)
         val previousSource = sources.put(sbn.key, source)
         val structureChanged = previousSource != null && (previousSource.group != source.group ||
             previousSource.summary != source.summary || previousSource.messaging != source.messaging)
         val message = groupMessage(source, parsed)
         val previousKey = message?.let { seenMessages[it] }?.takeIf { it != sbn.key }
-        val replacesKey = previousKey?.takeIf {
-            !source.summary && sources[it]?.summary == true &&
-                sources[it]?.group == source.group &&
-                sources[it]?.identity == parsed.newestMessageIdentity &&
-                BridgeState.registry.findBinding { binding -> binding.notificationKey == it } != null
-        }
-        val activeChild = source.group != null && (
-            sources.any { (key, other) -> key != sbn.key && other.group == source.group && !other.summary && other.readable } ||
-                (source.summary && activeSources().any { other ->
+        val replacesKey = if (source.summary || source.group == null) null else sources.entries.firstOrNull { (key, summary) ->
+            summary.summary && coversSummary(source, summary) &&
+                BridgeState.registry.findBinding { it.notificationKey == key } != null
+        }?.key
+        val activeChild = source.summary && source.group != null && (
+            sources.any { (key, other) -> key != sbn.key && coversSummary(other, source) } ||
+                activeSources().any { other ->
                     isOwnProfileSource(other) && other.key != sbn.key && other.groupKey == source.group &&
                         other.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY == 0 &&
-                        CapabilityCheck.evaluate(SlackNotificationParser.parse(other).facts, BridgeState.sourcePackages) !is Capability.Rejected
-                })
+                        coversSummary(describeSource(SlackNotificationParser.parse(other)), source)
+                }
             )
         val features = NotificationFeatures(
             parsed.hasMessagingMessages, parsed.facts.replyActions.any { it.freeFormResultKeys.isNotEmpty() },
@@ -171,9 +190,12 @@ class SlackListenerService : NotificationListenerService() {
             }
             // Route order: Slack's original action, then the Slack API, then read-only.
             is Capability.ReadOnly -> {
-                if (decision.readOnly) {
-                    forward(sbn, parsed, null, capability, replacesKey, allowApiLookup = false, structureChanged = structureChanged)
-                } else forward(sbn, parsed, null, capability, replacesKey, structureChanged = structureChanged)
+                val noReplyAction = capability.reason == RejectReason.NO_REPLY_ACTION && parsed.facts.replyActions.none {
+                    it.resultKeys.isNotEmpty() || it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY
+                }
+                val allowApiLookup = noReplyAction && parsed.facts.conversation?.isGroup == false &&
+                    parsed.routeFields.shortcutId != null
+                forward(sbn, parsed, null, capability, replacesKey, allowApiLookup, structureChanged)
             }
             is Capability.Eligible -> forward(sbn, parsed, capability, replacesKey = replacesKey, structureChanged = structureChanged)
         }
@@ -207,13 +229,12 @@ class SlackListenerService : NotificationListenerService() {
         capability: Capability.Eligible?,
         readOnly: Capability.ReadOnly? = null,
         replacesKey: String? = null,
-        allowApiLookup: Boolean = true,
+        allowApiLookup: Boolean = false,
         structureChanged: Boolean = false,
     ) {
         val action = capability?.let { parsed.actionIntents[it.actionIndex] }
         val original = parsed.facts.conversation ?: return
-        val selectedTitle = capability?.let { parsed.facts.replyActions[it.actionIndex].title }
-        val isThreadReply = selectedTitle?.contains("thread", ignoreCase = true) == true
+        val isThreadReply = capability?.let { CapabilityCheck.isThreadReply(parsed.facts.replyActions[it.actionIndex]) } == true
         val conversation = if (isThreadReply && original.title?.contains("thread", ignoreCase = true) != true) {
             original.copy(title = "${CapabilityCheck.contextLabel(original)} · thread")
         } else original
@@ -224,20 +245,25 @@ class SlackListenerService : NotificationListenerService() {
             is Observation.Publish -> {
                 CarNotificationPublisher.cancel(this, result.evicted)
                 refreshBindings(result.replyDisabled)
-                val posted = publish(result.binding, conversation, result.alert)
+                val sharedAction = action != null && !result.binding.canReply
+                val replyProblem = when {
+                    sharedAction -> RejectReason.SHARED_REPLY_ACTION
+                    allowApiLookup -> null
+                    else -> readOnly?.reason
+                }
+                val posted = publish(result.binding, conversation, result.alert, replyProblem)
                 if (posted) {
-                    val source = source(parsed)
+                    if (sharedAction) BridgeState.countAmbiguous()
+                    if (!allowApiLookup) replyProblem?.let(BridgeState::countReadOnly)
+                    val source = describeSource(parsed)
                     rememberMessage(groupMessage(source, parsed), sbn.key)
                     // Withdraw a summary only after a readable child has taken its place.
                     if (!source.summary && source.group != null) {
-                        sources.filter { (key, other) -> key != replacesKey && other.summary && other.group == source.group }
+                        sources.filter { (key, other) -> key != replacesKey && other.summary && coversSummary(source, other) }
                             .forEach { (key, other) -> refreshBindings(BridgeState.registry.recordOther(key, other.actions)) }
                     }
                 }
-                if (readOnly != null) {
-                    if (allowApiLookup) resolveBeforePublishing(sbn, parsed, readOnly, result)
-                    else if (posted) BridgeState.countReadOnly(readOnly.reason)
-                }
+                if (posted && readOnly != null && allowApiLookup) resolveBeforePublishing(sbn, parsed, readOnly, result)
             }
             is Observation.Unchanged, is Observation.Baseline -> Unit
         }
@@ -266,24 +292,22 @@ class SlackListenerService : NotificationListenerService() {
                 is ApiRoute.ReadOnly -> {
                     BridgeState.countReadOnly(readOnly.reason)
                     BridgeState.countApiReadOnly(route.reason)
+                    publish(pending.binding, conversation, alert = false, replyProblem = readOnly.reason)
                 }
             }
         }
-        // Without a shortcut there is no candidate and no account/network work.
-        if (parsed.routeFields.shortcutId == null) {
-            complete(resolveApi(parsed))
-        } else {
-            apiWorker.execute {
-                if (BridgeState.registry.isCurrent(pending.binding)) {
-                    val route = resolveApi(parsed)
-                    main.post { complete(route) }
-                }
+        apiWorker.execute {
+            if (BridgeState.registry.isCurrent(pending.binding)) {
+                val route = resolveApi(parsed)
+                main.post { complete(route) }
             }
         }
     }
 
-    private fun publish(binding: Binding<PendingIntent>, conversation: Conversation, alert: Boolean): Boolean {
-        val posted = CarNotificationPublisher.post(this, binding, conversation, alert)
+    private fun publish(
+        binding: Binding<PendingIntent>, conversation: Conversation, alert: Boolean, replyProblem: RejectReason? = null,
+    ): Boolean {
+        val posted = CarNotificationPublisher.post(this, binding, conversation, alert, replyProblem = replyProblem)
         if (posted && alert) BridgeState.countForwarded()
         return posted
     }
@@ -292,7 +316,10 @@ class SlackListenerService : NotificationListenerService() {
         bindings.forEach { binding ->
             if (BridgeState.registry.isCurrent(binding)) {
                 BridgeState.conversation(binding.carNotificationId)?.let {
-                    CarNotificationPublisher.post(this, binding, it, alert = false)
+                    val reason = RejectReason.SHARED_REPLY_ACTION
+                    if (CarNotificationPublisher.post(this, binding, it, alert = false, replyProblem = reason)) {
+                        BridgeState.countReadOnly(reason)
+                    }
                 }
                 BridgeState.countAmbiguous()
             } else {

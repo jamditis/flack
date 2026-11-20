@@ -134,6 +134,15 @@ class SlackNotificationParserTest {
                 .setContentTitle("Paper activity").setContentText("Still working").setCategory(category).build()
             assertNull(SlackNotificationParser.parse(SyntheticSlack.statusBar(status, "status")).facts.conversation)
         }
+        listOf(Notification.CATEGORY_CALL, Notification.CATEGORY_MISSED_CALL, Notification.CATEGORY_PROGRESS,
+            Notification.CATEGORY_SERVICE).forEach { category ->
+            val status = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
+                .setContentTitle("Paper activity").setContentText("Still working").setCategory(category)
+                .addAction(Notification.Action.Builder(null, "Respond", SyntheticSlack.replyIntent(context, "status"))
+                    .addRemoteInput(android.app.RemoteInput.Builder("status_text").build()).build())
+                .build()
+            assertNull(SlackNotificationParser.parse(SyntheticSlack.statusBar(status, "status")).facts.conversation)
+        }
         listOf(Notification.FLAG_ONGOING_EVENT, Notification.FLAG_FOREGROUND_SERVICE).forEach { flag ->
             val status = Notification.Builder(context, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
                 .setContentTitle("Paper activity").setContentText("Still working").setCategory(Notification.CATEGORY_MESSAGE).build()

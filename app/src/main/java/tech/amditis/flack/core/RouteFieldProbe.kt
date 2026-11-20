@@ -109,7 +109,7 @@ class RouteFieldProbe {
         cases.addLast(
             Case(
                 route, isGroup, list, fields.extras.size, fields.otherExtras, fields.hasSubText,
-                threadMarkerKeys = fields.extras.take(MAX_EXTRAS).map { it.first }.filter { it in THREAD_KEYS }.distinct().sorted(),
+                threadMarkerKeys = fields.extras.take(MAX_EXTRAS).map { it.first }.filter(::isThreadMarkerKey).distinct().sorted(),
                 conversation = conversation,
                 sender = sender?.let { hash(it) },
                 messageTimeMillis = context.messageTimeMillis,
@@ -325,6 +325,8 @@ class RouteFieldProbe {
         private val KNOWN_PREFIXES = listOf("", "$SLACK_PACKAGE.", "$SLACK_PACKAGE.extra.", "slack.", "slack_")
         private val THREAD_KEYS = setOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts", "rootTs", "thread_id", "threadId")
             .flatMap { key -> KNOWN_PREFIXES.map { prefix -> "$prefix$key" } }.toSet()
+
+        internal fun isThreadMarkerKey(key: String): Boolean = key in THREAD_KEYS
 
         /** The key itself when it is a [KNOWN_KEYS] entry, alone or after a [KNOWN_PREFIXES] entry. */
         private fun knownKeyName(key: String): String? =

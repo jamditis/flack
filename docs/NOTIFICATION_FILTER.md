@@ -12,7 +12,7 @@ Auto version numbers. `NotificationFilter` applies these rows in order:
 | Row | Observed features | Action |
 | --- | --- | --- |
 | EMPTY | No readable message text | Drop empty content |
-| SUMMARY_WITH_CHILD | Summary flag and a readable active child with the same Android group key | Keep the child; withdraw the summary's copy |
+| SUMMARY_WITH_CHILD | A readable active child represents the summary's message in the same Android group | Keep the child and withdraw the redundant summary copy |
 | ALREADY_FORWARDED | Another source key already represented this exact group/message, without a live summary copy to transfer | Suppress replay and record a baseline |
 | UNKNOWN_READ_ONLY | Readable text with an unfamiliar feature mix | Forward read-only; bypass both reply routes |
 | CHILD_REPLACES_SUMMARY | Child matches a message already copied from a live summary | Transfer the existing car notification quietly to the child |
@@ -22,20 +22,21 @@ Auto version numbers. `NotificationFilter` applies these rows in order:
 Unfamiliar mixes include plain text without a reply input, summaries without a
 group key, unknown shortcut-ID shapes, and ID shapes inconsistent with the
 conversation's group flag. An absent shortcut does not disable a validated
-original action. The existing API route still requires an exact conversation ID,
-one workspace ID and workspace confirmation. All rows retain source/profile,
+original action. The API route requires a one-to-one DM shortcut, one workspace
+ID and workspace confirmation. All rows retain source/profile,
 readable-message and context checks; redacted or empty notifications cannot
 produce a usable message.
 
-For a summary/child pair, identity compares the Android group key, exact shortcut
-and workspace IDs, conversation context, sender key and newest message's sender,
-text and timestamp. These values stay in memory. A child arriving after a
+For an active child to represent the summary's message, they must have the same
+Android group key, newest message text and timestamp. Conflicting known shortcut,
+workspace or sender IDs preserve both copies. A summary can omit IDs or show a
+different header. These values stay in memory. A child arriving after a matching
 summary replaces the same car-notification ID, invalidates the summary token,
 preserves whether its reply was consumed, and produces no second alert. Removing
 the summary cannot remove the child's copy. A different message still alerts.
 Source action-sharing checks continue to disable ambiguous original reply actions.
-Empty or rejected children cannot withdraw a readable summary. Other summaries
-in the group are withdrawn only after the child is published successfully.
+Empty, rejected and unrelated children cannot withdraw a readable summary.
+Matching summaries are withdrawn after the child is published successfully.
 Grouping and style changes expire pending reply lookups through a new generation.
 The message-content fingerprint stays separate, so those changes neither alert
 again nor reset a consumed reply. A child cannot take over a different group's copy.

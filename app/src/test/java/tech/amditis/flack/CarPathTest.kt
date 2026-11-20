@@ -177,6 +177,9 @@ class CarPathTest {
 
     private fun replyAction() = carCopy().actions.single { it.remoteInputs?.isNotEmpty() == true }
 
+    private fun quietReplyAction() = NotificationCompat.getInvisibleActions(carCopy())
+        .single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY }
+
     /** Simulates Android Auto filling in a dictated reply and firing the car copy's reply action. */
     private fun replyFromCar(text: String) = fire(replyAction(), text)
 
@@ -186,6 +189,14 @@ class CarPathTest {
         RemoteInput.addResultsToIntent(action.remoteInputs, fill, Bundle().apply { putCharSequence(CarNotificationPublisher.REPLY_KEY, text) })
         val delivered = Intent(shadowOf(action.actionIntent).savedIntent)
         delivered.fillIn(fill, 0)
+        CarActionReceiver().onReceive(app, delivered)
+    }
+
+    private fun fire(action: NotificationCompat.Action, text: String) {
+        val fill = Intent()
+        androidx.core.app.RemoteInput.addResultsToIntent(action.remoteInputs!!, fill,
+            Bundle().apply { putCharSequence(CarNotificationPublisher.REPLY_KEY, text) })
+        val delivered = Intent(shadowOf(action.actionIntent).savedIntent).apply { fillIn(fill, 0) }
         CarActionReceiver().onReceive(app, delivered)
     }
 
@@ -348,6 +359,8 @@ class CarPathTest {
         assertEquals(0, carCopy().defaults and (Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE))
         assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
         assertEquals(Notification.GROUP_ALERT_SUMMARY, carCopy().groupAlertBehavior)
+        assertTrue(carCopy().actions.orEmpty().isEmpty())
+        assertEquals(CarNotificationPublisher.REPLY_KEY, quietReplyAction().remoteInputs!!.single().resultKey)
         assertEquals(sourceFlags, source.notification.flags)
         assertTrue(TestReport.build(app).contains("channel=car_messages_quiet_v2"))
         CarNotificationPublisher.ensureChannel(app)
@@ -385,7 +398,7 @@ class CarPathTest {
     @Test fun switchingPhoneCopyModeClearsOldTokensAndUsesTheAlertChannelForNewMessages() {
         BridgeState.setHidePhoneCopies(app, true)
         post(SyntheticSlack.dm(app))
-        val held = replyAction()
+        val held = quietReplyAction()
         val activity = Robolectric.buildActivity(StatusActivity::class.java).setup().get()
         val toggle = activity.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.hide_phone_copies)
         assertTrue(toggle.isChecked)
@@ -399,6 +412,27 @@ class CarPathTest {
         assertEquals(Notification.GROUP_ALERT_ALL, carCopy().groupAlertBehavior)
         assertTrue(TestReport.build(app).contains("channel=car_messages"))
         activity.recreate()
+    }
+
+    @Test fun silentCopiesKeepTheCarReplyAndFollowSlackRemovalAndDisconnect() {
+        BridgeState.setHidePhoneCopies(app, true)
+        val source = SyntheticSlack.dm(app)
+        post(source)
+        val held = quietReplyAction()
+        fire(held, "First reply")
+        fire(held, "Duplicate reply")
+        assertEquals(1, slackReplies().size)
+        assertEquals("First reply", RemoteInput.getResultsFromIntent(slackReplies().single())
+            .getCharSequence(SyntheticSlack.REPLY_KEY).toString())
+        listener.onNotificationRemoved(source)
+        assertEquals(0, manager.size())
+
+        post(SyntheticSlack.dm(app, text = "Another message"))
+        val disconnected = quietReplyAction()
+        listener.onCarConnectionChanged(false)
+        assertEquals(0, manager.size())
+        fire(disconnected, "Expired reply")
+        assertEquals(1, slackReplies().size)
     }
 
     @Test fun otherAppsAreIgnored() {
@@ -451,6 +485,7 @@ class CarPathTest {
     }
 
     @Test fun twoConversationsSharingOneSlackActionAreBothReadOnly() {
+        val before = reasonCount("SHARED_REPLY_ACTION")
         val shared = SyntheticSlack.replyIntent(app, "shared")
         post(SyntheticSlack.dm(app, key = "dm-riley", reply = shared))
         val held = replyAction()
@@ -458,6 +493,11 @@ class CarPathTest {
         post(SyntheticSlack.dm(app, key = "dm-sam", sender = "Sam Example", reply = shared))
         assertEquals(2, manager.size())
         assertTrue(manager.allNotifications.all { it.actions.orEmpty().none { action -> action.remoteInputs?.isNotEmpty() == true } })
+        assertTrue(manager.allNotifications.all {
+            val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it)!!
+            style.messages.single().text.toString().contains(app.getString(R.string.car_reply_shared_action))
+        })
+        assertEquals(before + 2, reasonCount("SHARED_REPLY_ACTION"))
         fire(held, "Cannot route this")
         assertTrue(slackReplies().isEmpty())
     }
@@ -508,13 +548,13 @@ class CarPathTest {
     }
 
     @Test fun aChannelMessageWithoutAShortcutStaysReadOnly() {
-        val before = reasonCount("NO_CONVERSATION_ID")
+        val before = reasonCount("NO_REPLY_ACTION")
         // ID-shaped values in structured fields are not evidence of what they mean.
         val sbn = SyntheticSlack.dm(app, key = "no-action", title = "#paper-kites", isGroup = true, reply = null)
         sbn.notification.extras.putString("test.route", "T0PAPER001:C0KITES001:1700000000.000100")
         post(sbn)
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
-        assertEquals(before + 1, reasonCount("NO_CONVERSATION_ID"))
+        assertEquals(before + 1, reasonCount("NO_REPLY_ACTION"))
         assertTrue(BridgeState.diagnostics().contains("Reply offered through the Slack API:"))
     }
 
@@ -527,9 +567,13 @@ class CarPathTest {
         post(sbn)
         assertEquals(1, manager.size())
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        val pendingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(carCopy())!!
+        assertEquals("Lunch at noon?", pendingStyle.messages.single().text.toString())
         queued.removeAt(0).run()
         shadowOf(Looper.getMainLooper()).idle()
         assertNotNull(replyAction())
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(carCopy())!!
+        assertTrue(style.messages.single().text.toString().contains(app.getString(R.string.car_reply_main_dm)))
         assertTrue(TestReport.build(app).contains("Reply offered through the Slack API: ${before + 1}"))
         val binding = BridgeState.registry.findBinding { it.notificationKey == sbn.key }!!
         assertTrue(BridgeState.registry.consume(binding.token, "Invented response") is ConsumeResult.Dispatch)
@@ -539,12 +583,33 @@ class CarPathTest {
         assertTrue(BridgeState.registry.consume(binding.token, "Invented response") is ConsumeResult.Rejected)
     }
 
+    @Test fun theApiFallbackSkipsGroupsAndKnownDmThreads() {
+        listener.apiWorker = Executor { it.run() }
+        listener.resolveApi = { error("The original notification cannot prove API reply placement") }
+        val channel = SyntheticSlack.dm(app, key = "channel", title = "Paper kites", isGroup = true,
+            reply = null, shortcutId = "C0PAPER001")
+        val groupDm = SyntheticSlack.dm(app, key = "group", title = "Paper group", isGroup = true,
+            reply = null, shortcutId = "G0PAPER001")
+        val dmThread = SyntheticSlack.dm(app, key = "dm-thread", reply = null, shortcutId = "D0PAPER001")
+        dmThread.notification.extras.putLong("com.Slack.thread_ts", 1_700_000_000L)
+        listOf(channel, groupDm, dmThread).forEach { source ->
+            post(source)
+            val copy = carCopy()
+            assertTrue(copy.actions.orEmpty().isEmpty())
+            assertFalse(BridgeState.registry.findBinding { it.notificationKey == source.key }!!.canReply)
+            listener.onNotificationRemoved(source)
+        }
+    }
+
     @Test fun failedApiConfirmationReportsAReasonAndKeepsTheCopyReadOnly() {
         listener.apiWorker = Executor { it.run() }
         listener.resolveApi = { ApiRoute.ReadOnly(ApiReadOnlyReason.WORKSPACE_UNCONFIRMED) }
         post(SyntheticSlack.dm(app, reply = null, shortcutId = "D0PAPER001"))
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
+        assertTrue(carCopy().flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(carCopy())!!
+        assertTrue(style.messages.single().text.toString().contains(app.getString(R.string.car_reply_route_unknown)))
         assertTrue(TestReport.build(app).contains("WORKSPACE_UNCONFIRMED:"))
     }
 

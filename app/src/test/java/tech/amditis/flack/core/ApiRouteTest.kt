@@ -22,14 +22,10 @@ class ApiRouteTest {
     private fun readOnly(reason: ApiReadOnlyReason) = ApiRoute.ReadOnly(reason)
 
     @Test fun matchingTeamAndExactShortcutGiveATopLevelDestination() {
-        // The approved experiment also answers thread notifications at the top level.
-        listOf(dm to "D0PAPER001", group to "G0PAPER001", group to "C0PAPER001",
-            group.copy(title = "Paper room thread") to "G0PAPER001").forEach { (conversation, id) ->
-            val checked = mutableListOf<String>()
-            assertEquals(ApiRoute.Certain(ApiDestination("T0PAPER001", id)), resolve(conversation, fields(id),
-                confirm = { team -> checked += team; true }))
-            assertEquals(listOf("T0PAPER001"), checked)
-        }
+        val checked = mutableListOf<String>()
+        assertEquals(ApiRoute.Certain(ApiDestination("T0PAPER001", "D0PAPER001")), resolve(
+            confirm = { team -> checked += team; true }))
+        assertEquals(listOf("T0PAPER001"), checked)
     }
 
     @Test fun malformedAndMismatchedConversationShapesStayReadOnlyWithoutLookup() {
@@ -38,7 +34,13 @@ class ApiRouteTest {
             assertEquals(readOnly(ApiReadOnlyReason.NO_CONVERSATION_ID), resolve(fields = fields(id),
                 workspaces = { error("must not read accounts") }, confirm = { error("must not look up") }))
         }
-        assertEquals(readOnly(ApiReadOnlyReason.NO_CONVERSATION_ID), resolve(group))
+    }
+
+    @Test fun groupConversationIdsCannotProveReplyPlacement() {
+        listOf("G0PAPER001", "C0PAPER001").forEach { id ->
+            assertEquals(readOnly(ApiReadOnlyReason.GROUP_PLACEMENT_UNVERIFIED), resolve(group, fields(id),
+                workspaces = { error("must not read accounts") }, confirm = { error("must not look up") }))
+        }
     }
 
     @Test fun missingDifferentOrEmbeddedWorkspaceIdsStayReadOnly() {
@@ -72,7 +74,7 @@ class ApiRouteTest {
 
     @Test fun unknownKindAndUntitledGroupsStayReadOnly() {
         assertEquals(readOnly(ApiReadOnlyReason.NO_FIELD_MAPPING), resolve(dm.copy(isGroup = null)))
-        assertEquals(readOnly(ApiReadOnlyReason.UNTITLED_GROUP), resolve(group.copy(title = " ")))
+        assertEquals(readOnly(ApiReadOnlyReason.GROUP_PLACEMENT_UNVERIFIED), resolve(group.copy(title = " ")))
     }
 
     @Test fun absentExpiredAndUnreadableSignInsStayReadOnly() {
