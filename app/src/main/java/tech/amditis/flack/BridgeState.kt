@@ -105,7 +105,10 @@ object BridgeState {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
-        if (!enabled) CarNotificationPublisher.cancel(context, registry.withdrawAll())
+        if (!enabled) {
+            CarNotificationPublisher.cancel(context, registry.withdrawAll())
+            CarNotificationPublisher.dismissReplyStatus(context)
+        }
     }
 
     /** On by default: copies exist only during an Android Auto session (SPEC.md section 5). */

@@ -738,6 +738,8 @@ class CarPathTest {
 
     @Test fun turningTheSwitchOffRemovesCarCopies() {
         post(SyntheticSlack.dm(app))
+        replyFromCar(" ")
+        assertTrue(manager.allNotifications.any(::isReplyStatus))
         BridgeState.setEnabled(app, false)
         assertEquals(0, manager.size())
     }
