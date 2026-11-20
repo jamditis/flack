@@ -2,13 +2,22 @@ package tech.amditis.flack
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationManagerCompat
 
+internal const val ANDROID_AUTO_PACKAGE = "com.google.android.projection.gearhead"
+
 /** The live setup state, shared by the setup screen and the test report. */
 object SetupChecks {
+    fun androidAutoPackage(context: Context): PackageInfo? = try {
+        context.packageManager.getPackageInfo(ANDROID_AUTO_PACKAGE, 0)
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
+    }
+
     // Android 12 grants notification posting by default; 13 and later ask.
     fun canPost(context: Context) = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED

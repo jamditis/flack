@@ -99,14 +99,7 @@ jobs:
 
           ## Let Android Auto show Flack
 
-          Android Auto hides apps that did not come from Google Play until you turn on its Unknown sources setting. This is Android Auto's own developer mode, separate from the phone's developer options.
-
-          1. Open Settings, then Connected devices, then Android Auto. If an App info page opens instead (Samsung phones), tap **Configure in Android Auto**.
-          2. Scroll to the bottom and tap the **Version** row 10 times, until it asks to allow development settings. Tap **OK**.
-          3. Tap the three-dot menu, then **Developer settings**, and turn on **Unknown sources**.
-          4. Check that Flack appears in Android Auto under **Customize launcher**.
-
-          Then open Flack and finish its setup steps. Full guide: [install steps](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/INSTALL.md).
+          Turn on **Unknown sources** in Android Auto and check **Customize launcher**. Follow [Set up Android Auto](https://github.com/$GITHUB_REPOSITORY/blob/$TAG/docs/INSTALL.md#set-up-android-auto), then open Flack and finish its setup steps.
 
           This is an experiment build. It has not been tested in a car yet.
 

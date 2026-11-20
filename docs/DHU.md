@@ -26,7 +26,7 @@ Only debug builds of Flack accept the fake Slack. The released `flack.apk` ignor
    ```
 
 3. Open Flack on the phone and finish its setup steps.
-4. On the phone, open **Settings → Connected devices → Android Auto**. If Samsung opens **App info**, tap **Configure in Android Auto**. Scroll down and tap the **Version** row 10 times, until it asks to allow development settings, then accept. This is Android Auto's own developer mode, separate from the phone's developer options. In the three-dot menu choose **Start head unit server**. Turn on **Unknown sources** in **Developer settings** if you have not already.
+4. Follow [Set up Android Auto](INSTALL.md#set-up-android-auto) on the phone to turn on **Unknown sources**. Then use Android Auto's three-dot menu to choose **Start head unit server**.
 5. On the computer:
 
    ```bash

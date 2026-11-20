@@ -12,12 +12,12 @@ import tech.amditis.flack.core.SLACK_PACKAGE
  * so it is safe to paste into a public issue.
  */
 object TestReport {
-    private const val ANDROID_AUTO_PACKAGE = "com.google.android.projection.gearhead"
-
     fun build(context: Context): String {
         val pm = context.packageManager
         val self = pm.getPackageInfo(context.packageName, 0)
         val buildType = if (BuildConfig.DEBUG) "debug" else "release"
+        val androidAuto = SetupChecks.androidAutoPackage(context)
+        val autoSetup = BridgeState.androidAutoSetup(context, androidAuto?.longVersionCode)
         fun yesNo(value: Boolean) = if (value) "yes" else "no"
         return buildString {
             appendLine("Flack test report (contains no message text)")
@@ -26,12 +26,12 @@ object TestReport {
             appendLine("Phone: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), security patch ${Build.VERSION.SECURITY_PATCH}")
             appendLine("Slack: ${versionOf(pm, SLACK_PACKAGE)}")
-            appendLine("Android Auto: ${versionOf(pm, ANDROID_AUTO_PACKAGE)}")
+            appendLine("Android Auto: ${if (androidAuto == null) "not installed" else androidAuto.versionName ?: "installed, version unknown"}")
             appendLine()
             appendLine("Notifications allowed: ${yesNo(SetupChecks.canPost(context))}")
             appendLine("Notification access: ${yesNo(SetupChecks.hasAccess(context))}")
             appendLine("Runs in background: ${yesNo(SetupChecks.runsInBackground(context))}")
-            appendLine("Android Auto unknown sources confirmed: ${yesNo(BridgeState.isAndroidAutoConfirmed(context))}")
+            appendLine("Android Auto Unknown sources check: ${autoSetup.label}")
             appendLine("Forwarding: ${yesNo(BridgeState.isEnabled(context))}")
             appendLine("Only while Android Auto is connected: ${yesNo(BridgeState.isCarOnly(context))}")
             appendLine("Quiet Flack copies on the phone: ${yesNo(BridgeState.hidesPhoneCopies(context))}")

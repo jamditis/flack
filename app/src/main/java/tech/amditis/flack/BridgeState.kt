@@ -30,14 +30,21 @@ enum class HandoffStatus(val label: String) {
     OUTCOME_UNKNOWN("Outcome unknown: check Slack before sending it again"),
 }
 
+internal enum class AndroidAutoSetup(val label: String) {
+    UNAVAILABLE("Android Auto unavailable"),
+    UNCONFIRMED("not checked for this version"),
+    CONFIRMED("checked by the user"),
+    VERSION_CHANGED("Android Auto version changed; recheck"),
+}
+
 /**
  * Process-wide state. Everything here is in memory and content-free, except the
- * registry's action handles. Only the on/off switch is saved.
+ * registry's action handles. Setup choices are saved without message data.
  */
 object BridgeState {
     private const val PREFS = "bridge"
     private const val KEY_ENABLED = "enabled"
-    private const val KEY_AUTO_CONFIRMED = "android_auto_confirmed"
+    private const val KEY_AUTO_CONFIRMED_VERSION = "android_auto_confirmed_version"
     private const val KEY_CAR_ONLY = "car_only"
     private const val KEY_HIDE_COPIES = "hide_phone_copies"
 
@@ -158,12 +165,20 @@ object BridgeState {
     fun shouldForward(context: Context): Boolean =
         isEnabled(context) && (carConnected || !isCarOnly(context))
 
-    /** Android Auto's Unknown sources setting cannot be read, so the user confirms it. */
-    fun isAndroidAutoConfirmed(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO_CONFIRMED, false)
+    /** Remember which Android Auto version the user checked. The host switch is private. */
+    internal fun androidAutoSetup(context: Context, version: Long?): AndroidAutoSetup {
+        if (version == null) return AndroidAutoSetup.UNAVAILABLE
+        val confirmed = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_AUTO_CONFIRMED_VERSION, -1)
+        return when (confirmed) {
+            -1L -> AndroidAutoSetup.UNCONFIRMED
+            version -> AndroidAutoSetup.CONFIRMED
+            else -> AndroidAutoSetup.VERSION_CHANGED
+        }
+    }
 
-    fun confirmAndroidAuto(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_AUTO_CONFIRMED, true) }
+    internal fun confirmAndroidAuto(context: Context, version: Long) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putLong(KEY_AUTO_CONFIRMED_VERSION, version) }
     }
 
     @Synchronized fun countRejection(reason: RejectReason) {

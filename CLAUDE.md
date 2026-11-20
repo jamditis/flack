@@ -67,4 +67,4 @@ scripts/                    # Forbidden-file and APK permission checks; emulator
 
 ## Versions
 
-AGP 9.5.1 (built-in Kotlin), Gradle 9.9.1, compileSdk 37 (AndroidX core 1.19 needs it), targetSdk 36, minSdk 31. Raise targetSdk only after reading that Android version's behavior changes and retesting on both phones.
+AGP 9.5.1 (built-in Kotlin), Gradle 9.9.2, compileSdk 37 (AndroidX core 1.19 needs it), targetSdk 36, minSdk 31. Raise targetSdk only after reading that Android version's behavior changes and retesting on both phones.

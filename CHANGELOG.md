@@ -2,6 +2,13 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
+## Unreleased
+
+- Flack keeps Android Auto setup help available after you check Unknown sources.
+  When your Android Auto version changes, Flack asks you to check Unknown sources
+  and Customize launcher again. The test report records your check for the
+  installed version.
+
 ## 0.3.5
 
 - Slack's exact Reply action with a free-form input can use the native route
