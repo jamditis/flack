@@ -109,14 +109,15 @@ class StatusActivity : Activity() {
     override fun onResume() {
         super.onResume()
         SlackSession.onChange = ::refreshSignIn
-        BridgeState.onPostChange = { runOnUiThread { refreshPostFailure() } }
+        BridgeState.onStatusChange = { runOnUiThread { refreshWarnings() } }
+        BridgeState.updateHealth.refresh(this)
         refresh()
         refreshSignIn()
     }
 
     override fun onPause() {
         SlackSession.onChange = null
-        BridgeState.onPostChange = null
+        BridgeState.onStatusChange = null
         super.onPause()
     }
 
@@ -171,10 +172,10 @@ class StatusActivity : Activity() {
             BridgeState.lastHandoff.label,
         )
         findViewById<TextView>(R.id.diagnostics).text = BridgeState.diagnostics().trim()
-        refreshPostFailure()
+        refreshWarnings()
     }
 
-    private fun refreshPostFailure() {
+    private fun refreshWarnings() {
         val message = when (BridgeState.lastPostOutcome) {
             CopyPostOutcome.NOTIFICATIONS_DISABLED -> R.string.post_disabled
             CopyPostOutcome.CHANNEL_BLOCKED -> R.string.post_channel_blocked
@@ -186,6 +187,11 @@ class StatusActivity : Activity() {
         findViewById<TextView>(R.id.post_failure).apply {
             text = message?.let { getString(it) }.orEmpty()
             visibility = if (message == null) View.GONE else View.VISIBLE
+        }
+        findViewById<TextView>(R.id.platform_update).apply {
+            val warning = BridgeState.updateHealth.phoneMessage(this@StatusActivity)
+            text = warning.orEmpty()
+            visibility = if (warning == null) View.GONE else View.VISIBLE
         }
     }
 
