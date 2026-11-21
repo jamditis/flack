@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check on a real Android system image, with the test-only fake Slack:
 # every text conversation gets a car copy, safe replies reach their exact source
-# once, ambiguous copies have no reply, and turning Flack off removes copies.
+# once, ambiguous copies report a local failure, and turning Flack off removes copies.
 # Needs one running emulator or device on adb, and debug builds of :app and :fixture.
 set -euo pipefail
 
@@ -90,7 +90,7 @@ for conversation in thread-folding thread-launch private-paper channel-kites gro
   [ "$count" -eq 1 ] || fail "reply for $conversation dispatched $count times"
 done
 
-step "Ambiguous actions and unknown routing are read-only"
+step "Ambiguous actions and unknown routing offer local failure feedback"
 for item in mixed-paper:TWO_ACTIONS unknown-paper:UNKNOWN; do
   conversation=${item%:*}
   kind=${item#*:}
@@ -99,9 +99,13 @@ for item in mixed-paper:TWO_ACTIONS unknown-paper:UNKNOWN; do
   wait_for 15 has_new_copy || fail "no read-only copy for $conversation"
   adb logcat -c
   adb shell "am broadcast -n $FLACK/.DebugControlReceiver -a $FLACK.debug.REPLY_FROM_CAR --es conversation $conversation --es text should-not-send" > /dev/null
-  refused_read_only() { adb logcat -d -s FlackDebug:W | grep -q "car copy has no reply action"; }
-  wait_for 10 refused_read_only || fail "$conversation still offers a reply"
-  if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "read-only copy sent a reply"; fi
+  offered_car_reply() { adb logcat -d -s FlackDebug:I | grep -F "sent car reply" > /dev/null; }
+  wait_for 10 offered_car_reply || fail "$conversation did not expose a car reply action"
+  reply_status_posted() {
+    adb shell dumpsys notification --noredact | grep -F "Flack did not send your reply. Slack did not give Flack a usable reply action." > /dev/null
+  }
+  wait_for 10 reply_status_posted || fail "$conversation did not post reply feedback"
+  if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "unknown route sent a reply"; fi
 done
 
 step "Turning Flack off removes every car copy"

@@ -62,11 +62,12 @@ object SyntheticSlack {
         extraReplySemanticAction: Int = NotificationCompat.Action.SEMANTIC_ACTION_REPLY,
         shortcutId: String? = null,
         replyShowsUserInterface: Boolean = false,
+        timestampStartMillis: Long = 1_000L,
     ): StatusBarNotification {
         val me = Person.Builder().setName("Me").build()
         val style = NotificationCompat.MessagingStyle(me).setConversationTitle(title)
         if (isGroup != null) style.setGroupConversation(isGroup)
-        var time = 1_000L
+        var time = timestampStartMillis
         extraMessages.forEach { (who, body) ->
             style.addMessage(body, time++, who?.let { Person.Builder().setName(it).build() })
         }

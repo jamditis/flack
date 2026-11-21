@@ -22,6 +22,8 @@
     <string name="car_reply_route_unknown">Reply unavailable. I cannot verify where a Slack reply would go.</string>
     <string name="car_reply_main_dm">Replies go to the main direct message.</string>
     <string name="car_reply_status_title">Slack reply status</string>
+    <string name="reply_unavailable_label">Reply unavailable</string>
+    <string name="car_reply_status_open_message">Flack cannot reply to this status. Check Slack when parked.</string>
     <string name="car_reply_status_expired">Flack did not send your reply. Open the latest message to try again.</string>
     <string name="car_reply_status_used">Flack did not send another reply. Check Slack for the earlier one.</string>
     <string name="car_reply_status_unavailable">Flack did not send your reply. Slack did not give Flack a usable reply action.</string>

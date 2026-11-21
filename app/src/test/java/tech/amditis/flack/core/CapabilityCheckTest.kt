@@ -112,7 +112,7 @@ class CapabilityCheckTest {
         }
     }
 
-    @Test fun theReportedSlackActionsNeverGuessTheReplyLevelInAnyOrder() {
+    @Test fun theReportedSlackActionsChooseTheOriginalConversationReplyInAnyOrder() {
         val read = replyAction(keys = emptyList()).copy(semanticAction = 2)
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
         val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
@@ -121,7 +121,7 @@ class CapabilityCheckTest {
             actions.indices.filter { it != first }.forEach { second ->
                 val order = listOf(actions[first], actions[second], actions[3 - first - second])
                 listOf(false, true).forEach { group ->
-                    assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
+                    assertEquals(Capability.Eligible(order.indexOf(direct), "reply_text"),
                         CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = order)))
                 }
             }
@@ -149,14 +149,15 @@ class CapabilityCheckTest {
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct))))
     }
 
-    @Test fun theReportedTwoActionShapeStaysReadOnlyWithItsUiHintSet() {
+    @Test fun theReportedTwoActionShapeUsesTheThreadActionOnlyWithEvidence() {
         val thread = replyAction(keys = listOf("thread_text")).copy(title = "Reply in thread", semanticAction = 0, showsUserInterface = true)
         val direct = replyAction().copy(title = "Reply", semanticAction = 0, showsUserInterface = true)
         listOf(false, true).forEach { group ->
-            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
-                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(thread, direct))))
-            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
-                CapabilityCheck.evaluate(dm(isGroup = group, title = "Paper room", actions = listOf(direct, thread))))
+            val facts = dm(isGroup = group, title = "Paper room", actions = listOf(thread, direct))
+            assertEquals(Capability.Eligible(1, "reply_text"), CapabilityCheck.evaluate(facts))
+            assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN), CapabilityCheck.evaluate(facts.copy(hasThreadMarker = true)))
+            assertEquals(Capability.Eligible(0, "thread_text"),
+                CapabilityCheck.evaluate(facts.copy(hasThreadMarker = true, hasThreadEvidence = true)))
         }
     }
 

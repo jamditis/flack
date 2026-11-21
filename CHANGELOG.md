@@ -4,7 +4,8 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 
 ## Unreleased
 
-- A new incoming Slack message gets a fresh Android Auto notification, even when Slack updates the same notification. Matching summaries and repeated callbacks stay quiet.
+- A new incoming Slack message gets a fresh Android notification for the car, even when Slack updates the same notification. Matching summaries and repeated callbacks stay quiet.
+- Flack supplies the reply and mark-as-read actions Android Auto expects on every message. When Slack shows **Reply** and **Reply in thread**, Flack uses Slack's conversation reply for messages without a thread marker. A usable thread timestamp selects Slack's thread action. If Flack cannot verify a route, a car reply explains the failure.
 - If Slack replaces a shared reply action with a new action that Flack can verify, you can reply from the latest message. An expired or failed reply produces a Flack status notification with the next step.
 
 ## 0.3.7

@@ -184,7 +184,8 @@ class CarPathTest {
         val text = app.getString(message)
         assertEquals(text, notice.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(text, NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notice)!!.messages.single().text.toString())
-        val markRead = NotificationCompat.getInvisibleActions(notice).single()
+        val markRead = NotificationCompat.getInvisibleActions(notice)
+            .single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ }
         assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, markRead.semanticAction)
         CarActionReceiver().onReceive(app, shadowOf(markRead.actionIntent).savedIntent)
         assertTrue(manager.allNotifications.none(::isReplyStatus))
@@ -289,12 +290,16 @@ class CarPathTest {
         assertTrue(slackReplies().isEmpty())
     }
 
-    @Test fun readOnlyCopiesKeepMarkAsReadWithoutInventingAReply() {
+    @Test fun aCarReplyToAnUnroutableCopyGetsAnExplanationWithoutDispatch() {
         post(SyntheticSlack.dm(app, extraReply = SyntheticSlack.replyIntent(app, "ambiguous")))
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
-        val read = NotificationCompat.getInvisibleActions(carCopy()).single()
+        val read = NotificationCompat.getInvisibleActions(carCopy())
+            .single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ }
         assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, read.semanticAction)
         assertFalse(read.showsUserInterface)
+        fire(quietReplyAction(), "No verified destination")
+        assertTrue(slackReplies().isEmpty())
+        assertReplyStatus(R.string.car_reply_status_unavailable)
     }
 
     @Test fun twoSemanticChannelThreadRepliesStayReadOnlyEvenWithAnExplicitReplyLabel() {
@@ -471,13 +476,16 @@ class CarPathTest {
         assertEquals(HandoffStatus.HANDED_TO_SLACK, BridgeState.lastHandoff)
     }
 
-    @Test fun theCarCopyLosesItsReplyActionAfterAReply() {
+    @Test fun theCarCopyOffersOnlyLocalFeedbackAfterAReply() {
         post(SyntheticSlack.dm(app))
         val before = replyAction()
         replyFromCar("On my way")
         assertTrue(carCopy().actions.orEmpty().none { it.remoteInputs?.isNotEmpty() == true })
-        // A repeat of the old interaction is refused and sends nothing.
-        fire(before, "Again")
+        fire(quietReplyAction(), "Again")
+        assertEquals(1, slackReplies().size)
+        assertReplyStatus(R.string.car_reply_status_used)
+        // A repeated callback carrying the original interaction is also refused.
+        fire(before, "Repeated callback")
         assertEquals(1, slackReplies().size)
     }
 

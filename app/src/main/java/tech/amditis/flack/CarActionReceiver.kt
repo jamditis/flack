@@ -12,6 +12,7 @@ import androidx.annotation.StringRes
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
+import tech.amditis.flack.core.RejectReason
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -29,6 +30,8 @@ class CarActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             CarNotificationPublisher.ACTION_REPLY -> reply(context, intent)
             CarNotificationPublisher.ACTION_DISMISS_REPLY_STATUS -> CarNotificationPublisher.dismissReplyStatus(context)
+            CarNotificationPublisher.ACTION_REPLY_TO_STATUS ->
+                CarNotificationPublisher.postReplyStatus(context, R.string.car_reply_status_open_message)
             // Local car acknowledgement only. Slack's read state is not touched.
             CarNotificationPublisher.ACTION_MARK_READ -> {
                 val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN) ?: return
@@ -52,7 +55,9 @@ class CarActionReceiver : BroadcastReceiver() {
                     val conversation = BridgeState.conversation(binding.carNotificationId)
                     if (conversation != null && BridgeState.registry.isCurrent(binding)) {
                         val stillUsable = result.reason == ConsumeRejection.EMPTY || result.reason == ConsumeRejection.TOO_LONG
-                        CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = stillUsable)
+                        val unavailable = RejectReason.NO_REPLY_ACTION.takeIf { result.reason == ConsumeRejection.NO_REPLY_ACTION }
+                        CarNotificationPublisher.post(context, binding, conversation, alert = false,
+                            replyEnabled = stillUsable, replyProblem = unavailable)
                     }
                 }
                 CarNotificationPublisher.postReplyStatus(context, rejectionMessage(result.reason))
@@ -132,9 +137,8 @@ class CarActionReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Android Auto waits for the copy to change after a reply. Repost it without a
-     * reply action, since this token is used up. Slack's own update, if any, replaces
-     * it with a fresh token.
+     * Android Auto waits for the copy to change after a reply. Keep the car action
+     * as local feedback until Slack's own update supplies a fresh token.
      */
     private fun repostSpent(context: Context, binding: Binding<PendingIntent>, sentText: String?) {
         val conversation = BridgeState.conversation(binding.carNotificationId)

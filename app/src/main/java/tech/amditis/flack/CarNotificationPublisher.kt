@@ -45,6 +45,7 @@ object CarNotificationPublisher {
     const val ACTION_REPLY = "tech.amditis.flack.REPLY"
     const val ACTION_MARK_READ = "tech.amditis.flack.MARK_READ"
     const val ACTION_DISMISS_REPLY_STATUS = "tech.amditis.flack.DISMISS_REPLY_STATUS"
+    const val ACTION_REPLY_TO_STATUS = "tech.amditis.flack.REPLY_TO_STATUS"
     private const val REPLY_STATUS_ID = 0
 
     fun ensureChannel(context: Context) {
@@ -153,7 +154,7 @@ object CarNotificationPublisher {
         // A local copy of what was handed to Slack, not proof of delivery.
         sentText?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
 
-        val remoteInput = RemoteInput.Builder(REPLY_KEY).setLabel(context.getString(R.string.reply_label)).build()
+        val canDispatch = replyEnabled && binding.canReply
         // Mutable so Android Auto can add the dictated text. Explicit target, so nothing else can receive it.
         val replyIntent = PendingIntent.getBroadcast(
             context,
@@ -167,12 +168,7 @@ object CarNotificationPublisher {
             actionIntent(context, ACTION_MARK_READ, binding.token),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val reply = NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(R.string.reply_label), replyIntent)
-            .addRemoteInput(remoteInput)
-            .setAllowGeneratedReplies(false)
-            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
-            .setShowsUserInterface(false)
-            .build()
+        val reply = replyAction(context, replyIntent, canDispatch)
         val markRead = NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(R.string.mark_read), readIntent)
             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
             .setShowsUserInterface(false)
@@ -189,11 +185,20 @@ object CarNotificationPublisher {
             .setOnlyAlertOnce(quiet || !alert)
             .setGroup("flack_car_messages")
             .addInvisibleAction(markRead)
-        if (replyEnabled && binding.canReply) {
-            // Android Auto accepts invisible actions. Keep the duplicate phone copy free of reply buttons.
-            if (quiet) builder.addInvisibleAction(reply) else builder.addAction(reply)
-        }
+        // Android Auto requires both actions. A reply without a binding produces
+        // a local explanation; keep that action and quiet-mode actions off the phone.
+        if (quiet || !canDispatch) builder.addInvisibleAction(reply) else builder.addAction(reply)
         manager.notify(binding.carNotificationId, builder.build())
+    }
+
+    private fun replyAction(context: Context, intent: PendingIntent, canDispatch: Boolean): NotificationCompat.Action {
+        val label = context.getString(if (canDispatch) R.string.reply_label else R.string.reply_unavailable_label)
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, label, intent)
+            .addRemoteInput(RemoteInput.Builder(REPLY_KEY).setLabel(label).build())
+            .setAllowGeneratedReplies(false)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+            .setShowsUserInterface(false)
+            .build()
     }
 
     /** Reply feedback can outlive its Slack copy. It contains no Slack or dictated text. */
@@ -210,6 +215,8 @@ object CarNotificationPublisher {
             .addMessage(text, System.currentTimeMillis(), Person.Builder().setName(context.getString(R.string.app_name)).build())
         val dismiss = PendingIntent.getBroadcast(context, REPLY_STATUS_ID,
             Intent(context, CarActionReceiver::class.java).setAction(ACTION_DISMISS_REPLY_STATUS), PendingIntent.FLAG_IMMUTABLE)
+        val reply = PendingIntent.getBroadcast(context, REPLY_STATUS_ID,
+            Intent(context, CarActionReceiver::class.java).setAction(ACTION_REPLY_TO_STATUS), PendingIntent.FLAG_MUTABLE)
         val markRead = NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(R.string.mark_read), dismiss)
             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
             .setShowsUserInterface(false)
@@ -222,6 +229,7 @@ object CarNotificationPublisher {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setSilent(quiet)
             .addInvisibleAction(markRead)
+            .addInvisibleAction(replyAction(context, reply, canDispatch = false))
             .build()
         try {
             ensureChannel(context)

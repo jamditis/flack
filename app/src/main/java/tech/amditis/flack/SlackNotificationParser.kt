@@ -57,6 +57,7 @@ class ParsedNotification(
         add(routeFields.shortcutId)
         add(ApiRouteResolver.workspaceIds(routeFields).sorted())
         add(facts.hasThreadMarker)
+        add(facts.hasThreadEvidence)
         conversation?.messages?.forEach {
             add(it.senderName); add(it.fromSelf); add(it.text); add(it.timestampMillis)
         }
@@ -82,6 +83,8 @@ object SlackNotificationParser {
         val hasMessages = messaging?.messages?.isNotEmpty() == true
         val plainMessage = !hasMessages && canReadPlainText(notification,
             style != null || replyActions.any { it.freeFormResultKeys.isNotEmpty() })
+        val fields = routeFields(sbn, style)
+        val incomingTime = messaging?.messages?.lastOrNull { !it.fromSelf }?.timestampMillis
         val facts = SourceFacts(
             packageName = sbn.packageName,
             userId = sbn.user.hashCode(),
@@ -90,9 +93,12 @@ object SlackNotificationParser {
             conversation = if (plainMessage) plainConversation(notification) else messaging?.takeIf { hasMessages },
             replyActions = replyActions,
             hasThreadMarker = notification.extras.keySet().any { RouteFieldProbe.isThreadMarkerKey(it) },
+            hasThreadEvidence = incomingTime != null && fields.extras.any { (key, value) ->
+                RouteFieldProbe.precedesMessageAsThreadTimestamp(key, value, incomingTime)
+            },
         )
         val group = sbn.groupKey.takeIf { notification.group != null || sbn.overrideGroupKey != null }
-        return ParsedNotification(facts, actions.map { it.actionIntent }, routeFields(sbn, style), hasMessages, group,
+        return ParsedNotification(facts, actions.map { it.actionIntent }, fields, hasMessages, group,
             hasMessageSignal = hasMessages || plainMessage)
     }
 
