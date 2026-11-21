@@ -29,3 +29,14 @@ Open an issue for substantive work. Use reviewable pull requests and stack them 
 Use meaningful tests for routing, action consumption, lifecycle failures, and privacy boundaries. A build or emulator pass does not replace the physical phone/car tests on both target phones. Report precisely what was tested, what failed, and what remains unverified.
 
 Use sentence case headings, clear labels, and plain language. Preserve keyboard and accessibility support. Avoid unnecessary motion and decorative UI that delays the core feasibility result.
+
+## Compile before you push
+
+Compile the app and its debug unit tests locally before pushing changes to either. On a4000 WSL, run these commands from the repository root.
+
+```bash
+source /opt/android/flack-env.sh
+./gradlew --no-daemon --max-workers=4 :app:compileDebugUnitTestKotlin
+```
+
+If a test class you changed runs quickly, run that class locally too. Keep the full unit suite, lint, APK builds, and emulator jobs on GitHub-hosted CI. See `~/.agents/docs/ci-and-worker-placement.md` for fleet placement.
