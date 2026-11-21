@@ -82,7 +82,8 @@ class ReportedSlackCarTest {
         assertFalse(read.showsUserInterface)
         val reply = actions.single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY }
         assertFalse(reply.showsUserInterface)
-        assertFalse(reply.actionIntent.isImmutable)
+        val replyIntent = requireNotNull(reply.actionIntent) { "Posted car reply must have a PendingIntent" }
+        assertFalse(replyIntent.isImmutable)
         assertTrue(reply.remoteInputs!!.single().allowFreeFormInput)
         return reply
     }
