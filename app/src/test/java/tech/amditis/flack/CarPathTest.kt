@@ -200,12 +200,12 @@ class CarPathTest {
     private fun replyFromCar(text: String) = fire(replyAction(), text)
 
     /** What Android does when a host fills in a RemoteInput and sends the action. */
-    private fun fire(action: android.app.Notification.Action, text: String) {
+    private fun fire(action: android.app.Notification.Action, text: String, receiver: CarActionReceiver = CarActionReceiver()) {
         val fill = Intent()
         RemoteInput.addResultsToIntent(action.remoteInputs, fill, Bundle().apply { putCharSequence(CarNotificationPublisher.REPLY_KEY, text) })
         val delivered = Intent(shadowOf(action.actionIntent).savedIntent)
         delivered.fillIn(fill, 0)
-        CarActionReceiver().onReceive(app, delivered)
+        receiver.onReceive(app, delivered)
     }
 
     private fun fire(action: NotificationCompat.Action, text: String) {
@@ -642,6 +642,42 @@ class CarPathTest {
         assertTrue(queued.isEmpty())
         assertEquals(binding, BridgeState.registry.findBinding { it.notificationKey == sbn.key })
         assertTrue(BridgeState.registry.consume(binding.token, "Invented response") is ConsumeResult.Rejected)
+    }
+
+    @Test fun anUnconfirmedApiReplyShowsFeedbackWithoutEchoingOrRetrying() {
+        val destination = ApiDestination("T0PAPER001", "D0PAPER001")
+        val text = "Invented dictated reply"
+        listener.apiWorker = Executor { it.run() }
+        listener.resolveApi = { ApiRoute.Certain(destination) }
+
+        listOf(HandoffStatus.OUTCOME_UNKNOWN, HandoffStatus.POSTED_PLACE_UNCONFIRMED).forEach { outcome ->
+            var sends = 0
+            val receiver = CarActionReceiver(Executor { it.run() }) { _, target, reply, stillCurrent ->
+                assertEquals(destination, target)
+                assertEquals(text, reply)
+                assertTrue(stillCurrent())
+                sends++
+                ApiReplyResult(outcome)
+            }
+            val source = SyntheticSlack.dm(app, key = outcome.name, reply = null, shortcutId = destination.channelId)
+            post(source)
+            shadowOf(Looper.getMainLooper()).idle()
+            val held = replyAction()
+
+            fire(held, text, receiver)
+            shadowOf(Looper.getMainLooper()).idle()
+
+            assertEquals(outcome, BridgeState.lastHandoff)
+            val messages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(carCopy())!!.messages
+            assertFalse("$outcome echoed the dictated reply", messages.any { it.text.toString() == text })
+            assertReplyStatus(R.string.car_reply_status_check_slack)
+
+            fire(held, text, receiver)
+            assertEquals(1, sends)
+            assertTrue(slackReplies().isEmpty())
+            assertReplyStatus(R.string.car_reply_status_used)
+            listener.onNotificationRemoved(source)
+        }
     }
 
     @Test fun theApiFallbackSkipsGroupsAndKnownDmThreads() {
