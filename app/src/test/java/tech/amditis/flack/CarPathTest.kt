@@ -537,6 +537,11 @@ class CarPathTest {
         replyFromCar("Private dictated text")
         assertTrue(slackReplies().isEmpty())
         assertFalse(TestReport.build(app).contains("Private dictated text"))
+        val status = manager.allNotifications.single(::isReplyStatus)
+        val statusReply = NotificationCompat.getInvisibleActions(status)
+            .single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY }
+        fire(statusReply, "Private dictated text")
+        assertTrue(slackReplies().isEmpty())
         assertReplyStatus(R.string.car_reply_status_cancelled)
     }
 

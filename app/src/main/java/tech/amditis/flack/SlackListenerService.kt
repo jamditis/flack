@@ -294,7 +294,7 @@ class SlackListenerService : NotificationListenerService() {
                     allowApiLookup -> null
                     else -> readOnly?.reason
                 }
-                val posted = publish(result.binding, conversation, result.alert, replyProblem)
+                val posted = publish(result.binding, conversation, result.alert, replyProblem, capability?.conversationReply == true)
                 CarNotificationPublisher.cancel(this, result.evicted)
                 val updateAttempt = if (sbn.packageName == SLACK_PACKAGE) {
                     val replyOffered = result.binding.canReply.takeUnless { allowApiLookup }
@@ -365,8 +365,9 @@ class SlackListenerService : NotificationListenerService() {
 
     private fun publish(
         binding: Binding<PendingIntent>, conversation: Conversation, alert: Boolean, replyProblem: RejectReason? = null,
+        conversationReply: Boolean = false,
     ): Boolean {
-        val posted = CarNotificationPublisher.post(this, binding, conversation, alert, replyProblem = replyProblem)
+        val posted = CarNotificationPublisher.post(this, binding, CarCopyContent(conversation, replyProblem, conversationReply), alert)
         if (posted && alert) BridgeState.countForwarded()
         return posted
     }
@@ -374,9 +375,9 @@ class SlackListenerService : NotificationListenerService() {
     private fun refreshBindings(bindings: Collection<Binding<android.app.PendingIntent>>) {
         bindings.forEach { binding ->
             if (BridgeState.registry.isCurrent(binding)) {
-                BridgeState.conversation(binding.carNotificationId)?.let {
+                BridgeState.copyContent(binding.carNotificationId)?.let { copy ->
                     val reason = RejectReason.SHARED_REPLY_ACTION
-                    if (CarNotificationPublisher.post(this, binding, it, alert = false, replyProblem = reason)) {
+                    if (CarNotificationPublisher.post(this, binding, copy.copy(replyProblem = reason), alert = false)) {
                         BridgeState.countReadOnly(reason)
                     }
                 }

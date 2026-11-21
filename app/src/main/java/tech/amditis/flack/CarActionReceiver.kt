@@ -12,7 +12,6 @@ import androidx.annotation.StringRes
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
-import tech.amditis.flack.core.RejectReason
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -31,7 +30,7 @@ class CarActionReceiver : BroadcastReceiver() {
             CarNotificationPublisher.ACTION_REPLY -> reply(context, intent)
             CarNotificationPublisher.ACTION_DISMISS_REPLY_STATUS -> CarNotificationPublisher.dismissReplyStatus(context)
             CarNotificationPublisher.ACTION_REPLY_TO_STATUS ->
-                CarNotificationPublisher.postReplyStatus(context, R.string.car_reply_status_open_message)
+                CarNotificationPublisher.repeatReplyStatus(context)
             // Local car acknowledgement only. Slack's read state is not touched.
             CarNotificationPublisher.ACTION_MARK_READ -> {
                 val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN) ?: return
@@ -52,12 +51,10 @@ class CarActionReceiver : BroadcastReceiver() {
                 // Repost so the host stops waiting. Keep the reply action only if the
                 // token is still unused (empty or too-long text does not use it).
                 result.binding?.let { binding ->
-                    val conversation = BridgeState.conversation(binding.carNotificationId)
-                    if (conversation != null && BridgeState.registry.isCurrent(binding)) {
+                    val copy = BridgeState.copyContent(binding.carNotificationId)
+                    if (copy != null && BridgeState.registry.isCurrent(binding)) {
                         val stillUsable = result.reason == ConsumeRejection.EMPTY || result.reason == ConsumeRejection.TOO_LONG
-                        val unavailable = RejectReason.NO_REPLY_ACTION.takeIf { result.reason == ConsumeRejection.NO_REPLY_ACTION }
-                        CarNotificationPublisher.post(context, binding, conversation, alert = false,
-                            replyEnabled = stillUsable, replyProblem = unavailable)
+                        CarNotificationPublisher.post(context, binding, copy, alert = false, replyEnabled = stillUsable)
                     }
                 }
                 CarNotificationPublisher.postReplyStatus(context, rejectionMessage(result.reason))
@@ -141,10 +138,10 @@ class CarActionReceiver : BroadcastReceiver() {
      * as local feedback until Slack's own update supplies a fresh token.
      */
     private fun repostSpent(context: Context, binding: Binding<PendingIntent>, sentText: String?) {
-        val conversation = BridgeState.conversation(binding.carNotificationId)
+        val copy = BridgeState.copyContent(binding.carNotificationId)
         // Skip if Slack already replaced this generation with a newer one.
-        if (conversation != null && BridgeState.registry.isCurrent(binding)) {
-            CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = false, sentText = sentText)
+        if (copy != null && BridgeState.registry.isCurrent(binding)) {
+            CarNotificationPublisher.post(context, binding, copy, alert = false, replyEnabled = false, sentText = sentText)
         }
     }
 

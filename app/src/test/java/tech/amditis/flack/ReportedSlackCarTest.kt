@@ -108,8 +108,11 @@ class ReportedSlackCarTest {
                 assertEquals("car_messages", copy.channelId)
                 assertEquals(NotificationManager.IMPORTANCE_HIGH, nm.getNotificationChannel(copy.channelId).importance)
                 val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
-                assertEquals(text, style.messages.single().text.toString())
-                dictate(carReply(copy), "Reply for $key")
+                val cue = app.getString(R.string.car_reply_conversation)
+                assertEquals(app.getString(R.string.car_message_with_flack_route, cue, text), style.messages.single().text.toString())
+                val reply = carReply(copy)
+                assertEquals(app.getString(R.string.reply_conversation_label), reply.title.toString())
+                dictate(reply, "Reply for $key")
                 val sent = slackReplies().last()
                 assertEquals(key, sent.getStringExtra("conversation"))
                 assertEquals("Reply for $key", RemoteInput.getResultsFromIntent(sent)!!.getCharSequence(SyntheticSlack.REPLY_KEY).toString())
@@ -149,7 +152,7 @@ class ReportedSlackCarTest {
             assertEquals(0, copy.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
             val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy.notification)!!
             assertEquals(messages.take(index), style.messages.dropLast(1).map { it.text.toString() })
-            assertTrue(style.messages.last().text.toString().startsWith(text))
+            assertTrue(style.messages.last().text.toString().endsWith(text))
             carReply(copy.notification)
             listener.onNotificationPosted(SyntheticSlack.statusBar(summary, "channel-summary"))
             listener.onNotificationPosted(child)

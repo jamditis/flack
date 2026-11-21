@@ -24,7 +24,7 @@ enum class RejectReason {
 }
 
 sealed interface Capability {
-    data class Eligible(val actionIndex: Int, val resultKey: String) : Capability
+    data class Eligible(val actionIndex: Int, val resultKey: String, val conversationReply: Boolean = false) : Capability
     data class ReadOnly(val reason: RejectReason) : Capability
     data class Rejected(val reason: RejectReason) : Capability
 }
@@ -89,7 +89,7 @@ object CapabilityCheck {
         ) {
             return readOnly(RejectReason.CREATOR_MISMATCH)
         }
-        return Capability.Eligible(index, action.freeFormResultKeys.single())
+        return Capability.Eligible(index, action.freeFormResultKeys.single(), slack && observedPair && isSlackPlainReply(action))
     }
 
     /**
