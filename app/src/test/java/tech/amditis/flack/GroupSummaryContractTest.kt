@@ -59,7 +59,7 @@ class GroupSummaryContractTest {
     private fun source(
         key: String, summary: Boolean, conversationId: String? = "D0PAPER001",
         group: String? = "invented-slack-group", text: String = "Paper boats at noon",
-        messaging: Boolean = true, reply: Boolean = true, ambiguous: Boolean = false,
+        messaging: Boolean = true, reply: Boolean = true, withReplyPair: Boolean = false,
     ): StatusBarNotification {
         val builder = NotificationCompat.Builder(app, "slack").setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setGroup(group).setGroupSummary(summary).setShortcutId(conversationId).setCategory(Notification.CATEGORY_MESSAGE)
@@ -73,12 +73,12 @@ class GroupSummaryContractTest {
         if (reply) {
             builder.addAction(NotificationCompat.Action.Builder(0, "Mark read", SyntheticSlack.replyIntent(app, "$key-read"))
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build())
-            val titles = if (ambiguous) listOf("Reply in thread", "Reply") else listOf("Reply")
+            val titles = if (withReplyPair) listOf("Reply in thread", "Reply") else listOf("Reply")
             titles.forEachIndexed { index, title ->
                 builder.addAction(NotificationCompat.Action.Builder(0, title, SyntheticSlack.replyIntent(app, "$key-$index"))
                     .addRemoteInput(RemoteInput.Builder("reply_$index").build())
-                    .setSemanticAction(if (ambiguous) NotificationCompat.Action.SEMANTIC_ACTION_NONE else NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
-                    .setShowsUserInterface(ambiguous).build())
+                    .setSemanticAction(if (withReplyPair) NotificationCompat.Action.SEMANTIC_ACTION_NONE else NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                    .setShowsUserInterface(withReplyPair).build())
             }
         }
         val notification = builder.build()
@@ -98,12 +98,18 @@ class GroupSummaryContractTest {
         val before = BridgeState.forwarded
         val apiBefore = BridgeState.apiRouted
         listOf("D0PAPER001", "D0PAPER002", "C0PAPER001", "C0PAPER002").forEach { id ->
-            val summary = source("summary-$id", true, id, group = "group-$id", ambiguous = true)
+            val summary = source("summary-$id", true, id, group = "group-$id", withReplyPair = true)
             post(summary)
             post(summary)
-            assertFalse(binding(summary.key)!!.canReply)
         }
         assertEquals(4, manager.size())
+        manager.allNotifications.forEach { copy ->
+            val reply = copy.actions.single { it.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY }
+            assertEquals(app.getString(R.string.reply_conversation_label), reply.title.toString())
+            assertTrue(NotificationCompat.getInvisibleActions(copy).any {
+                it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ
+            })
+        }
         assertEquals(before + 4, BridgeState.forwarded)
         assertEquals(apiBefore, BridgeState.apiRouted)
         val report = TestReport.build(app)
