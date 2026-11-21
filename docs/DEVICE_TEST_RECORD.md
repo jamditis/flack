@@ -76,8 +76,8 @@ Record every exercised R01–R36 case separately, including unexpected behavior 
 | Public channel without mention | Not yet tested | Not yet tested | Enable notifications for the synthetic channel |
 | Private channel | Not yet tested | Not yet tested | Readout and reply to the same private channel |
 | Existing thread reply | Not yet tested | Not yet tested | Two threads in one channel; reply stays in the selected thread |
-| Mixed channel/thread reply actions | Not yet tested | Not yet tested | Readout with no reply offered; neither destination receives text |
-| Unknown routing or missing group title | Not yet tested | Not yet tested | Readout with no reply offered |
-| Read-only copy on Android Auto | Not yet tested | Not yet tested | Verify the host reads MessagingStyle without a reply action |
+| Slack conversation and thread reply pair | Not yet tested | Not yet tested | Readout and reply using the conversation or thread action selected by the thread evidence |
+| Unknown routing or missing group title | Not yet tested | Not yet tested | Readout and local failure feedback; Slack receives nothing |
+| Reply status on Android Auto | Not yet tested | Not yet tested | Verify the host shows or reads the Flack failure notice |
 
 Release decision: pending. Keep sensitive evidence local and publish only a sanitized summary with exact software versions.

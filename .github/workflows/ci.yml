@@ -46,7 +46,7 @@ jobs:
 
   # Runs Flack and the test-only fake Slack (fixture/) on a real Android system
   # image: DMs, groups, channels and threads get copies; safe replies dispatch
-  # once, ambiguous copies have no reply. See scripts/emulator-e2e.sh.
+  # once, and ambiguous copies explain the failed reply. See scripts/emulator-e2e.sh.
   emulator:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -45,7 +45,7 @@ Start with G2 in [TEST_PLAN.md](TEST_PLAN.md), then repeat for each notification
 4. Repeat with the phone locked.
 5. Start a reply and cancel it. Check nothing was sent.
 
-Also test two threads in one channel and messages arriving during dictation. Notifications with two text actions, unknown routing or missing group context should be readable without offering a reply. Confirm this on the actual Android Auto host: the emulator cannot prove readout without a reply action. If the host hides those copies, record the failure rather than treating it as a pass. Flack never substitutes another destination.
+Also test two threads in one channel and messages arriving during dictation. For Slack's **Reply** and **Reply in thread** pair, verify that a conversation reply reaches the conversation and a thread reply with thread evidence reaches its thread. For an unknown route, attempt a reply and check that the car and phone show the failure and Slack receives nothing. Check readout and reply feedback on the actual Android Auto host.
 
 Open the app afterward. The status screen shows counts only, such as how many notifications were forwarded and why others were not. Copy those counts and the exact versions into [DEVICE_TEST_RECORD.md](DEVICE_TEST_RECORD.md). Do not copy message text.
 

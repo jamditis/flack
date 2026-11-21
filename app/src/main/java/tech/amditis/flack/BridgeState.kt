@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.core.content.edit
 import tech.amditis.flack.core.ApiReadOnlyReason
 import tech.amditis.flack.core.ConsumeRejection
-import tech.amditis.flack.core.Conversation
 import tech.amditis.flack.core.RejectReason
 import tech.amditis.flack.core.ReplyActionDiagnostics
 import tech.amditis.flack.core.RouteFieldProbe
@@ -63,7 +62,7 @@ object BridgeState {
     })
 
     // The conversation each car copy shows, so it can be reposted after a reply. Memory only.
-    private val conversations = HashMap<Int, Conversation>()
+    private val copies = HashMap<Int, CarCopyContent>()
 
     private val rejections = EnumMap<RejectReason, Int>(RejectReason::class.java)
     private val readOnlyReasons = EnumMap<RejectReason, Int>(RejectReason::class.java)
@@ -105,7 +104,10 @@ object BridgeState {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
-        if (!enabled) CarNotificationPublisher.cancel(context, registry.withdrawAll())
+        if (!enabled) {
+            CarNotificationPublisher.cancel(context, registry.withdrawAll())
+            CarNotificationPublisher.dismissReplyStatus(context)
+        }
     }
 
     /** On by default: copies exist only during an Android Auto session (SPEC.md section 5). */
@@ -216,9 +218,9 @@ object BridgeState {
         apiReadOnlyReasons[reason] = (apiReadOnlyReasons[reason] ?: 0) + 1
     }
 
-    @Synchronized fun rememberConversation(carId: Int, conversation: Conversation) { conversations[carId] = conversation }
-    @Synchronized fun forgetConversation(carId: Int) { conversations.remove(carId) }
-    @Synchronized fun conversation(carId: Int): Conversation? = conversations[carId]
+    @Synchronized fun rememberCopyContent(carId: Int, content: CarCopyContent) { copies[carId] = content }
+    @Synchronized fun forgetCopyContent(carId: Int) { copies.remove(carId) }
+    @Synchronized fun copyContent(carId: Int): CarCopyContent? = copies[carId]
 
     @Synchronized fun countForwarded() { forwarded++ }
     @Synchronized fun countAmbiguous() { ambiguous++ }

@@ -49,7 +49,7 @@ The sources and their precise limits are in docs/SOURCES.md. Requirements below 
 - A phone-side enable/pause control, setup status, supported-message list, and content-free diagnostics.
 - Session cleanup and an explicit recovery path when notification access, the source action, or the connection is unavailable.
 
-Readable notifications with unsafe or unknown reply routing remain read-only. Device testing records each type separately; synthetic support is not a claim of verified Slack or head-unit compatibility.
+Readable notifications with unsafe or unknown routing still get both Android Auto actions. The reply action returns a local explanation until a validated Slack route is available. Device testing records each type separately.
 
 The sign-in experiment can offer API replies for one-to-one DMs with no reply
 action or known thread signal. The reply goes to the main DM. A valid DM shortcut
@@ -115,9 +115,9 @@ Each reply binding includes the source package, Android user/profile, notificati
 
 The original action supplies the route. Names and channel titles provide context to the person listening; they are not routing keys. A one-to-one MessagingStyle conversation can use its incoming sender as context. A group DM, channel, or thread requires a nonblank conversation title. Unknown conversation flags and plain text notifications are read-only.
 
-Prefer the notification's single free-form action with the REPLY semantic action. When none has that semantic, accept only one text action with semantic NONE and the exact Slack Reply label (case-insensitive, outer whitespace ignored), with no known thread signal. Two text actions without an explicit reply semantic stay read-only. The probe has yet to verify a thread marker that can establish a destination (#50). Never choose by action index, conversation title or a numbered extra field.
+Prefer the notification's single free-form action with the REPLY semantic action. For the observed Slack semantic-NONE pair, **Reply** selects the conversation and **Reply in thread** selects the thread. Use the exact conversation action when there is no known thread marker. Label that action **Reply to conversation** and put the placement cue before the incoming message the car reads. A recognized thread timestamp earlier than the incoming message lets Flack use a unique original thread action. A marker without usable thread evidence can veto the conversation action. A single exact **Reply** action still qualifies without a thread marker. Never choose by action index, conversation title or a numbered extra field.
 
-An actual activity PendingIntent never qualifies. Slack's observed plain Reply action may keep AndroidX's default-true UI hint when its PendingIntent starts no activity. Other UI-hinted actions remain read-only. Validate creator, UID, mutability and one free-form input on the selected action. If context cannot identify the destination, retain readable content without a reply action and include a reply-availability explanation. The API route uses the exact DM shortcut and verified workspace ID. A selected semantic thread reply adds thread context to the car copy's conversation title. An original-action car reply uses the phone notification's action.
+An actual activity PendingIntent never qualifies. Slack's exact conversation action or its thread action with timestamp evidence may keep AndroidX's default-true UI hint when the actual PendingIntent starts no activity. Validate creator, UID, mutability and one free-form input on the selected action. Every copy carries a background reply with RemoteInput and a mark-as-read action. When the route is unavailable, the reply action gives a local explanation and sends nothing to Slack. The API route uses the exact DM shortcut and verified workspace ID. A selected thread reply adds thread context to the conversation title. Native dispatch uses the original phone notification action.
 
 Do not assume a PendingIntent is a frozen snapshot. Its creator may update its underlying operation. Equality checks are useful consistency checks, not proof of an immutable destination. [S6] Detect a reply capability observed across conflicting conversation bindings and reject it until its safety is established. Revalidate the latest observed source generation and action immediately before dispatch. The bridge cannot inspect or atomically freeze Slack's underlying operation; real-device race tests remain essential. An update during dictation must never retarget the dictated text to the most recent conversation.
 
@@ -131,6 +131,8 @@ Suppress group-summary duplicates when actionable child notifications represent 
 
 A changed source snapshot creates a new generation and invalidates all outstanding reply tokens for the previous generation, including content-only changes during dictation. Equivalent duplicate callbacks do not create a new generation. The mirrored message can update, but a new reply interaction needs a new token. Later support for preserving a reply across content-only updates requires evidence of stable routing and additional race tests. Source removal, permission revocation, pause, session disconnect, or process restart clears affected content and tokens. Newly reconstructed state receives new tokens; old callbacks cannot recover an expired route.
 
+A distinct incoming message gets a fresh Android notification ID. Flack retires the previous copy for that source after attempting the new post. A matching child can take over a summary copy without alerting again. Changes to the displayed history or reply action for the same newest message update the copy quietly.
+
 Provisional memory limits are 50 active conversation bindings and 10 displayed messages per binding. Evict oldest inactive bindings and invalidate their actions together. These limits are product choices to validate in burst tests, not Android platform limits.
 
 ## 8. Reply transaction
@@ -142,7 +144,7 @@ Provisional memory limits are 50 active conversation bindings and 10 displayed m
 5. It checks that the original source and action still match the selected destination.
 6. It atomically consumes the token before invoking the source action.
 7. It supplies the text under the original RemoteInput key and invokes the original Slack PendingIntent once for that token. [S5]
-8. It records an accurate local result without retaining the reply body.
+8. It records an accurate local result without retaining the reply body. A failed, refused, or uncertain reply also posts a content-free status notification for the phone shade and car. This notification can appear after the original message has been removed. Verify its presentation on the target host in G4.
 
 Do not reconstruct Slack's internal intent, launch a guessed deep link, choose the first available Reply action, or silently substitute a fresh destination after validation fails. Keep a thread-reply action distinct from a channel-level action. Never silently shorten an outgoing reply; reject input that cannot be handled and explain the limit.
 
@@ -219,6 +221,6 @@ The public repository should include the specification, a compatibility matrix, 
 
 A pilot requires a passing record for each target phone and car for each advertised message type, zero observed wrong-destination replies, no duplicate dispatch in the defined repeated-action tests, a working cancel path, explicit handling of stale/unknown outcomes, recovery from supported lifecycle events, and a clean privacy inspection.
 
-A passing finite test suite is evidence for the tested versions and configuration. It does not prove universal Slack or head-unit compatibility. Keep unsafe replies disabled, retain eligible text for readout, and publish the exact tested combination. Android Auto readout of copies without reply actions must be checked on the actual host; an emulator has no Android Auto.
+A passing test suite is evidence for the tested versions and configuration. Publish the exact tested combination. Test Android Auto readout and the local refusal message on the actual host. The emulator exercises the Android notification and action transport.
 
 If the original-action route cannot meet these requirements for a message type, document the failure. The sign-in route in docs/SLACK_SIGN_IN.md is the separately scoped Slack API client; it must meet the same requirements, with zero wrong-destination posts. Otherwise accept a listening-only tool. Do not disguise a broken reply path as a complete solution.

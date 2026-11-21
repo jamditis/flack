@@ -323,10 +323,15 @@ class RouteFieldProbe {
             "message_id", "messageId", "msg_id", "msgId",
         ).toSet()
         private val KNOWN_PREFIXES = listOf("", "$SLACK_PACKAGE.", "$SLACK_PACKAGE.extra.", "slack.", "slack_")
-        private val THREAD_KEYS = setOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts", "rootTs", "thread_id", "threadId")
+        private val THREAD_TIMESTAMPS = setOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts", "rootTs")
             .flatMap { key -> KNOWN_PREFIXES.map { prefix -> "$prefix$key" } }.toSet()
+        private val THREAD_KEYS = THREAD_TIMESTAMPS + KNOWN_PREFIXES.flatMap { listOf("${it}thread_id", "${it}threadId") }
 
         internal fun isThreadMarkerKey(key: String): Boolean = key in THREAD_KEYS
+
+        internal fun precedesMessageAsThreadTimestamp(key: String, value: String?, messageMillis: Long): Boolean =
+            key in THREAD_TIMESTAMPS && value != null && TIMESTAMP.matches(value) &&
+                timestampMillis(value)?.let { it > 0 && it < messageMillis } == true
 
         /** The key itself when it is a [KNOWN_KEYS] entry, alone or after a [KNOWN_PREFIXES] entry. */
         private fun knownKeyName(key: String): String? =

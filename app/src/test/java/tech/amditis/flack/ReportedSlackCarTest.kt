@@ -6,11 +6,14 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
+import android.content.Intent
+import android.os.Bundle
 import android.os.Looper
 import android.service.notification.StatusBarNotification
 import android.view.View
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import androidx.core.app.RemoteInput
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
 import org.junit.Assert.*
@@ -55,12 +58,15 @@ class ReportedSlackCarTest {
 
     private fun reportedMessage(
         key: String, shortcut: String = "C12345678", withMarkRead: Boolean = true, text: String = "Lunch at noon?",
+        history: List<Pair<String?, String>> = emptyList(),
+        timestampStartMillis: Long = 1_000L,
     ): StatusBarNotification {
         val group = !shortcut.startsWith("D")
         val source = SyntheticSlack.dm(app, key = key, title = if (group) "Paper room" else null,
-            text = text, isGroup = group, shortcutId = shortcut,
+            text = text, isGroup = group, shortcutId = shortcut, extraMessages = history,
             extraReply = SyntheticSlack.replyIntent(app, "$key-thread"),
-            replySemanticAction = 0, extraReplySemanticAction = 0, replyShowsUserInterface = true)
+            replySemanticAction = 0, extraReplySemanticAction = 0, replyShowsUserInterface = true,
+            timestampStartMillis = timestampStartMillis)
         val actions = source.notification.actions
         val read = Notification.Action.Builder(null, "Mark as read", SyntheticSlack.replyIntent(app, "$key-read"))
             .setSemanticAction(2).build()
@@ -69,7 +75,29 @@ class ReportedSlackCarTest {
         return SyntheticSlack.statusBar(notification, key)
     }
 
-    @Test fun bothReportedActionListsForwardDmsChannelsAndGroupDmsWithoutGuessingAReply() {
+    private fun carReply(copy: Notification): NotificationCompat.Action {
+        val visible = (0 until NotificationCompat.getActionCount(copy)).mapNotNull { NotificationCompat.getAction(copy, it) }
+        val actions = visible + NotificationCompat.getInvisibleActions(copy)
+        val read = actions.single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ }
+        assertFalse(read.showsUserInterface)
+        val reply = actions.single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY }
+        assertFalse(reply.showsUserInterface)
+        val replyIntent = requireNotNull(reply.actionIntent) { "Posted car reply must have a PendingIntent" }
+        assertFalse(replyIntent.isImmutable)
+        assertTrue(reply.remoteInputs!!.single().allowFreeFormInput)
+        return reply
+    }
+
+    private fun dictate(action: NotificationCompat.Action, text: String) {
+        val inputs = action.remoteInputs!!
+        val reply = Intent(shadowOf(action.actionIntent).savedIntent)
+        RemoteInput.addResultsToIntent(inputs, reply, Bundle().apply { putCharSequence(inputs.single().resultKey, text) })
+        CarActionReceiver().onReceive(app, reply)
+    }
+
+    private fun slackReplies() = shadowOf(app).broadcastIntents.filter { it.action == "test.slack.REPLY" }
+
+    @Test fun bothReportedActionListsForwardAndReplyToTheOriginalConversation() {
         val before = BridgeState.forwarded
         listOf("D12345678", "C12345678", "G12345678").forEach { shortcut ->
             listOf(true, false).forEach { withMarkRead ->
@@ -81,18 +109,59 @@ class ReportedSlackCarTest {
                 assertEquals("car_messages", copy.channelId)
                 assertEquals(NotificationManager.IMPORTANCE_HIGH, nm.getNotificationChannel(copy.channelId).importance)
                 val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
-                assertTrue(style.messages.single().text.toString().startsWith(text))
-                assertTrue(style.messages.single().text.toString().contains(app.getString(R.string.car_reply_thread_unknown)))
-                assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ,
-                    NotificationCompat.getInvisibleActions(copy).single().semanticAction)
-                assertTrue(copy.actions.orEmpty().isEmpty())
-                assertFalse(BridgeState.registry.findBinding { it.notificationKey == source.key }!!.canReply)
+                val cue = app.getString(R.string.car_reply_conversation)
+                assertEquals(app.getString(R.string.car_message_with_flack_route, cue, text), style.messages.single().text.toString())
+                val reply = carReply(copy)
+                assertEquals(app.getString(R.string.reply_conversation_label), reply.title.toString())
+                dictate(reply, "Reply for $key")
+                val sent = slackReplies().last()
+                assertEquals(key, sent.getStringExtra("conversation"))
+                assertEquals("Reply for $key", RemoteInput.getResultsFromIntent(sent)!!.getCharSequence(SyntheticSlack.REPLY_KEY).toString())
                 listener.onNotificationRemoved(source)
             }
         }
         assertEquals(before + 6, BridgeState.forwarded)
-        assertTrue(shadowOf(app).broadcastIntents.none { it.action == "test.slack.REPLY" })
+        assertEquals(6, slackReplies().size)
         assertTrue(BridgeState.copyDiagnostics().contains("outcome=POSTED; channel=car_messages"))
+    }
+
+    @Test fun anEarlierThreadTimestampSelectsOnlySlacksThreadAction() {
+        val source = reportedMessage("thread", timestampStartMillis = 1_700_000_001_000)
+        source.notification.extras.putString("com.Slack.thread_ts", "1700000000.000000")
+        listener.onNotificationPosted(source)
+        val copy = manager.allNotifications.single()
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
+        assertEquals("Paper room · thread", style.conversationTitle.toString())
+        dictate(carReply(copy), "Thread response")
+        val sent = slackReplies().single()
+        assertEquals("thread-thread", sent.getStringExtra("conversation"))
+        assertEquals("Thread response", RemoteInput.getResultsFromIntent(sent)!!.getCharSequence("thread_text").toString())
+    }
+
+    @Test fun laterMessagesUnderTheSameSlackKeyPostFreshEntriesWhileTheirSummariesDeduplicate() {
+        val before = BridgeState.forwarded
+        val messages = listOf("First test message", "Second test message", "Third test message")
+        val postedIds = messages.mapIndexed { index, text ->
+            val child = reportedMessage("channel-child", text = text,
+                history = messages.take(index).map { "Riley Example" to it })
+            val matching = reportedMessage("channel-summary", text = text,
+                history = messages.take(index).map { "Riley Example" to it })
+            val summary = Notification.Builder.recoverBuilder(app, matching.notification)
+                .setGroupSummary(true).setShortcutId(null).build()
+            listener.onNotificationPosted(child)
+            val copy = nm.activeNotifications.single()
+            assertEquals(0, copy.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+            val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy.notification)!!
+            assertEquals(messages.take(index), style.messages.dropLast(1).map { it.text.toString() })
+            assertTrue(style.messages.last().text.toString().endsWith(text))
+            carReply(copy.notification)
+            listener.onNotificationPosted(SyntheticSlack.statusBar(summary, "channel-summary"))
+            listener.onNotificationPosted(child)
+            assertEquals(copy.id, nm.activeNotifications.single().id)
+            copy.id
+        }
+        assertEquals(messages.size, postedIds.toSet().size)
+        assertEquals(before + messages.size, BridgeState.forwarded)
     }
 
     @Test fun anUnknownAndroidFormatStillForwardsReadableTextWithoutAnAction() {
@@ -109,8 +178,12 @@ class ReportedSlackCarTest {
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
         assertTrue(style.messages.single().text.toString().startsWith("Synthetic plain text with a new reply action"))
         assertTrue(copy.actions.orEmpty().isEmpty())
-        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ,
-            NotificationCompat.getInvisibleActions(copy).single().semanticAction)
+        assertEquals(app.getString(R.string.reply_unavailable_label), carReply(copy).title.toString())
+        dictate(carReply(copy), "Do not send")
+        assertTrue(slackReplies().isEmpty())
+        val status = manager.allNotifications.single { it !== copy && it.extras.getCharSequence(Notification.EXTRA_TEXT) ==
+            app.getString(R.string.car_reply_status_unavailable) }
+        carReply(status)
     }
 
     @Test fun aForwardDecisionWithPostingDisabledReportsTheDropWithoutACopy() {

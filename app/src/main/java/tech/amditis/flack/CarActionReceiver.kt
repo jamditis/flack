@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.StringRes
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
@@ -27,6 +28,9 @@ class CarActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             CarNotificationPublisher.ACTION_REPLY -> reply(context, intent)
+            CarNotificationPublisher.ACTION_DISMISS_REPLY_STATUS -> CarNotificationPublisher.dismissReplyStatus(context)
+            CarNotificationPublisher.ACTION_REPLY_TO_STATUS ->
+                CarNotificationPublisher.repeatReplyStatus(context)
             // Local car acknowledgement only. Slack's read state is not touched.
             CarNotificationPublisher.ACTION_MARK_READ -> {
                 val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN) ?: return
@@ -36,7 +40,7 @@ class CarActionReceiver : BroadcastReceiver() {
     }
 
     private fun reply(context: Context, intent: Intent) {
-        val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN) ?: return
+        val token = intent.getStringExtra(CarNotificationPublisher.EXTRA_TOKEN).orEmpty()
         val text = RemoteInput.getResultsFromIntent(intent)
             ?.getCharSequence(CarNotificationPublisher.REPLY_KEY)
             ?.toString()
@@ -47,12 +51,13 @@ class CarActionReceiver : BroadcastReceiver() {
                 // Repost so the host stops waiting. Keep the reply action only if the
                 // token is still unused (empty or too-long text does not use it).
                 result.binding?.let { binding ->
-                    val conversation = BridgeState.conversation(binding.carNotificationId)
-                    if (conversation != null && BridgeState.registry.isCurrent(binding)) {
+                    val copy = BridgeState.copyContent(binding.carNotificationId)
+                    if (copy != null && BridgeState.registry.isCurrent(binding)) {
                         val stillUsable = result.reason == ConsumeRejection.EMPTY || result.reason == ConsumeRejection.TOO_LONG
-                        CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = stillUsable)
+                        CarNotificationPublisher.post(context, binding, copy, alert = false, replyEnabled = stillUsable)
                     }
                 }
+                CarNotificationPublisher.postReplyStatus(context, rejectionMessage(result.reason))
             }
             is ConsumeResult.Dispatch -> {
                 if (result.binding.apiRoute != null) {
@@ -73,9 +78,12 @@ class CarActionReceiver : BroadcastReceiver() {
                     HandoffStatus.HANDED_TO_SLACK
                 } catch (_: PendingIntent.CanceledException) {
                     HandoffStatus.HANDOFF_FAILED
+                } catch (_: SecurityException) {
+                    HandoffStatus.NOT_SENT
                 }
                 BridgeState.recordHandoff(status)
                 repostSpent(context, result.binding, if (status == HandoffStatus.HANDED_TO_SLACK) result.text else null)
+                showHandoffStatus(context, status)
             }
         }
     }
@@ -98,20 +106,42 @@ class CarActionReceiver : BroadcastReceiver() {
             val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
             // The listener changes copies on the main thread. Check and repost there too,
             // so a copy withdrawn or replaced meanwhile is never posted again.
-            MAIN.post { repostSpent(app, binding, if (posted) text else null) }
+            MAIN.post {
+                repostSpent(app, binding, if (posted) text else null)
+                showHandoffStatus(app, result.status)
+            }
         }
     }
 
+    @StringRes
+    private fun rejectionMessage(reason: ConsumeRejection): Int = when (reason) {
+        ConsumeRejection.UNKNOWN_OR_EXPIRED -> R.string.car_reply_status_expired
+        ConsumeRejection.ALREADY_CONSUMED -> R.string.car_reply_status_used
+        ConsumeRejection.NO_REPLY_ACTION -> R.string.car_reply_status_unavailable
+        ConsumeRejection.EMPTY -> R.string.car_reply_status_empty
+        ConsumeRejection.TOO_LONG -> R.string.car_reply_status_too_long
+    }
+
+    private fun showHandoffStatus(context: Context, status: HandoffStatus) {
+        val message = when (status) {
+            HandoffStatus.HANDOFF_FAILED -> R.string.car_reply_status_cancelled
+            HandoffStatus.NOT_SENT -> R.string.car_reply_status_not_sent
+            HandoffStatus.NOT_SENT_SIGN_IN -> R.string.car_reply_status_sign_in
+            HandoffStatus.OUTCOME_UNKNOWN, HandoffStatus.POSTED_PLACE_UNCONFIRMED -> R.string.car_reply_status_check_slack
+            else -> null
+        }
+        if (message != null) CarNotificationPublisher.postReplyStatus(context, message)
+    }
+
     /**
-     * Android Auto waits for the copy to change after a reply. Repost it without a
-     * reply action, since this token is used up. Slack's own update, if any, replaces
-     * it with a fresh token.
+     * Android Auto waits for the copy to change after a reply. Keep the car action
+     * as local feedback until Slack's own update supplies a fresh token.
      */
     private fun repostSpent(context: Context, binding: Binding<PendingIntent>, sentText: String?) {
-        val conversation = BridgeState.conversation(binding.carNotificationId)
+        val copy = BridgeState.copyContent(binding.carNotificationId)
         // Skip if Slack already replaced this generation with a newer one.
-        if (conversation != null && BridgeState.registry.isCurrent(binding)) {
-            CarNotificationPublisher.post(context, binding, conversation, alert = false, replyEnabled = false, sentText = sentText)
+        if (copy != null && BridgeState.registry.isCurrent(binding)) {
+            CarNotificationPublisher.post(context, binding, copy, alert = false, replyEnabled = false, sentText = sentText)
         }
     }
 

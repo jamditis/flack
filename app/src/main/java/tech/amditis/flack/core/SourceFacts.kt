@@ -16,6 +16,8 @@ data class SourceFacts(
     val replyActions: List<ReplyActionFacts>,
     /** An allowlisted key can rule out a top-level guess but cannot identify a thread. */
     val hasThreadMarker: Boolean = false,
+    /** A thread timestamp that predates the incoming message, used to select Slack's original thread action. */
+    val hasThreadEvidence: Boolean = false,
 )
 
 data class Conversation(

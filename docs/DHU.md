@@ -39,7 +39,7 @@ Only debug builds of Flack accept the fake Slack. The released `flack.apk` ignor
 7. Reply by voice. In the DHU console, `mic begin` uses the computer's microphone, or `mic play reply.wav` plays a recording. Confirm the reply.
 8. Back in Flack test source, the screen shows the last reply it received. It should match what you said, once.
 
-Repeat with the group DM, public/private channel, and both thread buttons. Each reply must reach only the selected destination. The unknown-routing and two-action buttons should produce read-only copies; verify that the DHU reads them without offering a reply. Record a host that hides those copies as a failure.
+Repeat with the group DM, public/private channel, and both thread buttons. Each reply must reach only the selected destination. For the unknown-routing and two-action fixtures, verify that the DHU reads the copy and a reply attempt produces a Flack status. The fixture must receive no reply. Record a host that hides the message or the status as a failure.
 
 ## Useful DHU commands
 
