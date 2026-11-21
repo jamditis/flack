@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
+import android.content.Intent
+import android.os.Bundle
 import android.os.Looper
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
@@ -94,22 +96,37 @@ class GroupSummaryContractTest {
 
     private fun binding(key: String) = BridgeState.registry.findBinding { it.notificationKey == key }
 
+    private fun dictate(action: NotificationCompat.Action, text: String) {
+        val inputs = requireNotNull(action.remoteInputs)
+        val reply = Intent(shadowOf(requireNotNull(action.actionIntent)).savedIntent)
+        RemoteInput.addResultsToIntent(inputs, reply, Bundle().apply { putCharSequence(inputs.single().resultKey, text) })
+        CarActionReceiver().onReceive(app, reply)
+    }
+
+    private fun slackReplies() = shadowOf(app).broadcastIntents.filter { it.action == "test.slack.REPLY" }
+
     @Test fun android17SummaryOnlyForTwoDmsAndTwoChannelsForwardsAllFourOnce() {
         val before = BridgeState.forwarded
         val apiBefore = BridgeState.apiRouted
-        listOf("D0PAPER001", "D0PAPER002", "C0PAPER001", "C0PAPER002").forEach { id ->
-            val summary = source("summary-$id", true, id, group = "group-$id", withReplyPair = true)
+        val ids = listOf("D0PAPER001", "D0PAPER002", "C0PAPER001", "C0PAPER002")
+        val replies = ids.mapIndexed { index, id ->
+            val text = "Synthetic summary ${index + 1}"
+            val summary = source("summary-$id", true, id, group = "group-$id", text = text, withReplyPair = true)
             post(summary)
             post(summary)
-        }
-        assertEquals(4, manager.size())
-        manager.allNotifications.forEach { copy ->
-            val reply = copy.actions.single { it.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY }
+            val copy = manager.allNotifications.single {
+                NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it)?.messages?.single()?.text
+                    ?.toString()?.endsWith(text) == true
+            }
+            val reply = requireNotNull(NotificationCompat.getAction(copy, 0))
+            assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_REPLY, reply.semanticAction)
             assertEquals(app.getString(R.string.reply_conversation_label), reply.title.toString())
             assertTrue(NotificationCompat.getInvisibleActions(copy).any {
                 it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ
             })
+            id to reply
         }
+        assertEquals(4, manager.size())
         assertEquals(before + 4, BridgeState.forwarded)
         assertEquals(apiBefore, BridgeState.apiRouted)
         val report = TestReport.build(app)
@@ -119,6 +136,28 @@ class GroupSummaryContractTest {
         listOf("Paper boats", "Riley Example", "D0PAPER001", "T0PAPER001", "U0PAPER001", "invented-slack-group").forEach {
             assertFalse(report.contains(it))
         }
+        replies.asReversed().forEach { (id, reply) ->
+            val text = "Synthetic response for $id"
+            dictate(reply, text)
+            val sent = slackReplies().last()
+            assertEquals("summary-$id-1", sent.getStringExtra("conversation"))
+            assertEquals(text, RemoteInput.getResultsFromIntent(sent)!!.getCharSequence("reply_1").toString())
+        }
+        assertEquals(4, slackReplies().size)
+    }
+
+    @Test fun aSummaryWithoutAValidatedRouteShowsLocalFeedbackAndSendsNothing() {
+        post(source("unroutable-summary", true, "C0PAPER009", reply = false))
+        val copy = manager.allNotifications.single()
+        val actions = NotificationCompat.getInvisibleActions(copy)
+        val reply = actions.single { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_REPLY }
+        assertEquals(app.getString(R.string.reply_unavailable_label), reply.title.toString())
+        assertTrue(actions.any { it.semanticAction == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ })
+        dictate(reply, "Do not send")
+        assertTrue(slackReplies().isEmpty())
+        assertTrue(manager.allNotifications.any {
+            it.extras.getCharSequence(Notification.EXTRA_TEXT) == app.getString(R.string.car_reply_status_unavailable)
+        })
     }
 
     @Test fun android16ChildWinsEvenBeforeItsCallbackWhenItIsAlreadyActive() {
