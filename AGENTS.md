@@ -32,7 +32,7 @@ Use sentence case headings, clear labels, and plain language. Preserve keyboard 
 
 ## Compile before you push
 
-Compile the app and its debug unit tests locally before pushing changes to either. On a4000 WSL, run these commands from the repository root.
+Compile the app and its debug unit tests locally before pushing changes to either. On a4000 WSL or Legion WSL, run these commands from the repository root.
 
 ```bash
 source /opt/android/flack-env.sh
