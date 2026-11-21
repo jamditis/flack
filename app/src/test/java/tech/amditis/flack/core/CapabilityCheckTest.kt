@@ -147,6 +147,9 @@ class CapabilityCheckTest {
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct.copy(title = "Other input")))))
         assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
             CapabilityCheck.evaluate(dm(actions = listOf(direct, direct))))
+        val threadWithoutInput = direct.copy(title = "Reply in thread", freeFormResultKeys = emptyList(), resultKeys = emptyList())
+        assertEquals(readOnly(RejectReason.THREAD_ROUTE_UNKNOWN),
+            CapabilityCheck.evaluate(dm(actions = listOf(direct, threadWithoutInput))))
     }
 
     @Test fun theReportedTwoActionShapeUsesTheThreadActionOnlyWithEvidence() {

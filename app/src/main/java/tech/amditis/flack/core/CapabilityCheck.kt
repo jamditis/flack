@@ -59,12 +59,13 @@ object CapabilityCheck {
         val plainReplies = inputs.filter { isSlackPlainReply(it.value) }
         val slackThreadReplies = inputs.filter { isSlackUnspecifiedThreadReply(it.value) }
         val observedPair = inputs.size == 2 && plainReplies.size == 1 && slackThreadReplies.size == 1
+        val loneInputWithoutThreadAction = inputs.size == 1 && facts.replyActions.none(::isThreadReply)
         val candidates = when {
             slack && facts.hasThreadEvidence -> inputs.filter {
                 isThreadReply(it.value) && it.value.semanticAction in setOf(SEMANTIC_ACTION_NONE, SEMANTIC_ACTION_REPLY)
             }
             semanticReplies.isNotEmpty() -> semanticReplies
-            slack && !facts.hasThreadMarker && (inputs.size == 1 || observedPair) -> plainReplies
+            slack && !facts.hasThreadMarker && (loneInputWithoutThreadAction || observedPair) -> plainReplies
             else -> emptyList()
         }
         if (candidates.isEmpty()) {

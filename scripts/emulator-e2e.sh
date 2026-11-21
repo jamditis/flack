@@ -90,8 +90,14 @@ for conversation in thread-folding thread-launch private-paper channel-kites gro
   [ "$count" -eq 1 ] || fail "reply for $conversation dispatched $count times"
 done
 
+step "Turning Flack off removes every car copy"
+no_copies() { [ "$(flack_copies)" -eq 0 ]; }
+flack_configure false false
+wait_for 15 no_copies || fail "car copies remained after turning Flack off"
+
 step "Ambiguous actions and unknown routing offer local failure feedback"
 for item in mixed-paper:TWO_ACTIONS unknown-paper:UNKNOWN; do
+  flack_configure true false
   conversation=${item%:*}
   kind=${item#*:}
   before=$(flack_copies)
@@ -106,11 +112,8 @@ for item in mixed-paper:TWO_ACTIONS unknown-paper:UNKNOWN; do
   }
   wait_for 10 reply_status_posted || fail "$conversation did not post reply feedback"
   if adb logcat -d -s FlackFixture:I | grep -q "text=should-not-send"; then fail "unknown route sent a reply"; fi
+  flack_configure false false
+  wait_for 15 no_copies || fail "reply status remained after turning Flack off"
 done
-
-step "Turning Flack off removes every car copy"
-flack_configure false false
-no_copies() { [ "$(flack_copies)" -eq 0 ]; }
-wait_for 15 no_copies || fail "car copies remained after turning Flack off"
 
 echo "PASS: emulator end-to-end"

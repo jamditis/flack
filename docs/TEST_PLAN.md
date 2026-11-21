@@ -12,9 +12,9 @@ these fields. Message bodies, sender names, source keys and action handles are
 never included. The report does not establish which destination an action uses.
 
 Android Auto's [notification messaging contract](https://developer.android.com/training/cars/communication/notification-messaging)
-requires both reply and mark-as-read actions. A read-only phone copy has no
-reply action and can be absent from the car list. Do not treat the phone's copy
-count as proof that Android Auto displayed it. Verify the eligible multi-action
+requires both reply and mark-as-read actions. Flack includes both actions on
+every car copy. An attempt without a usable Slack route shows a local status.
+Android Auto display requires a car test. Verify the eligible multi-action
 channel case on the car, including spoken destination, thread context when
 applicable, confirmation, cancel and one dispatch to the same destination as the
 phone notification's inline reply. Repeat for DMs, group DMs and threads.
@@ -46,12 +46,13 @@ successful later post clears that warning. A blocked channel or group must be
 allowed in Android settings before receiving a new message. Flack preserves
 Android's blocks and does not replay the old notification.
 
-For the Slack shape with mark-as-read (semantic 2, no input), Reply in thread
-(semantic 0, input) and Reply (semantic 0, input), verify that Flack posts the
-readable copy and explains that it cannot identify thread placement. Repeat
-with reordered actions, a DM, a channel and two existing threads. Check that
-neither the native nor API route is offered. Test a unique explicit reply action
-separately, including a thread action and an expired or shared action.
+For Slack's mark-as-read (semantic 2, no input), **Reply in thread** (semantic 0,
+text input) and **Reply** (semantic 0, text input), verify that Flack reads the
+placement cue before the message and sends the reply to the main conversation
+when there is no thread marker. Repeat with reordered actions, a DM and a channel.
+Test two existing threads with usable thread timestamps and check that each
+reply reaches its own thread. Try an unknown route and a stale action. Both
+must give local failure feedback, and Slack must receive no message.
 
 ## Recheck after a software update
 
@@ -140,7 +141,7 @@ The target Slack DM must contain the exact response once. The phone remains lock
 | R37 | Public channel, including a non-mention notification | Readout; any offered reply reaches only that channel, once |
 | R38 | Private channel | Readout; any offered reply reaches only that private channel, once |
 | R39 | Group DM | Readout; any offered reply reaches only that group, once |
-| R40 | Mixed channel/thread actions or unknown routing | Readout remains; no reply action or dispatch, including held old actions |
+| R40 | Unknown placement or expired reply action | Readout remains and attempted replies show a local status. Slack receives no message |
 
 ## Meaningful automated tests
 
@@ -152,7 +153,7 @@ Use Android Auto's Desktop Head Unit for early integration checks, then validate
 
 ## Emulator check in CI
 
-Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`). The first DM runs in quiet mode and replies through the invisible action. Public/private channels, group DMs and two threads each get a copy in alerting mode. Replies in reverse arrival order use the copies' real PendingIntents and reach only their original destination once, even with repeated callbacks. Mixed actions and unknown routing produce copies with no reply action. Turning Flack off removes all copies. Android Auto readout and real Slack still need a physical test.
+Every pull request runs `scripts/emulator-e2e.sh` on an Android 15 emulator with the fake Slack app (`fixture/`). The first DM runs in quiet mode and replies through the invisible action. Public/private channels, group DMs and two threads each get a copy in alerting mode. Replies in reverse arrival order use the copies' real PendingIntents and reach only their original destination once, even with repeated callbacks. Mixed actions and unknown routing have car reply actions that give local feedback and send nothing to the fake Slack app. Turning Flack off removes all copies. Android Auto readout and real Slack still need a physical test.
 
 ## Desktop Head Unit checks
 
@@ -179,7 +180,7 @@ These come from Android documentation and AOSP behavior that could not be verifi
 
 These cover the route in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md). Use test channels and invented message text.
 
-- **Native action selection (#47, #58)**. Both observed mixed action lists stay read-only. Test a sole validated native reply separately. Preserve its original input key and dispatch once after confirmation. An activity, immutable action, foreign creator, multiple input keys or duplicate reply choices must not offer a native reply. Verify readback, cancel and a locked-phone repeat on the car. A local native handoff says Handed to Slack. The API result records Slack's server confirmation separately.
+- **Native action selection (#47, #58)**. Test Slack's observed conversation/thread pair and a sole validated native reply. Check the spoken placement and the message's actual location after one confirmed dispatch. An activity, immutable action, foreign creator, multiple input keys or unresolved choices must give local feedback without dispatch. Verify readback, cancel and a locked-phone repeat. A local native handoff says Handed to Slack. The API result records Slack's server confirmation separately.
 - **Thread marker (#50):** use the ordered parent/child steps below in two concurrent threads, more than two seconds apart. The report lists threadMarkerKeys only for fixed allowlisted string-extra names, plus their existing timestamp relations. Compare top-level messages, DMs and thread notifications. A none value means no known string key was seen, not that Slack has no marker. Never select semantic-0 Reply in thread from this diagnostic alone. Follow [the issue's exact capture and acceptance steps](https://github.com/jamditis/flack/issues/50).
 
 - **Route field probe (#29):** the November 13 field evidence is summarized in [SLACK_SIGN_IN.md](SLACK_SIGN_IN.md#evidence-for-the-first-reply). Use a release with the ID prefixes and key names in the probe. On the S24 Ultra, with Flack forwarding, use three test accounts with distinct invented names (Riley Example and Sam Example in workspace 1, Alex Example in workspace 2), test channels and group DM names used for nothing else, and invented text. Send these in order, a few seconds apart, and write down the step for each message:
