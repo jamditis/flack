@@ -9,9 +9,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.StringRes
+import tech.amditis.flack.core.ApiDestination
 import tech.amditis.flack.core.Binding
 import tech.amditis.flack.core.ConsumeRejection
 import tech.amditis.flack.core.ConsumeResult
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -23,7 +25,14 @@ import java.util.concurrent.Executors
  * chat.postMessage to the copy's certain API destination, where only Slack's
  * answer confirms it. Nothing is retried (SPEC.md section 8).
  */
-class CarActionReceiver : BroadcastReceiver() {
+class CarActionReceiver internal constructor(
+    private val apiWorker: Executor,
+    private val sendApiReply: (Context, ApiDestination, String, () -> Boolean) -> ApiReplyResult,
+) : BroadcastReceiver() {
+
+    constructor() : this(API_WORKER, { context, destination, text, stillCurrent ->
+        SlackReplySender(SlackSession.accounts(context), SlackHttp).send(destination, text, stillCurrent)
+    })
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -97,17 +106,16 @@ class CarActionReceiver : BroadcastReceiver() {
     private fun postWithApi(context: Context, binding: Binding<PendingIntent>, text: String) {
         val destination = binding.apiRoute ?: return
         val app = context.applicationContext
-        API_WORKER.execute {
+        apiWorker.execute {
             // A reply that waited behind another one, or for a refresh, is dropped if its copy was withdrawn meanwhile.
-            val result = SlackReplySender(SlackSession.accounts(app), SlackHttp).send(destination, text) {
+            val result = sendApiReply(app, destination, text) {
                 BridgeState.registry.isCurrent(binding)
             }
             BridgeState.recordHandoff(result.status, result.slackCode)
-            val posted = result.status == HandoffStatus.POSTED || result.status == HandoffStatus.POSTED_PLACE_UNCONFIRMED
             // The listener changes copies on the main thread. Check and repost there too,
             // so a copy withdrawn or replaced meanwhile is never posted again.
             MAIN.post {
-                repostSpent(app, binding, if (posted) text else null)
+                repostSpent(app, binding, text.takeIf { result.status == HandoffStatus.POSTED })
                 showHandoffStatus(app, result.status)
             }
         }
