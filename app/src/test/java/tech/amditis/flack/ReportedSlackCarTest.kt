@@ -190,6 +190,11 @@ class ReportedSlackCarTest {
         assertEquals("summary copy", 1, manager.size())
         listener.onNotificationPosted(child)
         assertEquals("child takes over the summary copy", 1, manager.size())
+        assertTrue(BridgeState.filterDiagnostics().contains("row=CHILD_REPLACES_SUMMARY"))
+        assertNull(BridgeState.registry.findBinding { it.notificationKey == "channel-summary" })
+        val childBinding = BridgeState.registry.findBinding { it.notificationKey == "channel-child" }
+        assertNotNull(childBinding)
+        assertNotNull(childBinding!!.action)
         val copy = manager.allNotifications.single()
         assertEquals(app.getString(R.string.reply_conversation_label), carReply(copy).title.toString())
         dictate(carReply(copy), "Summary-first response")
