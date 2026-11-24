@@ -2,7 +2,7 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.9
 
 - The car shows the Slack message first again. In 0.3.8 the **Reply to
   conversation** cue came first, so the one-line preview on the car screen hid
@@ -14,6 +14,10 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 - The test report shows the thread keys on each Slack notification and how
   their timestamps compare with the message time, without values. This
   explains "Reply unavailable" for possible thread messages.
+- When Slack cannot confirm where a reply sent through Slack sign-in went,
+  the car copy no longer shows your reply as sent.
+- Tests and an Android emulator checked these changes. They still need a
+  parked test in a real car.
 
 ## 0.3.8
 
