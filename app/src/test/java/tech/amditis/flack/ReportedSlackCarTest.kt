@@ -156,7 +156,7 @@ class ReportedSlackCarTest {
             assertEquals(0, copy.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
             val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy.notification)!!
             assertEquals(messages.take(index), style.messages.dropLast(1).map { it.text.toString() })
-            assertTrue(style.messages.last().text.toString().endsWith(text))
+            assertTrue(style.messages.last().text.toString().startsWith(text))
             carReply(copy.notification)
             listener.onNotificationPosted(SyntheticSlack.statusBar(summary, "channel-summary"))
             listener.onNotificationPosted(child)

@@ -116,7 +116,7 @@ class GroupSummaryContractTest {
             post(summary)
             val copy = manager.allNotifications.single {
                 NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it)?.messages?.single()?.text
-                    ?.toString()?.endsWith(text) == true
+                    ?.toString()?.startsWith(text) == true
             }
             val reply = requireNotNull(NotificationCompat.getAction(copy, 0))
             assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_REPLY, reply.semanticAction)
