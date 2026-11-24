@@ -187,10 +187,13 @@ class ReportedSlackCarTest {
     @Test fun aSummaryPostedFirstWithTheSameActionsKeepsTheChildReply() {
         val child = reportedMessage("channel-child", text = "Synthetic summary-first message")
         listener.onNotificationPosted(summaryOf(child))
+        assertEquals("summary copy", 1, manager.size())
         listener.onNotificationPosted(child)
+        assertEquals("child takes over the summary copy", 1, manager.size())
         val copy = manager.allNotifications.single()
+        assertEquals(app.getString(R.string.reply_conversation_label), carReply(copy).title.toString())
         dictate(carReply(copy), "Summary-first response")
-        assertEquals("channel-child", slackReplies().single().getStringExtra("conversation"))
+        assertEquals(listOf("channel-child"), slackReplies().map { it.getStringExtra("conversation") })
     }
 
     @Test fun aSummaryOfAnotherMessageWithTheSameActionStillDisablesTheReply() {
