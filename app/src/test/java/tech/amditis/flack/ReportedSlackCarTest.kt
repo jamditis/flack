@@ -210,6 +210,23 @@ class ReportedSlackCarTest {
         assertTrue(slackReplies().isEmpty())
     }
 
+    @Test fun aSameMessageSummaryWithAnotherTitleStillDisablesTheSharedReply() {
+        val child = reportedMessage("channel-child", text = "Synthetic retitled message")
+        listener.onNotificationPosted(child)
+        val retitled = Notification.Builder.recoverBuilder(app, child.notification).setGroupSummary(true).setShortcutId(null)
+            .setStyle(Notification.MessagingStyle(android.app.Person.Builder().setName("Me").build())
+                .setConversationTitle("Other room").setGroupConversation(true)
+                .addMessage("Synthetic retitled message", 1_000L, android.app.Person.Builder().setName("Riley Example").build()))
+            .build()
+        listener.onNotificationPosted(SyntheticSlack.statusBar(retitled, "channel-summary"))
+        val copy = manager.allNotifications.single { copy ->
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)?.conversationTitle == "Paper room"
+        }
+        assertEquals(app.getString(R.string.reply_unavailable_label), carReply(copy).title.toString())
+        dictate(carReply(copy), "Do not send")
+        assertTrue(slackReplies().isEmpty())
+    }
+
     @Test fun anUnprovenThreadMarkerIsReadOnlyAndTheReportSaysWhyWithoutItsValue() {
         val source = reportedMessage("marked", timestampStartMillis = 1_700_000_001_000)
         source.notification.extras.putString("com.Slack.thread_id", "Synthetic thread name")

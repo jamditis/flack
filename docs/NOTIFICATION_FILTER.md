@@ -36,9 +36,11 @@ preserves whether its reply was consumed, and produces no second alert. Removing
 the summary cannot remove the child's copy. A different message still alerts.
 Source action-sharing checks continue to disable ambiguous original reply actions.
 One exception: Slack gives a summary the same actions as the child that shows
-the same message (the November 24, 0.3.8 SM-S928U report). A summary and child
-that match by these rules may share actions in either order. Any third
-notification with the same action still disables every reply that uses it.
+the same message (the November 24, 0.3.8 SM-S928U report, #73). A summary and
+child may share actions, in either order, only when they match by these rules
+and also have the same conversation title, the same group flag and the same
+set of actions. Missing IDs do not count as a match for this exception. Any
+other notification with the same action still disables every reply that uses it.
 Empty, rejected and unrelated children cannot withdraw a readable summary.
 Matching summaries are withdrawn after the child is published successfully.
 Grouping and style changes expire pending reply lookups through a new generation.
@@ -55,7 +57,7 @@ The test report includes aggregate row counts and the last 20 selected rows with
 their observed booleans and conversation-ID shapes. Each row and each
 post-update shape also lists `threadKeys`: the fixed thread key names present
 and how each thread timestamp compares with the message time (earlier or later
-by over 2 seconds, or within 2 seconds). Values are never shown. This explains
+by over 2 seconds, or within 2 seconds), up to three keys per case. Values are never shown. This explains
 `THREAD_ROUTE_UNKNOWN`. It contains no IDs, group
 keys, sender names or text. Per-case records are a capped in-memory ring; no
 notification diagnostics are written to files, preferences or logs. Unknown rows

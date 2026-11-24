@@ -196,5 +196,8 @@ class RouteFieldProbeTest {
         assertEquals("thread_ts (not a timestamp)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "Secret words"), message))
         assertEquals("thread_ts (no message time)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "1700000100.000000"), null))
         assertFalse(RouteFieldProbe.threadEvidence(listOf("thread_id" to "Secret words"), message).contains("Secret"))
+        val many = listOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts").map { it to "Secret words" }
+        assertEquals("parentTs (not a timestamp),parent_ts (not a timestamp),root_ts (not a timestamp),+2 more",
+            RouteFieldProbe.threadEvidence(many, message))
     }
 }

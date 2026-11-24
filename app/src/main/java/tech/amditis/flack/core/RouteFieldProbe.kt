@@ -334,8 +334,11 @@ class RouteFieldProbe {
          * thread key name and how its value compares with the newest incoming message
          * time. [markers] holds every extra key with its text value, or null for another type.
          */
-        fun threadEvidence(markers: List<Pair<String, String?>>, messageMillis: Long?): String =
-            markers.filter { isThreadMarkerKey(it.first) }.sortedBy { it.first }.joinToString(",") { (key, value) ->
+        fun threadEvidence(markers: List<Pair<String, String?>>, messageMillis: Long?): String {
+            val known = markers.filter { isThreadMarkerKey(it.first) }.sortedBy { it.first }
+            // At most three keys per case, so 20 cases stay well inside the report limit.
+            val more = (known.size - MAX_THREAD_KEYS).takeIf { it > 0 }?.let { ",+$it more" }.orEmpty()
+            return known.take(MAX_THREAD_KEYS).joinToString(",") { (key, value) ->
                 val millis = value?.takeIf { TIMESTAMP.matches(it) }?.let(::timestampMillis)
                 val relation = when {
                     value == null -> "not text"
@@ -347,7 +350,10 @@ class RouteFieldProbe {
                     else -> "within 2s of message"
                 }
                 "$key ($relation)"
-            }.ifEmpty { "none" }
+            }.ifEmpty { "none" } + more
+        }
+
+        private const val MAX_THREAD_KEYS = 3
 
         internal fun precedesMessageAsThreadTimestamp(key: String, value: String?, messageMillis: Long): Boolean =
             key in THREAD_TIMESTAMPS && value != null && TIMESTAMP.matches(value) &&

@@ -92,12 +92,24 @@ class SlackListenerService : NotificationListenerService() {
         source.group?.let { group -> parsed.newestMessageIdentity?.let { GroupMessage(group, it) } }
 
     /**
-     * Live notifications that show [source]'s exact message: its group summary, or the
-     * child a summary represents. Slack gives both the same actions (0.3.8 field report).
+     * Live notifications that show [source]'s exact message and may share its reply
+     * action: its group summary, or the child a summary represents (0.3.8 report, #73).
+     * The display match in [coversSummary] lets missing IDs pass, so this also needs
+     * positive evidence of one destination: the same conversation title and type, and
+     * the same set of actions. Without it, a shared action stays a clash.
      */
     private fun sameMessageKeys(key: String, source: Source): Set<String> = sources.filter { (otherKey, other) ->
-        otherKey != key && ((source.summary && coversSummary(other, source)) || (other.summary && coversSummary(source, other)))
+        otherKey != key && sameDestination(source, other) &&
+            ((source.summary && coversSummary(other, source)) || (other.summary && coversSummary(source, other)))
     }.keys
+
+    private fun sameDestination(a: Source, b: Source): Boolean {
+        val first = a.identity ?: return false
+        val second = b.identity ?: return false
+        return !first.title.isNullOrBlank() && first.title == second.title &&
+            first.isGroup != null && first.isGroup == second.isGroup &&
+            a.actions.isNotEmpty() && a.actions.toSet() == b.actions.toSet()
+    }
 
     /** Group membership alone cannot establish that the child carries the summary's message. */
     private fun coversSummary(child: Source, summary: Source): Boolean {
