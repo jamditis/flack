@@ -61,13 +61,16 @@ internal class PlatformUpdateHealth(private val onChange: () -> Unit = {}) {
         }
     }
 
-    fun recordShape(features: NotificationFeatures, decision: FilterDecision, actions: List<ReplyActionFacts>, textActions: Int) {
+    fun recordShape(
+        features: NotificationFeatures, decision: FilterDecision, actions: List<ReplyActionFacts>, textActions: Int,
+        threadEvidence: String = "none",
+    ) {
         val active = check ?: return
         if (active.firstShapes.size < SAMPLE_LIMIT) {
             val inputs = actions.take(ACTION_LIMIT).joinToString(",") { "${it.semanticAction}/${it.freeFormResultKeys.size}" }
             active.firstShapes.add(
                 "row=${decision.row}; action=${decision.action}; actions=${actions.size}; textActions=$textActions; " +
-                    "semantic/input counts=[$inputs]; ${features.report()}",
+                    "semantic/input counts=[$inputs]; ${features.report()}; threadKeys=$threadEvidence",
             )
         }
     }

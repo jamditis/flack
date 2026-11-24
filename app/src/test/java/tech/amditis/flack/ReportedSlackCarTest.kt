@@ -167,6 +167,58 @@ class ReportedSlackCarTest {
         assertEquals(before + messages.size, BridgeState.forwarded)
     }
 
+    /** Slack's summary for one message, carrying that message's own actions (0.3.8 field report). */
+    private fun summaryOf(child: StatusBarNotification, key: String = "channel-summary") = SyntheticSlack.statusBar(
+        Notification.Builder.recoverBuilder(app, child.notification).setGroupSummary(true).setShortcutId(null).build(), key)
+
+    @Test fun aSummaryWithTheSameMessageAndActionsKeepsTheChildReply() {
+        val ambiguousBefore = BridgeState.ambiguous
+        val child = reportedMessage("channel-child", text = "Synthetic shared-action message")
+        listener.onNotificationPosted(child)
+        listener.onNotificationPosted(summaryOf(child))
+        val copy = manager.allNotifications.single()
+        assertEquals(app.getString(R.string.reply_conversation_label), carReply(copy).title.toString())
+        dictate(carReply(copy), "Shared action response")
+        val sent = slackReplies().single()
+        assertEquals("channel-child", sent.getStringExtra("conversation"))
+        assertEquals(ambiguousBefore, BridgeState.ambiguous)
+    }
+
+    @Test fun aSummaryPostedFirstWithTheSameActionsKeepsTheChildReply() {
+        val child = reportedMessage("channel-child", text = "Synthetic summary-first message")
+        listener.onNotificationPosted(summaryOf(child))
+        listener.onNotificationPosted(child)
+        val copy = manager.allNotifications.single()
+        dictate(carReply(copy), "Summary-first response")
+        assertEquals("channel-child", slackReplies().single().getStringExtra("conversation"))
+    }
+
+    @Test fun aSummaryOfAnotherMessageWithTheSameActionStillDisablesTheReply() {
+        val child = reportedMessage("channel-child", text = "Synthetic first message")
+        listener.onNotificationPosted(child)
+        val other = reportedMessage("channel-child", text = "Synthetic different message", timestampStartMillis = 5_000L)
+        listener.onNotificationPosted(summaryOf(other))
+        val copy = manager.allNotifications.single { copy ->
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)?.messages?.last()?.text
+                ?.startsWith("Synthetic first message") == true
+        }
+        assertEquals(app.getString(R.string.reply_unavailable_label), carReply(copy).title.toString())
+        dictate(carReply(copy), "Do not send")
+        assertTrue(slackReplies().isEmpty())
+    }
+
+    @Test fun anUnprovenThreadMarkerIsReadOnlyAndTheReportSaysWhyWithoutItsValue() {
+        val source = reportedMessage("marked", timestampStartMillis = 1_700_000_001_000)
+        source.notification.extras.putString("com.Slack.thread_id", "Synthetic thread name")
+        source.notification.extras.putLong("com.Slack.thread_ts", 1_700_000_000L)
+        listener.onNotificationPosted(source)
+        val copy = manager.allNotifications.single()
+        assertEquals(app.getString(R.string.reply_unavailable_label), carReply(copy).title.toString())
+        val report = BridgeState.filterDiagnostics()
+        assertTrue(report.contains("threadKeys=com.Slack.thread_id (text),com.Slack.thread_ts (not text)"))
+        assertFalse(report.contains("Synthetic thread name"))
+    }
+
     @Test fun anUnknownAndroidFormatStillForwardsReadableTextWithoutAnAction() {
         val source = Notification.Builder(app, "slack")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)

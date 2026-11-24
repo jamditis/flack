@@ -329,6 +329,26 @@ class RouteFieldProbe {
 
         internal fun isThreadMarkerKey(key: String): Boolean = key in THREAD_KEYS
 
+        /**
+         * Why a thread marker did or did not prove a thread, without values: each fixed
+         * thread key name and how its value compares with the newest incoming message
+         * time. [markers] holds every extra key with its text value, or null for another type.
+         */
+        fun threadEvidence(markers: List<Pair<String, String?>>, messageMillis: Long?): String =
+            markers.filter { isThreadMarkerKey(it.first) }.sortedBy { it.first }.joinToString(",") { (key, value) ->
+                val millis = value?.takeIf { TIMESTAMP.matches(it) }?.let(::timestampMillis)
+                val relation = when {
+                    value == null -> "not text"
+                    key !in THREAD_TIMESTAMPS -> "text"
+                    millis == null -> "not a timestamp"
+                    messageMillis == null -> "no message time"
+                    millis < messageMillis - TIME_TOLERANCE_MILLIS -> "earlier than message by over 2s"
+                    millis > messageMillis + TIME_TOLERANCE_MILLIS -> "later than message by over 2s"
+                    else -> "within 2s of message"
+                }
+                "$key ($relation)"
+            }.ifEmpty { "none" }
+
         internal fun precedesMessageAsThreadTimestamp(key: String, value: String?, messageMillis: Long): Boolean =
             key in THREAD_TIMESTAMPS && value != null && TIMESTAMP.matches(value) &&
                 timestampMillis(value)?.let { it > 0 && it < messageMillis } == true

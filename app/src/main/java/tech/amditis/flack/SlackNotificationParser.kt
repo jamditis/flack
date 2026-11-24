@@ -25,6 +25,8 @@ class ParsedNotification(
     val groupKey: String? = null,
     /** Android gave a message signal, even if its payload was unreadable. */
     val hasMessageSignal: Boolean = false,
+    /** Content-free thread marker evidence for the test report (RouteFieldProbe.threadEvidence). */
+    val threadEvidence: String = "none",
 ) {
     /** Cross-key identity for a summary and child. Exact observed fields, memory only. */
     data class MessageIdentity(
@@ -98,8 +100,11 @@ object SlackNotificationParser {
             },
         )
         val group = sbn.groupKey.takeIf { notification.group != null || sbn.overrideGroupKey != null }
+        val markers = notification.extras.keySet().filter(RouteFieldProbe::isThreadMarkerKey)
+            .map { it to notification.extras.getString(it) }
         return ParsedNotification(facts, actions.map { it.actionIntent }, fields, hasMessages, group,
-            hasMessageSignal = hasMessages || plainMessage)
+            hasMessageSignal = hasMessages || plainMessage,
+            threadEvidence = RouteFieldProbe.threadEvidence(markers, incomingTime))
     }
 
     private fun routeFields(sbn: StatusBarNotification, style: NotificationCompat.MessagingStyle?): RouteFields {

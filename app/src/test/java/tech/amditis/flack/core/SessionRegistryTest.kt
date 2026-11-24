@@ -130,6 +130,28 @@ class SessionRegistryTest {
         assertEquals(ConsumeRejection.UNKNOWN_OR_EXPIRED, (reg.consume(riley.token, "Hi") as ConsumeResult.Rejected).reason)
     }
 
+    @Test fun aSummaryOfTheSameMessageMayCarryTheSameActionInEitherOrder() {
+        val childFirst = registry()
+        childFirst.publish("child", "f1", target = "op")
+        assertTrue(childFirst.recordOther("summary", listOf(FakeAction("op")), sameMessage = setOf("child")).isEmpty())
+        assertEquals(FakeAction("op"), childFirst.findBinding { it.notificationKey == "child" }!!.action)
+
+        val summaryFirst = registry()
+        summaryFirst.publish("summary", "f1", target = "op")
+        val child = summaryFirst.observe("child", "f1", FakeAction("op"), "reply_text", false,
+            replacesKey = "summary", sameMessage = setOf("summary")) as Observation.Publish
+        assertEquals(FakeAction("op"), child.binding.action)
+    }
+
+    @Test fun aSameMessageExceptionDoesNotCoverAThirdNotification() {
+        val reg = registry()
+        reg.publish("child", "f1", target = "op")
+        reg.recordOther("summary", listOf(FakeAction("op")), sameMessage = setOf("child"))
+        val third = reg.publish("other", "f2", target = "op")
+        assertNull(third.binding.action)
+        assertNull(reg.findBinding { it.notificationKey == "child" }!!.action)
+    }
+
     @Test fun aForwardedConversationThatBecomesIneligibleIsWithdrawn() {
         val reg = registry()
         val riley = reg.publish("dm-riley", "f1").binding

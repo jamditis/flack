@@ -188,10 +188,10 @@ object BridgeState {
         rejections[reason] = (rejections[reason] ?: 0) + 1
     }
 
-    @Synchronized fun recordFilter(decision: FilterDecision, features: NotificationFeatures) {
+    @Synchronized fun recordFilter(decision: FilterDecision, features: NotificationFeatures, threadEvidence: String = "none") {
         filterCounts[decision.row] = (filterCounts[decision.row] ?: 0) + 1
         if (filterCases.size == 20) filterCases.removeFirst()
-        filterCases.addLast("row=${decision.row}; action=${decision.action}; ${features.report()}")
+        filterCases.addLast("row=${decision.row}; action=${decision.action}; ${features.report()}; threadKeys=$threadEvidence")
     }
 
     /** Detailed structure belongs in the exported test report, not the status screen. */
