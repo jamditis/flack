@@ -110,7 +110,10 @@ class ReportedSlackCarTest {
                 assertEquals(NotificationManager.IMPORTANCE_HIGH, nm.getNotificationChannel(copy.channelId).importance)
                 val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(copy)!!
                 val cue = app.getString(R.string.car_reply_conversation)
-                assertEquals(app.getString(R.string.car_message_with_flack_route, cue, text), style.messages.single().text.toString())
+                // The car shows one preview line, so Slack's text must come before Flack's cue (field report, 0.3.8).
+                val shown = style.messages.single().text.toString()
+                assertTrue(shown.startsWith(text))
+                assertEquals(app.getString(R.string.car_message_with_flack_notice, text, cue), shown)
                 val reply = carReply(copy)
                 assertEquals(app.getString(R.string.reply_conversation_label), reply.title.toString())
                 dictate(reply, "Reply for $key")

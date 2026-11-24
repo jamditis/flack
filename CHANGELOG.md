@@ -2,6 +2,12 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
+## Unreleased
+
+- The car shows the Slack message first again. In 0.3.8 the **Reply to
+  conversation** cue came first, so the one-line preview on the car screen hid
+  the message. The cue now comes after the message.
+
 ## 0.3.8
 
 - Flack makes a fresh car notification for each new Slack message it forwards,

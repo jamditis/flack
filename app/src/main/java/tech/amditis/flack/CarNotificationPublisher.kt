@@ -151,12 +151,9 @@ object CarNotificationPublisher {
             // Keys keep senders apart within this one conversation. They are never routing keys.
             val sender = if (message.fromSelf) null else Person.Builder().setName(message.senderName).setKey("sender:${message.senderName}").build()
             // The host reads MessagingStyle text. Label the cue so it is distinguishable from Slack's message.
-            val text = when {
-                notice == null || index != latestIncoming -> message.text
-                conversationReply && canDispatch ->
-                    context.getString(R.string.car_message_with_flack_route, context.getString(notice), message.text)
-                else -> context.getString(R.string.car_message_with_flack_notice, message.text, context.getString(notice))
-            }
+            // The car preview shows one line, so Slack's text always comes first.
+            val text = if (notice == null || index != latestIncoming) message.text
+            else context.getString(R.string.car_message_with_flack_notice, message.text, context.getString(notice))
             style.addMessage(text, message.timestampMillis, sender)
         }
         // A local copy of what was handed to Slack, not proof of delivery.
