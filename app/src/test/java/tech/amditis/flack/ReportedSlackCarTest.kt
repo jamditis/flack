@@ -167,9 +167,12 @@ class ReportedSlackCarTest {
         assertEquals(before + messages.size, BridgeState.forwarded)
     }
 
-    /** Slack's summary for one message, carrying that message's own actions (0.3.8 field report). */
+    /**
+     * Slack's summary for one message, carrying that message's own actions (0.3.8 field report).
+     * recoverBuilder changes the notification it is given, so build from a copy.
+     */
     private fun summaryOf(child: StatusBarNotification, key: String = "channel-summary") = SyntheticSlack.statusBar(
-        Notification.Builder.recoverBuilder(app, child.notification).setGroupSummary(true).setShortcutId(null).build(), key)
+        Notification.Builder.recoverBuilder(app, child.notification.clone()).setGroupSummary(true).setShortcutId(null).build(), key)
 
     @Test fun aSummaryWithTheSameMessageAndActionsKeepsTheChildReply() {
         val ambiguousBefore = BridgeState.ambiguous
@@ -190,7 +193,7 @@ class ReportedSlackCarTest {
         assertEquals("summary copy", 1, manager.size())
         listener.onNotificationPosted(child)
         assertEquals("child takes over the summary copy", 1, manager.size())
-        assertTrue(BridgeState.filterDiagnostics(), BridgeState.filterDiagnostics().contains("row=CHILD_REPLACES_SUMMARY"))
+        assertTrue(BridgeState.filterDiagnostics().contains("row=CHILD_REPLACES_SUMMARY"))
         assertNull(BridgeState.registry.findBinding { it.notificationKey == "channel-summary" })
         val childBinding = BridgeState.registry.findBinding { it.notificationKey == "channel-child" }
         assertNotNull(childBinding)
@@ -218,7 +221,7 @@ class ReportedSlackCarTest {
     @Test fun aSameMessageSummaryWithAnotherTitleStillDisablesTheSharedReply() {
         val child = reportedMessage("channel-child", text = "Synthetic retitled message")
         listener.onNotificationPosted(child)
-        val retitled = Notification.Builder.recoverBuilder(app, child.notification).setGroupSummary(true).setShortcutId(null)
+        val retitled = Notification.Builder.recoverBuilder(app, child.notification.clone()).setGroupSummary(true).setShortcutId(null)
             .setStyle(Notification.MessagingStyle(android.app.Person.Builder().setName("Me").build())
                 .setConversationTitle("Other room").setGroupConversation(true)
                 .addMessage("Synthetic retitled message", 1_000L, android.app.Person.Builder().setName("Riley Example").build()))
