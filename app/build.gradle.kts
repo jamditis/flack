@@ -92,3 +92,11 @@ dependencies {
 tasks.named<org.cyclonedx.gradle.CyclonedxDirectTask>("cyclonedxDirectBom") {
     includeConfigs.set(listOf("releaseRuntimeClasspath"))
 }
+
+// CI uploads no test reports, so print each failure's full assertion message in the log.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        events("failed")
+    }
+}

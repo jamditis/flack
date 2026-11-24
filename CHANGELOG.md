@@ -7,6 +7,13 @@ Changes that testers would notice, newest first. Each release on GitHub also lis
 - The car shows the Slack message first again. In 0.3.8 the **Reply to
   conversation** cue came first, so the one-line preview on the car screen hid
   the message. The cue now comes after the message.
+- Car replies stay available when Slack also posts a summary of the same
+  message. In 0.3.8 Flack saw the summary's copy of the reply action as a
+  second conversation and turned the reply off ("Replies disabled as
+  ambiguous").
+- The test report shows the thread keys on each Slack notification and how
+  their timestamps compare with the message time, without values. This
+  explains "Reply unavailable" for possible thread messages.
 
 ## 0.3.8
 

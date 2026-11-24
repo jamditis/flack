@@ -91,6 +91,26 @@ class SlackListenerService : NotificationListenerService() {
     private fun groupMessage(source: Source, parsed: ParsedNotification): GroupMessage? =
         source.group?.let { group -> parsed.newestMessageIdentity?.let { GroupMessage(group, it) } }
 
+    /**
+     * Live notifications that show [source]'s exact message and may share its reply
+     * action: its group summary, or the child a summary represents (0.3.8 report, #73).
+     * The display match in [coversSummary] lets missing IDs pass, so this also needs
+     * positive evidence of one destination: the same conversation title and type, and
+     * the same set of actions. Without it, a shared action stays a clash.
+     */
+    private fun sameMessageKeys(key: String, source: Source): Set<String> = sources.filter { (otherKey, other) ->
+        otherKey != key && sameDestination(source, other) &&
+            ((source.summary && coversSummary(other, source)) || (other.summary && coversSummary(source, other)))
+    }.keys
+
+    private fun sameDestination(a: Source, b: Source): Boolean {
+        val first = a.identity ?: return false
+        val second = b.identity ?: return false
+        return !first.title.isNullOrBlank() && first.title == second.title &&
+            first.isGroup != null && first.isGroup == second.isGroup &&
+            a.actions.isNotEmpty() && a.actions.toSet() == b.actions.toSet()
+    }
+
     /** Group membership alone cannot establish that the child carries the summary's message. */
     private fun coversSummary(child: Source, summary: Source): Boolean {
         if (child.summary || !child.readable || child.group == null || child.group != summary.group) return false
@@ -190,9 +210,9 @@ class SlackListenerService : NotificationListenerService() {
             replacesSummary = replacesKey != null, alreadyForwarded = previousKey != null,
         )
         val decision = NotificationFilter.decide(features)
-        BridgeState.recordFilter(decision, features)
+        BridgeState.recordFilter(decision, features, parsed.threadEvidence)
         if (sbn.packageName == SLACK_PACKAGE) {
-            BridgeState.updateHealth.recordShape(features, decision, parsed.facts.replyActions, textActions)
+            BridgeState.updateHealth.recordShape(features, decision, parsed.facts.replyActions, textActions, parsed.threadEvidence)
         }
         // Capture multi-action facts even when the selector can safely choose one,
         // so the driveway test still reveals Slack's actual action shape.
@@ -227,7 +247,8 @@ class SlackListenerService : NotificationListenerService() {
                 if (sbn.packageName == SLACK_PACKAGE && !source.summary && parsed.hasMessageSignal && previousSource != source) {
                     BridgeState.updateHealth.recordAttempt(this, posted = false)
                 }
-                refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull()))
+                refreshBindings(BridgeState.registry.recordOther(sbn.key, parsed.actionIntents.filterNotNull(),
+                    sameMessageKeys(sbn.key, source)))
             }
             // Route order: Slack's original action, then the Slack API, then read-only.
             is Capability.ReadOnly -> {
@@ -285,7 +306,8 @@ class SlackListenerService : NotificationListenerService() {
         val newestFromSelf = conversation.messages.last().fromSelf
         when (val result = BridgeState.registry.observe(sbn.key, parsed.fingerprint, action, capability?.resultKey, newestFromSelf,
             parsed.actionIntents.filterNotNull(), apiLookupPending = readOnly != null && allowApiLookup,
-            replacesKey = replacesKey, forceGeneration = structureChanged, sameNewestMessage = sameNewestMessage)) {
+            replacesKey = replacesKey, forceGeneration = structureChanged, sameNewestMessage = sameNewestMessage,
+            sameMessage = sameMessageKeys(sbn.key, describeSource(parsed)))) {
             is Observation.Publish -> {
                 refreshBindings(result.replyDisabled)
                 val sharedAction = action != null && !result.binding.canReply
@@ -314,7 +336,9 @@ class SlackListenerService : NotificationListenerService() {
                     // Withdraw a summary only after a readable child has taken its place.
                     if (!source.summary && source.group != null) {
                         sources.filter { (key, other) -> key != replacesKey && other.summary && coversSummary(source, other) }
-                            .forEach { (key, other) -> refreshBindings(BridgeState.registry.recordOther(key, other.actions)) }
+                            .forEach { (key, other) ->
+                                refreshBindings(BridgeState.registry.recordOther(key, other.actions, sameMessageKeys(key, other)))
+                            }
                     }
                 }
                 if (posted && readOnly != null && allowApiLookup) {

@@ -55,6 +55,7 @@ sealed interface ConsumeResult<A : Any> {
  * - Every content change makes a new generation and a new token. Old tokens die.
  * - A token dispatches at most once. Invalid text does not use it up.
  * - A reply whose action appears on another live notification is disabled; readout stays.
+ *   The one exception is a group summary that shows the same message (sameMessage).
  * - Nothing here is written to disk.
  *
  * [A] is the platform's action handle. On Android it is the PendingIntent, whose
@@ -92,14 +93,17 @@ class SessionRegistry<A : Any>(
      * A Slack notification that cannot be forwarded. Its actions are remembered so
      * no forwarded conversation can share them. Returns this key's removed binding
      * and current read-only bindings whose reply actions were disabled.
+     *
+     * [sameMessage] names notifications that show this notification's exact message
+     * (a Slack group summary and its child). Sharing an action with them is not a clash.
      */
     @Synchronized
-    fun recordOther(notificationKey: String, actions: Collection<A>): List<Binding<A>> {
+    fun recordOther(notificationKey: String, actions: Collection<A>, sameMessage: Set<String> = emptySet()): List<Binding<A>> {
         baseline.remove(notificationKey)
         knownActions[notificationKey] = actions.toSet()
         val withdrawn = mutableListOf<Binding<A>>()
         entries.remove(notificationKey)?.let { withdrawn.add(it.binding) }
-        withdrawn.addAll(disableReplies(replyOwners(notificationKey, actions)))
+        withdrawn.addAll(disableReplies(replyOwners(notificationKey, actions, sameMessage)))
         return withdrawn
     }
 
@@ -120,6 +124,8 @@ class SessionRegistry<A : Any>(
         forceGeneration: Boolean = false,
         // Changes to action metadata or older history aren't new incoming messages.
         sameNewestMessage: Boolean = false,
+        // Notifications that show this exact message; see recordOther.
+        sameMessage: Set<String> = emptySet(),
     ): Observation<A> {
         // The original action comes first; the API route is only for messages without one.
         require(action == null || apiRoute == null) { "one reply route per binding" }
@@ -127,8 +133,8 @@ class SessionRegistry<A : Any>(
         val replaced = replacesKey?.let { entries.remove(it) }
         val previousActions = knownActions[notificationKey]
         knownActions[notificationKey] = actions.toSet()
-        val clashes = clashingKeys(notificationKey, listOfNotNull(action))
-        val disabled = disableReplies(replyOwners(notificationKey, actions))
+        val clashes = clashingKeys(notificationKey, listOfNotNull(action), sameMessage)
+        val disabled = disableReplies(replyOwners(notificationKey, actions, sameMessage))
         if (action != null && clashes.isNotEmpty()) conflicted.getOrPut(notificationKey) { mutableSetOf() }.add(action)
         val safeAction = action.takeUnless { it in conflicted[notificationKey].orEmpty() }
         val safeKey = resultKey.takeIf { safeAction != null }
@@ -222,11 +228,11 @@ class SessionRegistry<A : Any>(
         return all
     }
 
-    private fun clashingKeys(notificationKey: String, actions: Collection<A>): List<String> =
-        knownActions.filter { (key, known) -> key != notificationKey && actions.any { it in known } }.keys.toList()
+    private fun clashingKeys(notificationKey: String, actions: Collection<A>, sameMessage: Set<String>): List<String> =
+        knownActions.filter { (key, known) -> key != notificationKey && key !in sameMessage && actions.any { it in known } }.keys.toList()
 
-    private fun replyOwners(notificationKey: String, actions: Collection<A>): List<String> =
-        entries.filter { (key, entry) -> key != notificationKey && entry.binding.action in actions }.keys.toList()
+    private fun replyOwners(notificationKey: String, actions: Collection<A>, sameMessage: Set<String>): List<String> =
+        entries.filter { (key, entry) -> key != notificationKey && key !in sameMessage && entry.binding.action in actions }.keys.toList()
 
     @Synchronized
     fun consume(token: String, text: String?): ConsumeResult<A> {

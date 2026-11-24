@@ -517,7 +517,8 @@ class CarPathTest {
         val old = replyAction()
         val summary = Notification.Builder.recoverBuilder(app, grouped).setGroupSummary(true).build()
         post(SyntheticSlack.statusBar(summary, "summary"))
-        assertTrue(carCopy().actions.orEmpty().isEmpty())
+        // A summary of the same message may carry the child's own action (0.3.8 report, #73).
+        assertTrue(carCopy().actions.orEmpty().any { it.remoteInputs?.isNotEmpty() == true })
 
         val next = SyntheticSlack.dm(app, "child", text = "Second", title = "Paper room", isGroup = true,
             reply = SyntheticSlack.replyIntent(app, "latest-channel-action"))

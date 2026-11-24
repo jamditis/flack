@@ -182,4 +182,22 @@ class RouteFieldProbeTest {
         assertFalse(report.contains("Private message text"))
         assertFalse(report.contains("1700000000.123456"))
     }
+
+    @Test fun threadEvidenceNamesFixedKeysAndTimeRelationsOnly() {
+        val message = 1_700_000_100_000L
+        assertEquals("none", RouteFieldProbe.threadEvidence(listOf("com.Slack.channel_id" to "C12345678"), message))
+        assertEquals(
+            "com.Slack.thread_id (text),com.Slack.thread_ts (earlier than message by over 2s)",
+            RouteFieldProbe.threadEvidence(listOf("com.Slack.thread_ts" to "1700000000.000100", "com.Slack.thread_id" to "Secret words"), message),
+        )
+        assertEquals("thread_ts (within 2s of message)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "1700000100.000000"), message))
+        assertEquals("thread_ts (later than message by over 2s)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "1700000200.000000"), message))
+        assertEquals("thread_ts (not text)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to null), message))
+        assertEquals("thread_ts (not a timestamp)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "Secret words"), message))
+        assertEquals("thread_ts (no message time)", RouteFieldProbe.threadEvidence(listOf("thread_ts" to "1700000100.000000"), null))
+        assertFalse(RouteFieldProbe.threadEvidence(listOf("thread_id" to "Secret words"), message).contains("Secret"))
+        val many = listOf("thread_ts", "threadTs", "parent_ts", "parentTs", "root_ts").map { it to "Secret words" }
+        assertEquals("parentTs (not a timestamp),parent_ts (not a timestamp),root_ts (not a timestamp),+2 more",
+            RouteFieldProbe.threadEvidence(many, message))
+    }
 }
