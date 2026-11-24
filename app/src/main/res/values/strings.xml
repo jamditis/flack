@@ -17,7 +17,6 @@
     <string name="hide_phone_copies">Quiet Flack copies on the phone</string>
     <string name="hide_phone_copies_body">Silences Flack sounds, vibration and pop-ups. Android Auto uses a phone notification, so the copy stays in the shade and can have a status bar icon. If the car misses alerts, turn this off and try a new Slack message. Changing this clears current copies.</string>
     <string name="car_message_with_flack_notice">%1$s\n\nFlack: %2$s</string>
-    <string name="car_message_with_flack_route">Flack: %1$s\n\n%2$s</string>
     <string name="car_reply_thread_unknown">Reply unavailable. Slack gave me no way to tell if your reply belongs in a thread.</string>
     <string name="car_reply_shared_action">Reply unavailable. Slack reused this reply action, so I cannot verify where your reply would go.</string>
     <string name="car_reply_route_unknown">Reply unavailable. I cannot verify where a Slack reply would go.</string>

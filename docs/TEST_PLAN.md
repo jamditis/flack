@@ -47,8 +47,8 @@ allowed in Android settings before receiving a new message. Flack preserves
 Android's blocks and does not replay the old notification.
 
 For Slack's mark-as-read (semantic 2, no input), **Reply in thread** (semantic 0,
-text input) and **Reply** (semantic 0, text input), verify that Flack reads the
-placement cue before the message and sends the reply to the main conversation
+text input) and **Reply** (semantic 0, text input), verify that the car shows the
+message first, Flack reads the placement cue after it, and sends the reply to the main conversation
 when there is no thread marker. Repeat with reordered actions, a DM and a channel.
 Test two existing threads with usable thread timestamps and check that each
 reply reaches its own thread. Try an unknown route and a stale action. Both
