@@ -25,6 +25,28 @@ class ReportFitTest {
         assertEquals("line one\nTruncated: 15 cases not shown (report limit 90 characters).\n", report)
     }
 
+    private fun section(full: String): (Int) -> String = { max -> if (full.length <= max) full else full.take(max) }
+
+    @Test fun keepsEverySectionWholeWhenAllFit() {
+        assertEquals("head\n\nb\n\nc\n", fitSections("head\n", listOf(section("b\n"), section(""), section("c\n")), 100))
+    }
+
+    @Test fun sharesTheRoomSoOneLongSectionCannotPushOutTheOthers() {
+        val report = fitSections("head\n", listOf(section("a".repeat(500)), section("b".repeat(500))), 105)
+        // 105 - 5 for the head - 2 separators leaves 98: 49 each.
+        assertEquals("head\n\n" + "a".repeat(49) + "\n" + "b".repeat(49), report)
+    }
+
+    @Test fun givesRoomAShortSectionLeavesToTheLongOne() {
+        val report = fitSections("head\n", listOf(section("a".repeat(500)), section("b".repeat(10))), 105)
+        assertEquals("head\n\n" + "a".repeat(88) + "\n" + "b".repeat(10), report)
+    }
+
+    @Test fun leavesSectionsOutWhenTheHeadFillsTheReport() {
+        val head = "h".repeat(120)
+        assertEquals(head, fitSections(head, listOf(section("a".repeat(50))), 100))
+    }
+
     @Test fun isEmptyWhenNotEvenTheLastLineFits() {
         assertEquals("", fitEntries("head\n", entries, 20, "cases"))
     }
