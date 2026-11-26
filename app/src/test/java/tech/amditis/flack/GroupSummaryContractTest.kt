@@ -348,6 +348,23 @@ class GroupSummaryContractTest {
         assertEquals(original.carNotificationId, binding("child")!!.carNotificationId)
     }
 
+    @Test fun aReportWithEveryHistoryFullKeepsTheRouteProbeAndActionSections() {
+        repeat(25) { index ->
+            val id = "C0PAPER%03d".format(index)
+            val child = source("child-$index", false, id, group = "group-$index", text = "Synthetic $index", withReplyPair = true)
+            child.notification.extras.putString("thread_ts", "1700000000.000100")
+            post(source("summary-$index", true, id, group = "group-$index", text = "Synthetic $index", withReplyPair = true))
+            post(child)
+        }
+        val report = TestReport.build(app)
+        assertTrue(report.length <= tech.amditis.flack.core.REPORT_LIMIT)
+        assertTrue(report.contains("Copy post attempts (last 20):"))
+        assertTrue(report, report.contains("Route field probe (last "))
+        assertTrue(report, report.contains("threadMarkerKeys=thread_ts"))
+        assertTrue(report, report.contains("Multiple reply action diagnostics (last 20 cases):"))
+        assertFalse(report.contains("Synthetic"))
+    }
+
     @Test fun observedFeatureCasesStayCappedInTheContentFreeReport() {
         val summary = source("summary", true)
         repeat(25) { post(summary) }

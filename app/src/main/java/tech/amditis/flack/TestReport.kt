@@ -3,8 +3,8 @@ package tech.amditis.flack
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.os.Build
-import tech.amditis.flack.core.REPORT_LIMIT
 import tech.amditis.flack.core.SLACK_PACKAGE
+import tech.amditis.flack.core.fitSections
 
 /**
  * A plain-text report for a device test result: versions, setup state and
@@ -44,12 +44,10 @@ object TestReport {
             append(BridgeState.filterDiagnostics())
             append(BridgeState.copyDiagnostics())
         }.let { head ->
-            // Keep the bounded action evidence when route history is full. Reserve
-            // its actual size, up to half the report, then give routes the remainder.
-            val actionReserve = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT / 2).length
-            val routes = BridgeState.routeFieldProbe.report(REPORT_LIMIT - head.length - 2 - actionReserve)
-            val actions = BridgeState.replyActionDiagnostics.report(REPORT_LIMIT - head.length - routes.length - 2)
-            listOf(head, routes, actions).filter { it.isNotEmpty() }.joinToString("\n")
+            fitSections(head, listOf(
+                { max -> BridgeState.routeFieldProbe.report(max) },
+                { max -> BridgeState.replyActionDiagnostics.report(max) },
+            ))
         }
     }
 
