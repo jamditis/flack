@@ -49,6 +49,14 @@ class ReportFitTest {
         assertEquals("head\n\n" + "a".repeat(88) + "\n" + "b".repeat(10), report)
     }
 
+    @Test fun offersACutSectionAllTheUnusedRoom() {
+        // Whole entries: 30 characters below a 60-character budget, then 60.
+        val entries: (Int) -> String = { max -> if (max >= 300) "a".repeat(300) else "a".repeat(if (max >= 60) 60 else 30) }
+        val compacting: (Int) -> String = { max -> if (max >= 500) "b".repeat(500) else "b".repeat(10) }
+        val report = fitSections("head\n", listOf(entries, compacting), 105)
+        assertEquals("head\n\n" + "a".repeat(60) + "\n" + "b".repeat(10), report)
+    }
+
     @Test fun leavesSectionsOutWhenTheHeadFillsTheReport() {
         val head = "h".repeat(120)
         assertEquals(head, fitSections(head, listOf(section("a".repeat(50))), 100))

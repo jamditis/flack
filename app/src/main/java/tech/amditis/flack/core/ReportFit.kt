@@ -30,16 +30,13 @@ fun fitSections(head: String, sections: List<(Int) -> String>, limit: Int = REPO
         if (full[index].length > share) texts[index] = sections[index](share)
         left -= texts[index].length
     }
-    // A cut section can come out well under its share when it merges repeated cases.
-    // Offer the unused room to the cut sections again until none of them grows.
-    var cut = shown.filter { texts[it] != full[it] }
-    while (cut.isNotEmpty()) {
-        val offered = cut
-        cut = offered.filterIndexed { done, index ->
-            val extra = (room - shown.sumOf { texts[it].length }).coerceAtLeast(0) / (offered.size - done)
-            val longer = sections[index](texts[index].length + extra)
-            (longer.length > texts[index].length).also { grew -> if (grew) texts[index] = longer }
-        }
+    // A cut section can come out well under its share when it merges repeated cases or
+    // stops at a line end. Offer each cut section, in order, all the room still unused.
+    // A larger budget never gives a section shorter text, so none can grow after this.
+    shown.filter { texts[it] != full[it] }.forEach { index ->
+        val unused = (room - shown.sumOf { texts[it].length }).coerceAtLeast(0)
+        val longer = sections[index](texts[index].length + unused)
+        if (longer.length > texts[index].length) texts[index] = longer
     }
     return (listOf(head) + texts).filter { it.isNotEmpty() }.joinToString("\n")
 }
