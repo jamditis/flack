@@ -2,12 +2,14 @@
 
 Changes that testers would notice, newest first. Each release on GitHub also lists the merged pull requests.
 
-## Unreleased
+## 0.3.10
 
 - A long test report keeps its route field probe and reply action sections.
   Before, once the other sections were full, the report left them out, and
   the 0.3.8 report had no route field probe. The two sections now share the
   room the rest of the report leaves.
+- 0.3.10 also contains every 0.3.9 change. One parked test in a real car
+  covers both.
 
 ## 0.3.9
 
