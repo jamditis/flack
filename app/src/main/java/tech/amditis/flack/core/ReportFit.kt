@@ -23,11 +23,23 @@ fun fitSections(head: String, sections: List<(Int) -> String>, limit: Int = REPO
     val full = sections.map { it(Int.MAX_VALUE) }
     val shown = full.indices.filter { full[it].isNotEmpty() }
     val texts = full.toMutableList()
-    var room = limit - head.length - shown.size
+    val room = limit - head.length - shown.size
+    var left = room
     shown.sortedBy { full[it].length }.forEachIndexed { done, index ->
-        val share = (room / (shown.size - done)).coerceAtLeast(0)
+        val share = (left / (shown.size - done)).coerceAtLeast(0)
         if (full[index].length > share) texts[index] = sections[index](share)
-        room -= texts[index].length
+        left -= texts[index].length
+    }
+    // A cut section can come out well under its share when it merges repeated cases.
+    // Offer the unused room to the cut sections again until none of them grows.
+    var cut = shown.filter { texts[it] != full[it] }
+    while (cut.isNotEmpty()) {
+        val offered = cut
+        cut = offered.filterIndexed { done, index ->
+            val extra = (room - shown.sumOf { texts[it].length }).coerceAtLeast(0) / (offered.size - done)
+            val longer = sections[index](texts[index].length + extra)
+            (longer.length > texts[index].length).also { grew -> if (grew) texts[index] = longer }
+        }
     }
     return (listOf(head) + texts).filter { it.isNotEmpty() }.joinToString("\n")
 }
